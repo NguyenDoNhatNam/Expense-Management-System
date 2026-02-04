@@ -1,12 +1,11 @@
 'use client';
 
-import { AppProvider } from '@/lib/context';
-import MainApp from '@/components/MainApp';
+import { useApp } from '@/lib/AppContext';
+import LoginPage from '@/components/LoginPage';
+import Dashboard from '@/components/Dashboard';
 
 export default function Home() {
-  return (
-    <AppProvider>
-      <MainApp />
-    </AppProvider>
-  );
+  const { isAuthenticated } = useApp();
+
+  return isAuthenticated ? <Dashboard /> : <LoginPage />;
 }
