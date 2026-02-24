@@ -126,20 +126,88 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Auth functions
   const login = async (email: string, password: string) => {
+    // Validate email and password
+    if (!email || !password) {
+      throw new Error('Email and password are required');
+    }
+    
+    if (email.length < 3 || !email.includes('@')) {
+      throw new Error('Please enter a valid email');
+    }
+    
+    if (password.length < 6) {
+      throw new Error('Password must be at least 6 characters');
+    }
+
+    // Simulate API call delay
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
     const user: Types.User = {
       id: Math.random().toString(36).substr(2, 9),
       email,
       fullName: email.split('@')[0],
       createdAt: new Date(),
     };
+    
     setCurrentUser(user);
+    
+    // Load existing data if available
+    const savedWallets = localStorage.getItem('expenseapp_wallets');
+    const savedCategories = localStorage.getItem('expenseapp_categories');
+    const savedTransactions = localStorage.getItem('expenseapp_transactions');
+    const savedBudgets = localStorage.getItem('expenseapp_budgets');
+    const savedGoals = localStorage.getItem('expenseapp_goals');
+    const savedDebts = localStorage.getItem('expenseapp_debts');
+
+    if (savedWallets) setWallets(JSON.parse(savedWallets));
+    if (savedCategories) setCategories(JSON.parse(savedCategories));
+    if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+    if (savedBudgets) setBudgets(JSON.parse(savedBudgets));
+    if (savedGoals) setSavingsGoals(JSON.parse(savedGoals));
+    if (savedDebts) setDebts(JSON.parse(savedDebts));
+    
+    // If no wallets exist, create default one
+    if (!savedWallets) {
+      const defaultWallet: Types.Wallet = {
+        id: Math.random().toString(36).substr(2, 9),
+        userId: user.id,
+        name: 'Main Wallet',
+        currency: 'USD',
+        balance: 0,
+        isDefault: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      setWallets([defaultWallet]);
+      setCurrentWallet(defaultWallet);
+    }
   };
 
   const register = async (email: string, password: string, fullName: string) => {
+    // Validate inputs
+    if (!email || !password || !fullName) {
+      throw new Error('All fields are required');
+    }
+    
+    if (email.length < 3 || !email.includes('@')) {
+      throw new Error('Please enter a valid email');
+    }
+    
+    if (password.length < 6) {
+      throw new Error('Password must be at least 6 characters');
+    }
+    
+    if (fullName.trim().length < 2) {
+      throw new Error('Full name must be at least 2 characters');
+    }
+
+    // Simulate API call delay
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
     const user: Types.User = {
       id: Math.random().toString(36).substr(2, 9),
       email,
-      fullName,
+      fullName: fullName.trim(),
       createdAt: new Date(),
     };
     setCurrentUser(user);
