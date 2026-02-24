@@ -9,6 +9,8 @@ env/
 .venv/
 .env/
 
+DATABASE_SCRIPT/
+DATABASE_SCRIPT/*.sql
 # Environment variables
 .env
 .env.local
