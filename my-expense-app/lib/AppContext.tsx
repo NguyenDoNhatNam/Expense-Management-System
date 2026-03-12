@@ -2,13 +2,14 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as Types from './types';
+import { loginApi, signupApi } from './api/auth';
 
 interface AppContextType {
   // Auth
   currentUser: Types.User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string) => Promise<void>;
+  register: (email: string, password: string, fullName: string, phone: string) => Promise<void>;
   logout: () => void;
 
   // Wallets
@@ -126,117 +127,64 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Auth functions
   const login = async (email: string, password: string) => {
-    // Validate email and password
-    if (!email || !password) {
-      throw new Error('Email and password are required');
-    }
-    
-    if (email.length < 3 || !email.includes('@')) {
-      throw new Error('Please enter a valid email');
-    }
-    
-    if (password.length < 6) {
-      throw new Error('Password must be at least 6 characters');
-    }
+    const res = await loginApi({ email, password });
+    const { user: apiUser, access_token, refresh_token } = res.data;
 
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    localStorage.setItem('access_token', access_token);
+    localStorage.setItem('refresh_token', refresh_token);
 
     const user: Types.User = {
-      id: Math.random().toString(36).substr(2, 9),
-      email,
-      fullName: email.split('@')[0],
-      createdAt: new Date(),
+      id: apiUser.user_id,
+      email: apiUser.email,
+      fullName: apiUser.full_name,
+      createdAt: new Date(apiUser.created_at),
     };
-    
-    setCurrentUser(user);
-    
-    // Load existing data if available
-    const savedWallets = localStorage.getItem('expenseapp_wallets');
-    const savedCategories = localStorage.getItem('expenseapp_categories');
-    const savedTransactions = localStorage.getItem('expenseapp_transactions');
-    const savedBudgets = localStorage.getItem('expenseapp_budgets');
-    const savedGoals = localStorage.getItem('expenseapp_goals');
-    const savedDebts = localStorage.getItem('expenseapp_debts');
 
-    if (savedWallets) setWallets(JSON.parse(savedWallets));
-    if (savedCategories) setCategories(JSON.parse(savedCategories));
-    if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
-    if (savedBudgets) setBudgets(JSON.parse(savedBudgets));
-    if (savedGoals) setSavingsGoals(JSON.parse(savedGoals));
-    if (savedDebts) setDebts(JSON.parse(savedDebts));
-    
-    // If no wallets exist, create default one
-    if (!savedWallets) {
-      const defaultWallet: Types.Wallet = {
-        id: Math.random().toString(36).substr(2, 9),
-        userId: user.id,
-        name: 'Main Wallet',
-        currency: 'USD',
-        balance: 0,
-        isDefault: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setWallets([defaultWallet]);
-      setCurrentWallet(defaultWallet);
-    }
+    setCurrentUser(user);
   };
 
-  const register = async (email: string, password: string, fullName: string) => {
-    // Validate inputs
-    if (!email || !password || !fullName) {
-      throw new Error('All fields are required');
-    }
-    
-    if (email.length < 3 || !email.includes('@')) {
-      throw new Error('Please enter a valid email');
-    }
-    
-    if (password.length < 6) {
-      throw new Error('Password must be at least 6 characters');
-    }
-    
-    if (fullName.trim().length < 2) {
-      throw new Error('Full name must be at least 2 characters');
-    }
+  const register = async (email: string, password: string, fullName: string, phone: string) => {
+    const res = await signupApi({ email, password, full_name: fullName, phone });
+    const { user: apiUser, access_token, refresh_token, account, categories: apiCategories } = res.data;
 
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    localStorage.setItem('access_token', access_token);
+    localStorage.setItem('refresh_token', refresh_token);
 
     const user: Types.User = {
-      id: Math.random().toString(36).substr(2, 9),
-      email,
-      fullName: fullName.trim(),
-      createdAt: new Date(),
+      id: apiUser.user_id,
+      email: apiUser.email,
+      fullName: apiUser.full_name,
+      createdAt: new Date(apiUser.created_at),
     };
     setCurrentUser(user);
 
-    // Create default wallet
+    // Map the default account from backend into a wallet
+    const acct = account as Record<string, any>;
     const defaultWallet: Types.Wallet = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: acct.account_id,
       userId: user.id,
-      name: 'Main Wallet',
-      currency: 'USD',
-      balance: 0,
+      name: acct.account_name,
+      currency: acct.currency,
+      balance: Number(acct.balance),
       isDefault: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: new Date(acct.created_at),
+      updatedAt: new Date(acct.created_at),
     };
     setWallets([defaultWallet]);
     setCurrentWallet(defaultWallet);
 
-    // Create default categories
-    const defaultCategories: Types.Category[] = [
-      { id: '1', userId: user.id, name: 'Salary', icon: '💰', color: '#10b981', type: 'income', createdAt: new Date(), updatedAt: new Date() },
-      { id: '2', userId: user.id, name: 'Food', icon: '🍔', color: '#f59e0b', type: 'expense', createdAt: new Date(), updatedAt: new Date() },
-      { id: '3', userId: user.id, name: 'Transport', icon: '🚗', color: '#3b82f6', type: 'expense', createdAt: new Date(), updatedAt: new Date() },
-      { id: '4', userId: user.id, name: 'Shopping', icon: '🛍️', color: '#ec4899', type: 'expense', createdAt: new Date(), updatedAt: new Date() },
-      { id: '5', userId: user.id, name: 'Entertainment', icon: '🎬', color: '#8b5cf6', type: 'expense', createdAt: new Date(), updatedAt: new Date() },
-      { id: '6', userId: user.id, name: 'Utilities', icon: '💡', color: '#06b6d4', type: 'expense', createdAt: new Date(), updatedAt: new Date() },
-      { id: '7', userId: user.id, name: 'Other Income', icon: '💵', color: '#14b8a6', type: 'income', createdAt: new Date(), updatedAt: new Date() },
-    ];
-    setCategories(defaultCategories);
+    // Map default categories from backend
+    const cats: Types.Category[] = (apiCategories as Record<string, any>[]).map((c) => ({
+      id: c.category_id,
+      userId: user.id,
+      name: c.category_name,
+      icon: c.icon,
+      color: c.color,
+      type: c.category_type as 'income' | 'expense',
+      createdAt: new Date(c.created_at),
+      updatedAt: new Date(c.created_at),
+    }));
+    setCategories(cats);
   };
 
   const logout = () => {
@@ -248,6 +196,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setBudgets([]);
     setSavingsGoals([]);
     setDebts([]);
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('expenseapp_user');
     localStorage.removeItem('expenseapp_wallets');
     localStorage.removeItem('expenseapp_categories');

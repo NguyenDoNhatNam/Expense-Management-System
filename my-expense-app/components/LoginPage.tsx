@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/lib/AppContext';
+import { getApiErrorMessage } from '@/lib/api/auth';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -12,19 +13,22 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
       if (isLogin) {
         await login(email, password);
       } else {
-        await register(email, password, fullName);
+        await register(email, password, fullName, phone);
       }
-    } catch (error) {
-      console.error('Auth error:', error);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -44,18 +48,37 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {error && (
+            <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <div>
-                <label className="text-sm font-medium">Full Name</label>
-                <Input
-                  placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
-                  required
-                  className="mt-2"
-                />
-              </div>
+              <>
+                <div>
+                  <label className="text-sm font-medium">Full Name</label>
+                  <Input
+                    placeholder="John Doe"
+                    value={fullName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
+                    required
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Phone</label>
+                  <Input
+                    type="tel"
+                    placeholder="0901234567"
+                    value={phone}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
+                    required
+                    className="mt-2"
+                  />
+                </div>
+              </>
             )}
 
             <div>
@@ -96,6 +119,8 @@ export default function LoginPage() {
                   setEmail('');
                   setPassword('');
                   setFullName('');
+                  setPhone('');
+                  setError('');
                 }}
                 className="ml-1 font-semibold text-primary hover:underline"
               >
@@ -104,32 +129,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="mt-6 pt-6 border-t">
-            <p className="text-xs text-muted-foreground text-center mb-3">
-              Demo Credentials
-            </p>
-            <div className="space-y-2 text-xs">
-              <p>
-                <span className="font-medium">Email:</span> demo@example.com
-              </p>
-              <p>
-                <span className="font-medium">Password:</span> demo123
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setEmail('demo@example.com');
-                  setPassword('demo123');
-                  setIsLogin(true);
-                }}
-                className="w-full mt-2"
-              >
-                Use Demo Account
-              </Button>
-            </div>
-          </div>
+
         </CardContent>
       </Card>
     </div>

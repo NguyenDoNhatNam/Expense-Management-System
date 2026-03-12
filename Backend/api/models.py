@@ -176,6 +176,8 @@ class Transactions(models.Model):
     recurring_id = models.CharField(max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(blank=True, null=True)
+    is_deleted = models.BooleanField()
+    deleted_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False
