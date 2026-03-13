@@ -28,7 +28,7 @@ CREATE TABLE role_permissions (
 );
 
 -- Thêm role_id vào bảng users
-ALTER TABLE users ADD COLUMN role_id DEFAULT '1';
+ALTER TABLE users ADD COLUMN role_id DEFAULT 'user';
 ALTER TABLE users ADD FOREIGN KEY (role_id) REFERENCES roles(role_id);
 
 
@@ -104,7 +104,7 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 ('1', '3'),   -- edit_own_expense
 ('1', '4'),   -- delete_own_expense
 -- Danh mục
-('1', '8'),   -- create_category
+('1', '8'   ),   -- create_category
 ('1', '9'),   -- view_own_category
 ('1', '10'),  -- edit_own_category
 ('1', '11'),  -- delete_own_category
@@ -149,7 +149,7 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 ('2', '17'),  -- view_own_report
 ('2', '18'),  -- export_own_report
 ('2', '19'),  -- view_all_reports
-('2', '20'),  -- export_all_reports
+('2', '20'  ),  -- export_all_reports
 -- Profile & Users
 ('2', '21'),  -- view_own_profile
 ('2', '22'),  -- edit_own_profile
@@ -163,7 +163,6 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 -- Quyền cho SUPER_ADMIN (role_id = 3)
 -- Super Admin có TOÀN QUYỀN
 INSERT INTO role_permissions (role_id, permission_id) VALUES
-()
 -- Chi tiêu
 ('3', '1'),   -- create_expense
 ('3', '2'),   -- view_own_expense
@@ -202,3 +201,9 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 ('3', '30'),  -- view_system_logs
 ('3', '31'),  -- manage_roles
 ('3', '32');  -- manage_permissions
+
+
+-- 4. CẬP NHẬT ROLE MẶC ĐỊNH CHO USER HIỆN TẠI (nếu cần)
+-- =============================================
+-- Đặt tất cả user hiện tại thành role 'user' (role_id = 1)
+UPDATE users SET role_id = 1 WHERE role_id IS NULL;
