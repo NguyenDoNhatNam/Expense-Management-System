@@ -33,7 +33,7 @@ class Budgets(models.Model):
     category = models.ForeignKey('Categories', models.DO_NOTHING, blank=True, null=True)
     budget_name = models.CharField(max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
     amount = models.DecimalField(max_digits=18, decimal_places=2)
-    period = models.CharField(max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    period = models.CharField(max_length=20, db_collation='SQL_Latin1_General_CP1_CI_AS')
     start_date = models.DateField()
     end_date = models.DateField()
     alert_threshold = models.IntegerField(blank=True, null=True)
@@ -176,8 +176,6 @@ class Transactions(models.Model):
     recurring_id = models.CharField(max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(blank=True, null=True)
-    is_deleted = models.BooleanField()
-    deleted_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False
@@ -205,7 +203,7 @@ class UserSetting(models.Model):
     user = models.ForeignKey('Users', models.DO_NOTHING)
     language = models.CharField(max_length=50, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
     date_format = models.CharField(max_length=50, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
-    enabale_notification = models.BooleanField(blank=True, null=True)
+    enable_notification = models.BooleanField(blank=True, null=True)
     budget_alert_enabled = models.BooleanField(blank=True, null=True)
     weekly_report_enabled = models.BooleanField(blank=True, null=True)
     monthly_report_enabled = models.BooleanField(blank=True, null=True)

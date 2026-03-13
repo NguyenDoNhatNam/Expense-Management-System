@@ -24,7 +24,7 @@ class CategorySerializer(serializers.ModelSerializer):
 class UserSettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserSetting
-        fields = ['setting_id', 'language', 'date_format', 'enabale_notification', 'budget_alert_enabled', 'weekly_report_enabled', 'monthly_report_enabled', 'theme', 'created_at']
+        fields = ['setting_id', 'language', 'date_format', 'enable_notification', 'budget_alert_enabled', 'weekly_report_enabled', 'monthly_report_enabled', 'theme', 'created_at']
 
 class UserRegistrationSerializer(serializers.Serializer): 
     email = serializers.CharField(required=True)
@@ -123,7 +123,7 @@ class UserRegistrationSerializer(serializers.Serializer):
             user = user , 
             language = 'vi' , 
             date_format = 'DD/MM/YYYY' , 
-            enabale_notification = True , 
+            enable_notification = True , 
             budget_alert_enabled = True , 
             weekly_report_enabled = False , 
             monthly_report_enabled = False , 
