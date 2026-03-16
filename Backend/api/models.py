@@ -110,6 +110,16 @@ class Notification(models.Model):
         db_table = 'notification'
 
 
+class Permissions(models.Model):
+    permission_id = models.CharField(primary_key=True, max_length=50, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    permission_name = models.CharField(unique=True, max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    description = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)  # This field type is a guess.
+
+    class Meta:
+        managed = False
+        db_table = 'permissions'
+
+
 class RecurringTransactions(models.Model):
     recurring_id = models.CharField(primary_key=True, max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
     user = models.ForeignKey('Users', models.DO_NOTHING)
@@ -128,6 +138,26 @@ class RecurringTransactions(models.Model):
     class Meta:
         managed = False
         db_table = 'recurring_transactions'
+
+
+class RolePermissions(models.Model):
+    pk = models.CompositePrimaryKey('role_id', 'permission_id')
+    role = models.ForeignKey('Roles', models.DO_NOTHING)
+    permission = models.ForeignKey(Permissions, models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'role_permissions'
+
+
+class Roles(models.Model):
+    role_id = models.CharField(primary_key=True, max_length=50, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    role_name = models.CharField(unique=True, max_length=50, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    description = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)  # This field type is a guess.
+
+    class Meta:
+        managed = False
+        db_table = 'roles'
 
 
 class SavingsGoals(models.Model):
@@ -176,6 +206,8 @@ class Transactions(models.Model):
     recurring_id = models.CharField(max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(blank=True, null=True)
+    is_deleted = models.BooleanField()
+    deleted_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False
@@ -228,6 +260,7 @@ class Users(models.Model):
     updated_at = models.DateTimeField(blank=True, null=True)
     last_login = models.DateTimeField(blank=True, null=True)
     is_active = models.BooleanField()
+    role = models.ForeignKey(Roles, models.DO_NOTHING, blank=True, null=True)
 
     class Meta:
         managed = False

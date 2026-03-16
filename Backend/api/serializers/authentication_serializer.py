@@ -43,19 +43,18 @@ class UserRegistrationSerializer(serializers.Serializer):
     def validate_phone(self , value):
         pattern = r'^(\+84|0084|0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-46-9])(\d{7})$'
         if not re.match(pattern, value):
-            raise serializers.ValidationError('Số điện thoại không đúng định dạng')
+            raise serializers.ValidationError('Phone number format is invalid')
         elif Users.objects.filter(phone = value).exists():
-            raise serializers.ValidationError('Số điện thoại đã được sử dụng')
+            raise serializers.ValidationError('Phone number is already in use')
         return value
 
     
     def validate_password(self , value):
         pattern = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
         if len(value) < 8:
-            raise serializers.ValidationError('Mật khẩu phải có độ dài tối thiểu 8 ký tự')
+            raise serializers.ValidationError('Password must be at least 8 characters long')
         elif not re.match(pattern , value):
-            raise serializers.ValidationError('Mật khẩu phải chứa ít nhất một chữ hoa, một chữ thường, một số và một ký tự đặc biệt (@$!%*?&)')
-        
+            raise serializers.ValidationError('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)')
         return value
 
 
@@ -83,7 +82,7 @@ class UserRegistrationSerializer(serializers.Serializer):
         account = Accounts.objects.create(
             account_id = f'AC-{str(uuid4())[:15]}', 
             user = user , 
-            account_name = 'Ví tiền mặt', 
+            account_name = 'Cash Wallet', 
             account_type = 'cash' , 
             balance = 0 , 
             currency = user.default_currency , 
@@ -93,14 +92,14 @@ class UserRegistrationSerializer(serializers.Serializer):
 
         ### Tạo danh mục mặc đinh trong category ##### 
         default_categories = [
-            {'name': 'Ăn uống', 'type': 'expense', 'icon': '🍔', 'color': '#FF6B6B'},
-            {'name': 'Di chuyển', 'type': 'expense', 'icon': '🚗', 'color': '#4ECDC4'},
-            {'name': 'Mua sắm', 'type': 'expense', 'icon': '🛒', 'color': '#45B7D1'},
-            {'name': 'Giải trí', 'type': 'expense', 'icon': '🎬', 'color': '#96CEB4'},
-            {'name': 'Hóa đơn', 'type': 'expense', 'icon': '📄', 'color': '#FFEAA7'},
-            {'name': 'Lương', 'type': 'income', 'icon': '💰', 'color': '#00B894'},
-            {'name': 'Thưởng', 'type': 'income', 'icon': '🎁', 'color': '#6C5CE7'},
-            {'name': 'Đầu tư', 'type': 'income', 'icon': '📈', 'color': '#A29BFE'},
+            {'name': 'Food', 'type': 'expense', 'icon': '🍔', 'color': '#FF6B6B'},
+            {'name': 'Transportation', 'type': 'expense', 'icon': '🚗', 'color': '#4ECDC4'},
+            {'name': 'Shopping', 'type': 'expense', 'icon': '🛒', 'color': '#45B7D1'},
+            {'name': 'Entertainment', 'type': 'expense', 'icon': '🎬', 'color': '#96CEB4'},
+            {'name': 'Bills', 'type': 'expense', 'icon': '📄', 'color': '#FFEAA7'},
+            {'name': 'Salary', 'type': 'income', 'icon': '💰', 'color': '#00B894'},
+            {'name': 'Bonus', 'type': 'income', 'icon': '🎁', 'color': '#6C5CE7'},
+            {'name': 'Investment', 'type': 'income', 'icon': '📈', 'color': '#A29BFE'},
         ]
         categories = []
 
@@ -146,17 +145,17 @@ class UserLoginSerializer(serializers.Serializer):
 
         email_pattern = r'^[a-zA-Z0-9]+([._%+-]?[a-zA-Z0-9]+)*@[a-zA-Z0-9]+(-?[a-zA-Z0-9]+)*(\.[a-zA-Z]{2,})+$'
         if not re.match(email_pattern , email):
-            raise serializers.ValidationError('Format email không hợp lệ')
+            raise serializers.ValidationError('Email format is invalid')
         try: 
             user = Users.objects.get(email = email)
         except Users.DoesNotExist:
-            raise serializers.ValidationError('Email không tồn tại')
+            raise serializers.ValidationError('Email does not exist')
         
         if not check_password(password , user.password): 
-            raise serializers.ValidationError('Email hoặc mật khâir không đúng , vui lòng thử lại')
+            raise serializers.ValidationError('Email or password is incorrect, please try again')
         
         if not user.is_active:
-            raise serializers.ValidationError('Tài khoản không hoạt động , vui lòng liên hệ bộ phận hỗ trợ')
+            raise serializers.ValidationError('Account is not active, please contact support')
         
         data['user'] = user
         return data

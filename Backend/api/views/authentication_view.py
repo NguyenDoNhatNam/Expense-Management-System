@@ -22,7 +22,7 @@ class UserViewSet(viewsets.ViewSet):
             token = get_tokens_for_user(user)
             user_data = UserSerializer(user).data
             return Response({
-                'status': '201 Created' , 
+                'success': True , 
                 'data' : {
                     'user': user_data , 
                     'account': AccountSerializer(user.default_account).data,
@@ -34,7 +34,7 @@ class UserViewSet(viewsets.ViewSet):
                 'message': 'Tài khoản đã được tạo thành công'
             }, status = status.HTTP_201_CREATED)
         return Response({
-            'status' : '400 Bad Request' ,
+            'success' : False ,
             'error' : serializer.errors , 
             'message' : 'Đăng ký thất bại'
         }, status = status.HTTP_400_BAD_REQUEST)
@@ -45,24 +45,24 @@ class UserViewSet(viewsets.ViewSet):
         serializer = UserLoginSerializer(data = request.data)
         if serializer.is_valid(raise_exception = True):
             user = serializer.validated_data['user']
+
             user.last_login = timezone.now() 
             user.save(update_fields=['last_login'])
             token = get_tokens_for_user(user)
             user_data = UserSerializer(user).data
 
             return Response({
-                'status': '200 OK' , 
+                'success': True ,
                 'data' : {
                     'user' : user_data ,
                     'access_token': token['access'],
-                    'access_token' : token['access'],
                     'refresh_token': token['refresh'] ,
                 } , 
                 'message' : 'Đăng nhập thành công'
             } , status = status.HTTP_200_OK)
         
         return Response({
-            'status' : '400 Bad Request' ,
+            'success' : False ,
             'error' : serializer.errors ,
             'message' : 'Đăng nhập thất bại'
         } , status = status.HTTP_400_BAD_REQUEST)

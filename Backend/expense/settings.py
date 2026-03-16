@@ -86,18 +86,15 @@ REST_FRAMEWORK = {
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'mssql',
-        'NAME': 'ExpenseManagementDB',
-        'USER': 'sa',
-        'PASSWORD': 'Thang@123',
-        'HOST': '127.0.0.1', # e.g., 'localhost' or 'DESKTOP-QVRCPTA'
-        'PORT': '1433', # Default SQL Server port
-        'OPTIONS': {
-            'driver': 'ODBC Driver 17 for SQL Server', # Specify the installed driver version
-            # 'extra_params': 'your_connection_string_parameters', # Optional extra parameters
-        },
-    }
+  "default": {
+    "ENGINE": "mssql",
+    "NAME": "ExpenseManagementDB",
+    "HOST": "localhost",  # hoặc "localhost,1433"
+    "OPTIONS": {
+      "driver": "ODBC Driver 17 for SQL Server",
+      "trusted_connection": "yes",
+    },
+  }
 }
 
 

@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -23,7 +24,7 @@ export default function LoginPage() {
     setError('');
     try {
       if (isLogin) {
-        await login(email, password);
+        await login(email, password, rememberMe);
       } else {
         await register(email, password, fullName, phone);
       }
@@ -104,6 +105,21 @@ export default function LoginPage() {
                 className="mt-2"
               />
             </div>
+
+            {isLogin && (  // Add this block: Only show for login
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="rememberMe"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="h-4 w-4"
+          />
+          <label htmlFor="rememberMe" className="text-sm font-medium">
+            Remember me
+          </label>
+        </div>
+      )}
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Loading...' : isLogin ? 'Sign In' : 'Sign Up'}
