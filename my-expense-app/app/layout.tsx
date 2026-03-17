@@ -1,7 +1,9 @@
 import React from "react"
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+
 import { AppProvider } from '@/lib/AppContext'
+import NotificationLayout from '@/components/NotificationLayout'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -39,7 +41,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`font-sans antialiased`}>
         <AppProvider>
-          {children}
+          <NotificationLayout>
+            {children}
+          </NotificationLayout>
         </AppProvider>
       </body>
     </html>

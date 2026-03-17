@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useNotification } from '@/lib/notification';
 import { useApp } from '@/lib/AppContext';
 import { getApiErrorMessage } from '@/lib/api/auth';
 import { Button } from './ui/button';
@@ -9,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 
 export default function LoginPage() {
   const { login, register } = useApp();
+  const { showNotification } = useNotification();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,19 +19,85 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [fullNameError, setFullNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+
+  const validateEmail = (value: string) => {
+    const pattern = /^[a-zA-Z0-9]+([._%+-]?[a-zA-Z0-9]+)*@[a-zA-Z0-9]+(-?[a-zA-Z0-9]+)*(\.[a-zA-Z]{2,})+$/;
+    if (!value) return 'Email is required';
+    if (!pattern.test(value)) return 'Invalid email format';
+    return '';
+  };
+
+  const validatePassword = (value: string) => {
+    const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!value) return 'Password is required';
+    if (value.length < 8) return 'Password must be at least 8 characters';
+    if (!pattern.test(value)) return 'Password must contain uppercase, lowercase, number, and special character';
+    return '';
+  };
+
+  const validateFullName = (value: string) => {
+    if (!value) return 'Full name is required';
+    if (value.length < 2) return 'Full name is too short';
+    return '';
+  };
+
+  const validatePhone = (value: string) => {
+    const pattern = /^(\+84|0084|0)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9[0-46-9])(\d{7})$/;
+    if (!value) return 'Phone is required';
+    if (!pattern.test(value)) return 'Invalid phone format';
+    return '';
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    let valid = true;
+    setEmailError('');
+    setPasswordError('');
+    setFullNameError('');
+    setPhoneError('');
+
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      setEmailError(emailErr);
+      valid = false;
+    }
+    const passwordErr = validatePassword(password);
+    if (passwordErr) {
+      setPasswordError(passwordErr);
+      valid = false;
+    }
+    if (!isLogin) {
+      const fullNameErr = validateFullName(fullName);
+      if (fullNameErr) {
+        setFullNameError(fullNameErr);
+        valid = false;
+      }
+      const phoneErr = validatePhone(phone);
+      if (phoneErr) {
+        setPhoneError(phoneErr);
+        valid = false;
+      }
+    }
+    if (!valid) return;
     setLoading(true);
     setError('');
     try {
       if (isLogin) {
         await login(email, password, rememberMe);
+        showNotification('Login successful!', 'success');
       } else {
         await register(email, password, fullName, phone);
+        showNotification('Account created successfully!', 'success');
       }
     } catch (err) {
-      setError(getApiErrorMessage(err));
+      const msg = getApiErrorMessage(err);
+      setError(msg);
+      showNotification(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -66,7 +134,9 @@ export default function LoginPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
                     required
                     className="mt-2"
+                    aria-invalid={!!fullNameError}
                   />
+                  {fullNameError && <div className="text-xs text-destructive mt-1">{fullNameError}</div>}
                 </div>
                 <div>
                   <label className="text-sm font-medium">Phone</label>
@@ -77,7 +147,9 @@ export default function LoginPage() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
                     required
                     className="mt-2"
+                    aria-invalid={!!phoneError}
                   />
+                  {phoneError && <div className="text-xs text-destructive mt-1">{phoneError}</div>}
                 </div>
               </>
             )}
@@ -91,19 +163,33 @@ export default function LoginPage() {
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 required
                 className="mt-2"
+                aria-invalid={!!emailError}
               />
+              {emailError && <div className="text-xs text-destructive mt-1">{emailError}</div>}
             </div>
 
             <div>
               <label className="text-sm font-medium">Password</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                required
-                className="mt-2"
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                  required
+                  className="mt-2 pr-10"
+                  aria-invalid={!!passwordError}
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {passwordError && <div className="text-xs text-destructive mt-1">{passwordError}</div>}
             </div>
 
             {isLogin && (  // Add this block: Only show for login
