@@ -262,26 +262,6 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* About */}
-      <Card>
-        <CardHeader>
-          <CardTitle>About ExpenseFlow</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm">
-            <p>
-              <span className="font-medium">Version:</span> 1.0.0
-            </p>
-            <p>
-              <span className="font-medium">Made with:</span> Next.js, React, Tailwind CSS, Recharts
-            </p>
-            <p className="text-muted-foreground">
-              ExpenseFlow is a comprehensive expense management application designed to help you track spending, manage budgets, and achieve your financial goals.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

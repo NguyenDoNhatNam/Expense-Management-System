@@ -88,8 +88,13 @@ export default function LoginPage() {
     setError('');
     try {
       if (isLogin) {
-        await login(email, password, rememberMe);
-        showNotification('Login successful!', 'success');
+        const res = await login(email, password, rememberMe)
+        if(res && res.message && res.success ){
+          showNotification(res.message, 'success');
+        }else{
+          showNotification(res.message, 'error');
+        }
+        
       } else {
         await register(email, password, fullName, phone);
         showNotification('Account created successfully!', 'success');

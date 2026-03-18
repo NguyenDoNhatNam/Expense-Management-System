@@ -1,17 +1,26 @@
-// components/NotificationLayout.tsx
 "use client";
 
-import React from "react";
 import { AppProvider } from "@/lib/AppContext";
-import { NotificationProvider, NotificationContainer, useNotification } from "@/lib/notification";
+import {
+  NotificationProvider,
+  NotificationContainer,
+  useNotification,
+} from "@/lib/notification";
 
-export default function NotificationLayout({ children }: { children: React.ReactNode }) {
+function NotificationDisplay() {
   const { notifications } = useNotification();
+  return <NotificationContainer notifications={notifications} />;
+}
 
+export default function NotificationLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <AppProvider>
       <NotificationProvider>
-        <NotificationContainer notifications={notifications} />
+        <NotificationDisplay />
         {children}
       </NotificationProvider>
     </AppProvider>

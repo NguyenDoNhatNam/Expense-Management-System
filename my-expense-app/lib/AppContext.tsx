@@ -3,12 +3,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import * as Types from './types';
 import { loginApi, signupApi } from './api/auth';
-
 interface AppContextType {
   // Auth
   currentUser: Types.User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<any>;
   register: (email: string, password: string, fullName: string, phone: string) => Promise<void>;
   logout: () => void;
 
@@ -69,7 +68,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [budgets, setBudgets] = useState<Types.Budget[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<Types.SavingsGoal[]>([]);
   const [debts, setDebts] = useState<Types.Debt[]>([]);
-
   // Load data from localStorage on mount
   useEffect(() => {
     const savedUser = localStorage.getItem('expenseapp_user') || sessionStorage.getItem('expenseapp_user');
@@ -126,31 +124,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [debts]);
 
   // Auth functions
-  const login = async (email: string, password: string, rememberMe = false) => {
-    const res = await loginApi({ email, password });
-    console.log('Login response:', res);
-    console.log('Mesage', res.message)
-    const { user: apiUser, access_token, refresh_token } = res.data;
+  const login = async (
+  email: string,
+  password: string,
+  rememberMe = false
+): Promise<any> => {          
+  const res = await loginApi({ email, password });
+  const { user: apiUser, access_token, refresh_token } = res.data;
 
-    const storage = rememberMe ? localStorage : sessionStorage;
-    storage.setItem('access_token', access_token);
-    storage.setItem('refresh_token', refresh_token);
+  const storage = rememberMe ? localStorage : sessionStorage;
+  storage.setItem('access_token', access_token);
+  storage.setItem('refresh_token', refresh_token);
 
-    const user: Types.User = {
-      id: apiUser.user_id,
-      email: apiUser.email,
-      fullName: apiUser.full_name,
-      createdAt: new Date(apiUser.created_at),
-    };
-
-    if (rememberMe) {
-      localStorage.setItem('expenseapp_user', JSON.stringify(user));
-    } else {
-      sessionStorage.setItem('expenseapp_user', JSON.stringify(user));
-    }
-
-    setCurrentUser(user);
+  const user: Types.User = {
+    id: apiUser.user_id,
+    email: apiUser.email,
+    fullName: apiUser.full_name,
+    createdAt: new Date(apiUser.created_at),
   };
+
+  if (rememberMe) {
+    localStorage.setItem('expenseapp_user', JSON.stringify(user));
+  } else {
+    sessionStorage.setItem('expenseapp_user', JSON.stringify(user));
+  }
+
+  setCurrentUser(user);
+
+  return res;
+};
 
   const register = async (email: string, password: string, fullName: string, phone: string) => {
     const res = await signupApi({ email, password, full_name: fullName, phone });
