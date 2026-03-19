@@ -95,7 +95,7 @@ class UserRegistrationSerializer(serializers.Serializer):
         default_categories = [
             {'name': 'Food', 'type': 'expense', 'icon': '🍔', 'color': '#FF6B6B'},
             {'name': 'Transportation', 'type': 'expense', 'icon': '🚗', 'color': '#4ECDC4'},
-            {'name': 'Shopping', 'type': 'expense', 'icon': '🛒', 'color': '#45B7D1'},
+            {'name': 'Shopping', 'type': 'expense', 'icon': '�', 'color': '#45B7D1'},
             {'name': 'Entertainment', 'type': 'expense', 'icon': '🎬', 'color': '#96CEB4'},
             {'name': 'Bills', 'type': 'expense', 'icon': '📄', 'color': '#FFEAA7'},
             {'name': 'Salary', 'type': 'income', 'icon': '💰', 'color': '#00B894'},
