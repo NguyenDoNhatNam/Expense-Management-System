@@ -4,12 +4,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from api.services.upload_service import UploadService
-
+from api.permissions.permission import HasPermission
 
 class ReceiptUploadView(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasPermission]
     parser_classes = [MultiPartParser, FormParser]
 
+    permission_required = 'create_expense'
     @action(detail=False , methods=['post'] , url_path='upload-receipt')
     def upload_receipt(self, request):
         """

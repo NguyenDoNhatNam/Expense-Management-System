@@ -138,11 +138,10 @@ class UserRegistrationSerializer(serializers.Serializer):
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=True)
     password = serializers.CharField(write_only = True , required = True, min_length = 8)
-
+    remember_me = serializers.BooleanField(default = False , required = False) 
     def validate(self , data):
         email = data['email'] 
         password = data['password'] 
-
         email_pattern = r'^[a-zA-Z0-9]+([._%+-]?[a-zA-Z0-9]+)*@[a-zA-Z0-9]+(-?[a-zA-Z0-9]+)*(\.[a-zA-Z]{2,})+$'
         if not re.match(email_pattern , email):
             raise serializers.ValidationError('Email format is invalid')

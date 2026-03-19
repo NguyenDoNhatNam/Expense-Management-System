@@ -10,13 +10,20 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 import logging
-
+from api.permissions.permission import PermissionMixin , DynamicPermission ,HasPermission
 logger = logging.getLogger(__name__)
 
 
 class TransactionViewset(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated , DynamicPermission] 
+    permission_map = {
+        'create_transaction': 'create_expense',
+        'update_transaction': 'edit_own_expense',
+        'delete_transaction': 'delete_own_expense',
+        'restore_transaction': 'edit_own_expense',   
+    }
 
+    
     # ===================== CREATE =====================
     @action(detail=False, methods=['post'], url_path='create')
     def create_transaction(self, request, *args, **kwargs):
@@ -181,7 +188,7 @@ class TransactionViewset(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    # ===================== RESTORE (Bonus) =====================
+    # ===================== RESTORE =====================
     @action(detail=False, methods=['post'], url_path='restore/(?P<transaction_id>[^/.]+)')
     def restore_transaction(self, request, transaction_id=None, *args, **kwargs):
         """
