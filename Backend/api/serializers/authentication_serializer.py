@@ -75,7 +75,8 @@ class UserRegistrationSerializer(serializers.Serializer):
             avatar_url = validated_data.get('avatar_url' , '') ,
             default_currency = validated_data.get('default_currency' , 'VNĐ') ,
             is_active = True ,
-            created_at = timezone.now()
+            created_at = timezone.now() , 
+            role = '1'
         )
 
         # Tạo tài khoản tiền mặt mặc định trong account
@@ -138,11 +139,10 @@ class UserRegistrationSerializer(serializers.Serializer):
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=True)
     password = serializers.CharField(write_only = True , required = True, min_length = 8)
-
+    remember_me = serializers.BooleanField(default = False , required = False) 
     def validate(self , data):
         email = data['email'] 
         password = data['password'] 
-
         email_pattern = r'^[a-zA-Z0-9]+([._%+-]?[a-zA-Z0-9]+)*@[a-zA-Z0-9]+(-?[a-zA-Z0-9]+)*(\.[a-zA-Z]{2,})+$'
         if not re.match(email_pattern , email):
             raise serializers.ValidationError('Email format is invalid')

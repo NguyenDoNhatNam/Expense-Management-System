@@ -8,8 +8,9 @@ from rest_framework.decorators import action , permission_classes
 from api.authentication import get_tokens_for_user
 from rest_framework.permissions import AllowAny , IsAuthenticated
 from django.utils import timezone
-# Create your views here.
-
+from datetime import timedelta 
+from django.conf import settings
+from rest_framework_simplejwt.tokens import RefreshToken
 
 class UserViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
@@ -40,30 +41,104 @@ class UserViewSet(viewsets.ViewSet):
         }, status = status.HTTP_400_BAD_REQUEST)
     
 
-    @action(detail=False , methods= ['post'] , url_path='login')
-    def user_login(self , request , *args , **kwargs):
-        serializer = UserLoginSerializer(data = request.data)
-        if serializer.is_valid(raise_exception = True):
+    @action(detail=False, methods=['post'], url_path='login')
+    def user_login(self, request, *args, **kwargs):
+        serializer = UserLoginSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
             user = serializer.validated_data['user']
 
-            user.last_login = timezone.now() 
+            user.last_login = timezone.now()
             user.save(update_fields=['last_login'])
-            token = get_tokens_for_user(user)
-            user_data = UserSerializer(user).data
 
-            return Response({
-                'success': True ,
-                'data' : {
-                    'user' : user_data ,
-                    'access_token': token['access'],
-                    'refresh_token': token['refresh'] ,
-                } , 
-                'message' : 'Đăng nhập thành công'
-            } , status = status.HTTP_200_OK)
-        
+            tokens = get_tokens_for_user(user)
+            remember_me = request.data.get('remember_me', False)
+
+            response_data = {
+                'success': True,
+                'data': {
+                    'user': UserSerializer(user).data,
+                    'access_token': tokens['access'],
+                    # Không trả refresh trong JSON (an toàn hơn khi dùng cookie)
+                },
+                'message': 'Đăng nhập thành công'
+            }
+
+            response = Response(response_data, status=status.HTTP_200_OK)
+
+            if remember_me:
+            
+                refresh = RefreshToken(tokens['refresh'])
+                refresh.set_exp(lifetime=settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME_REMEMBER_ME', timedelta(days=90)))
+
+                response.set_cookie(
+                    key='refresh_token',
+                    value=str(refresh),
+                    httponly=True,
+                    secure=not settings.DEBUG,  
+                    samesite='Lax',
+                    max_age=90 * 24 * 3600,  
+                    path='/',
+                )
+
+            return response
+            
         return Response({
             'success' : False ,
             'error' : serializer.errors ,
             'message' : 'Đăng nhập thất bại'
         } , status = status.HTTP_400_BAD_REQUEST)
-        
+    
+    @action(detail=False, methods=['post'], url_path='refresh')
+    def refresh_token(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get('refresh_token')
+
+        if not refresh_token:
+            return Response({
+                'success': False,
+                'message': 'Không tìm thấy refresh token'
+            }, status=401)
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            user_id = refresh['user_id']
+            user = Users.objects.get(id=user_id)
+
+            if not user.is_active:
+                return Response({
+                    'success': False,
+                    'message': 'Tài khoản đã bị khóa'
+                }, status=401)
+
+            new_access = str(refresh.access_token)
+
+            # Rotate refresh token
+            new_refresh = RefreshToken.for_user(user)
+            new_refresh['user_id'] = user.user_id
+
+            response = Response({
+                'success': True,
+                'data': {
+                    'access_token': new_access,
+                },
+                'message': 'Làm mới token thành công'
+            })
+
+            response.set_cookie(
+                key='refresh_token',
+                value=str(new_refresh),
+                httponly=True,
+                secure=not settings.DEBUG,
+                samesite='Lax',
+                max_age=90 * 24 * 3600,
+            )
+
+            return response
+
+        except Exception as e:
+            response = Response({
+                'success': False,
+                'message': f'Phiên đăng nhập hết hạn: {str(e)}'
+            }, status=401)
+            response.delete_cookie('refresh_token')
+            return response
+            

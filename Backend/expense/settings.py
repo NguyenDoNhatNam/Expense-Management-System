@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'api' ,
     'corsheaders' ,
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -80,21 +81,24 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ], 
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
 }
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-  "default": {
-    "ENGINE": "mssql",
-    "NAME": "ExpenseManagementDB",
-    "HOST": "localhost",  # hoặc "localhost,1433"
-    "OPTIONS": {
-      "driver": "ODBC Driver 17 for SQL Server",
-      "trusted_connection": "yes",
-    },
-  }
+    'default': {
+        'ENGINE': 'mssql',
+        'NAME': 'ExpenseManagementDB',
+        'USER' : 'sa',
+        'PASSWORD' : 'Thang@123', 
+        'HOST' : '127.0.0.1',
+        'PORT' : '1433',
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server',
+        },
+    }
 }
 
 
@@ -139,6 +143,7 @@ STATIC_URL = 'static/'
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'REFRESH_TOKEN_LIFETIME_REMEMBER_ME': timedelta(days=90),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
@@ -154,4 +159,18 @@ SIMPLE_JWT = {
     
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_KWARGS': {
+                'max_connections': 100,
+                'retry_on_timeout': True,
+            }
+        }
+    }
 }
