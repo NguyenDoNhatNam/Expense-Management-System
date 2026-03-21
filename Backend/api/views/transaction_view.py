@@ -27,6 +27,9 @@ class TransactionViewset(viewsets.ViewSet):
     # ===================== CREATE =====================
     @action(detail=False, methods=['post'], url_path='create')
     def create_transaction(self, request, *args, **kwargs):
+        print("=== DEBUG: ĐÃ VÀO create_transaction ===")
+        print("User từ request:", request.user)
+        print("Token header:", request.headers.get('Authorization'))
         serializer = CreateTransactionSerializer(
             data=request.data,
             context={'user': request.user}

@@ -35,7 +35,7 @@ class CustomTokenAuthentication(BaseAuthentication):
             if not user_id:
                 raise AuthenticationFailed('Invalid token')
             
-            user = Users.objects.get(id=user_id)
+            user = Users.objects.get(user_id=user_id)
 
             if not user.is_active:
                 raise AuthenticationFailed('User is not active')

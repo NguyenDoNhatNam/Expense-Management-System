@@ -10,6 +10,7 @@ class HasPermission(BasePermission):
     permission_required = None
     
     def has_permission(self, request, view):
+        print(f"Checking permission for user {request.user} on action {view.action}")
         # Nếu chưa đăng nhập -> từ chối
         if not request.user.is_authenticated:
             return False
@@ -82,23 +83,35 @@ class DynamicPermission(BasePermission):
     """
     
     def has_permission(self, request, view):
+        print("=== DEBUG PERMISSION CHECK ===")
+        print("User:", request.user)
+        print("User ID:", request.user.user_id if hasattr(request.user, 'user_id') else "No user_id")
+        print("Authenticated:", request.user.is_authenticated)
+        
         if not request.user.is_authenticated:
+            print("→ Not authenticated")
             return False
         
-        # Lấy permission map từ view
         permission_map = getattr(view, 'permission_map', {})
         action = getattr(view, 'action', None)
+        print("Action:", action)
+        print("Permission map:", permission_map)
         
-        # Lấy permission cần thiết cho action hiện tại
         required_permission = permission_map.get(action)
+        print("Required permission for this action:", required_permission)
         
         if not required_permission:
-            return True  # Không yêu cầu permission đặc biệt
+            print("→ No required permission → allowed")
+            return True
         
-        # Kiểm tra permission
-        return request.user.role.role_permissions.filter(
+        has_perm = request.user.role.rolepermissions_set.filter(
             permission__permission_name=required_permission
         ).exists()
+        
+        print("Has permission '" + required_permission + "':", has_perm)
+        print("User role:", request.user.role.role_name if request.user.role else "No role")
+        
+        return has_perm
     
     def has_object_permission(self, request, view, obj):
         """Kiểm tra quyền với object cụ thể (own vs all)"""

@@ -11,7 +11,7 @@ from django.utils import timezone
 from datetime import timedelta 
 from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from django.core.cache import cache
 class UserViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
     
@@ -52,7 +52,7 @@ class UserViewSet(viewsets.ViewSet):
 
             tokens = get_tokens_for_user(user)
             remember_me = request.data.get('remember_me', False)
-
+            
             response_data = {
                 'success': True,
                 'data': {
@@ -96,25 +96,33 @@ class UserViewSet(viewsets.ViewSet):
             return Response({
                 'success': False,
                 'message': 'Không tìm thấy refresh token'
-            }, status=401)
+            }, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
             refresh = RefreshToken(refresh_token)
+            jti = refresh.get('jti')
+            if cache.get(f"blacklist_{jti}"):
+                return Response({'error': 'Token đã bị thu hồi (Blacklisted)'}, status=status.HTTP_401_UNAUTHORIZED)
             user_id = refresh['user_id']
-            user = Users.objects.get(id=user_id)
+            user = Users.objects.get(user_id=user_id)
 
             if not user.is_active:
                 return Response({
                     'success': False,
                     'message': 'Tài khoản đã bị khóa'
-                }, status=401)
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            exp_time = refresh.payload.get('exp')
+            current_time = timezone.now().timestamp()
+            left_time = max(int(exp_time - current_time), 0)
+            cache.set(f"blacklist_{jti}", True, timeout=left_time)
+
 
             new_access = str(refresh.access_token)
 
             # Rotate refresh token
             new_refresh = RefreshToken.for_user(user)
             new_refresh['user_id'] = user.user_id
-
+            new_refresh.set_exp(lifetime=timedelta(seconds=left_time))
             response = Response({
                 'success': True,
                 'data': {
@@ -129,7 +137,8 @@ class UserViewSet(viewsets.ViewSet):
                 httponly=True,
                 secure=not settings.DEBUG,
                 samesite='Lax',
-                max_age=90 * 24 * 3600,
+                max_age=left_time,
+                path='/'
             )
 
             return response
