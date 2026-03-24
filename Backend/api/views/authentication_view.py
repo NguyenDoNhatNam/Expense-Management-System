@@ -12,9 +12,20 @@ from datetime import timedelta
 from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.cache import cache
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse
+
 class UserViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
     
+    @extend_schema(
+        request=UserRegistrationSerializer,
+        responses={
+            201: OpenApiResponse(
+                description="Register successful"
+            )
+        }
+    )
     @action(detail=False , methods=['post'] , url_path='register')
     def user_registration(self ,request , *args , **kwargs):
         serializer = UserRegistrationSerializer(data = request.data)
@@ -40,7 +51,14 @@ class UserViewSet(viewsets.ViewSet):
             'message' : 'Đăng ký thất bại'
         }, status = status.HTTP_400_BAD_REQUEST)
     
-
+    @extend_schema(
+            request=UserLoginSerializer,
+            responses={
+                200: OpenApiResponse(
+                    description="Login successful"
+                )
+            }
+        )
     @action(detail=False, methods=['post'], url_path='login')
     def user_login(self, request, *args, **kwargs):
         serializer = UserLoginSerializer(data=request.data)

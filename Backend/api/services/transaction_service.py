@@ -122,11 +122,11 @@ class TransactionService:
             )
 
             if old_type == 'expense':
-                old_account_locked.balance += old_amount  # Cộng lại
+                old_account_locked.balance += old_amount 
             elif old_type == 'income':
-                old_account_locked.balance -= old_amount  # Trừ lại
+                old_account_locked.balance -= old_amount  
             elif old_type == 'transfer':
-                old_account_locked.balance += old_amount  # Cộng lại
+                old_account_locked.balance += old_amount  
 
             old_account_locked.updated_at = now
             old_account_locked.save()
@@ -287,13 +287,14 @@ class TransactionService:
     def _check_budget(user, category, amount):
         warnings = []
         now = timezone.now()
+        from api.models import Notification
 
         budgets = Budgets.objects.filter(
             user=user,
             category=category,
             is_active=True,
-            start_date__lte=now,
-            end_date__gte=now,
+            start_date__lte=now.date(),
+            end_date__gte=now.date(),
         )
 
         for budget in budgets:
@@ -302,8 +303,8 @@ class TransactionService:
                 category=category,
                 transaction_type='expense',
                 is_deleted=False,
-                transaction_date__gte=budget.start_date,
-                transaction_date__lte=budget.end_date,
+                transaction_date__date__gte=budget.start_date,
+                transaction_date__date__lte=budget.end_date,
             ).aggregate(total=Sum('amount'))
 
             total_spent = total_spent_result['total'] or Decimal('0')
@@ -311,18 +312,26 @@ class TransactionService:
             if budget.alert_threshold and budget.amount > 0:
                 percentage_spent = (total_spent / budget.amount) * 100
 
-                if total_spent > budget.amount:
+                if percentage_spent >= 100:
+                    message = f'Đã VƯỢT ngân sách "{budget.budget_name}": {total_spent}/{budget.amount} ({percentage_spent:.1f}%)'
                     warnings.append({
                         'budget_id': budget.budget_id,
                         'budget_name': budget.budget_name,
-                        'type': 'exceeded',
+                        'type': 'danger',
                         'limit': str(budget.amount),
                         'spent': str(total_spent),
                         'percentage': float(round(percentage_spent, 1)),
-                        'message': f'Đã VƯỢT ngân sách "{budget.budget_name}": '
-                                   f'{total_spent}/{budget.amount} ({percentage_spent:.1f}%)',
+                        'message': message,
                     })
+                    
+                    # Ghi Notification tránh spam (chỉ 1 thông báo chưa đọc cùng loại 1 ngày)
+                    if not Notification.objects.filter(user=user, notification_type='budget_danger', related_id=budget.budget_id, is_read=False, created_at__date=now.date()).exists():
+                        Notification.objects.create(
+                            notification_id=f'NOT-{str(uuid4())[:15]}', user=user, notification_type='budget_danger',
+                            title='Vượt Ngân Sách!', message=message, is_read=False, related_id=budget.budget_id, created_at=now
+                        )
                 elif percentage_spent >= budget.alert_threshold:
+                    message = f'Cảnh báo ngân sách "{budget.budget_name}": Đã chi {percentage_spent:.1f}% ({total_spent}/{budget.amount})'
                     warnings.append({
                         'budget_id': budget.budget_id,
                         'budget_name': budget.budget_name,
@@ -330,11 +339,18 @@ class TransactionService:
                         'limit': str(budget.amount),
                         'spent': str(total_spent),
                         'percentage': float(round(percentage_spent, 1)),
-                        'message': f'Cảnh báo ngân sách "{budget.budget_name}": '
-                                   f'Đã chi {percentage_spent:.1f}% ({total_spent}/{budget.amount})',
+                        'message': message,
                     })
+                    if not Notification.objects.filter(user=user, notification_type='budget_warning', related_id=budget.budget_id, is_read=False, created_at__date=now.date()).exists():
+                        Notification.objects.create(
+                            notification_id=f'NOT-{str(uuid4())[:15]}', user=user, notification_type='budget_warning',
+                            title='Sắp Vượt Ngân Sách', message=message, is_read=False, related_id=budget.budget_id, created_at=now
+                        )
 
         return warnings
+
+
+
 
     # ===================== HELPER: Recalculate Budget =====================
     @staticmethod
