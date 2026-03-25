@@ -25,6 +25,7 @@ class CategoryViewSet(viewsets.ViewSet):
     }
 
     # ===================== LIST CATEGORIES =====================
+
     @extend_schema(
         request=CategoryListSerializer,
         responses={

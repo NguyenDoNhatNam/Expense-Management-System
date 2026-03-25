@@ -9,8 +9,8 @@ from api.serializers.budget_serializer import (
     BudgetListSerializer, CreateBudgetSerializer, UpdateBudgetSerializer
 )
 import logging
-
-logger = logging.getLogger(__name__)
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse
 
 class BudgetViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
@@ -21,7 +21,15 @@ class BudgetViewSet(viewsets.ViewSet):
         'update_budget': 'edit_own_budget',
         'delete_budget': 'delete_own_budget',
     }
-
+    
+    @extend_schema(
+        request=BudgetListSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Lấy danh sách ngân sách "
+            )
+        }
+    )
     @action(detail=False, methods=['get'], url_path='list')
     def list_budgets(self, request):
         try:
@@ -31,9 +39,16 @@ class BudgetViewSet(viewsets.ViewSet):
                 'success': True, 'message': 'Thành công', 'data': serializer.data
             }, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f'Error fetching budgets: {str(e)}', exc_info=True)
             return Response({'success': False, 'message': 'Lỗi server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(
+        request=CreateBudgetSerializer,
+        responses={
+            201: OpenApiResponse(
+                description="Tạo ngân sách thành công"
+             )
+        }
+    )
     @action(detail=False, methods=['post'], url_path='create')
     def create_budget(self, request):
         serializer = CreateBudgetSerializer(data=request.data, context={'user': request.user})
@@ -44,9 +59,16 @@ class BudgetViewSet(viewsets.ViewSet):
             budget = BudgetService.create_budget(serializer.validated_data, request.user)
             return Response({'success': True, 'message': 'Tạo thành công', 'data': {'budget_id': budget.budget_id}}, status=status.HTTP_201_CREATED)
         except Exception as e:
-            logger.error(f'Error creating budget: {str(e)}', exc_info=True)
             return Response({'success': False, 'message': 'Lỗi server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(
+        request=UpdateBudgetSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Cập nhật ngân sách thành công"
+            )
+        }
+    )
     @action(detail=False, methods=['put', 'patch'], url_path='update/(?P<budget_id>[^/.]+)')
     def update_budget(self, request, budget_id=None):
         try:
@@ -62,7 +84,6 @@ class BudgetViewSet(viewsets.ViewSet):
             updated_budget = BudgetService.update_budget(budget, serializer.validated_data)
             return Response({'success': True, 'message': 'Cập nhật thành công', 'data': {'budget_id': updated_budget.budget_id}}, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f'Error updating budget: {str(e)}', exc_info=True)
             return Response({'success': False, 'message': 'Lỗi server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['delete'], url_path='delete/(?P<budget_id>[^/.]+)')

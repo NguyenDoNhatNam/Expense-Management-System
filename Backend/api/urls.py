@@ -12,6 +12,6 @@ user.register(r'categories', categories_view.CategoryViewSet, basename='categori
 urlpatterns = [
     path('' , include(user.urls)) , 
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
