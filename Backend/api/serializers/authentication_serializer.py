@@ -76,7 +76,7 @@ class UserRegistrationSerializer(serializers.Serializer):
             default_currency = validated_data.get('default_currency' , 'VNĐ') ,
             is_active = True ,
             created_at = timezone.now() , 
-            role = '1'
+            role_id = '1'
         )
 
         # Tạo tài khoản tiền mặt mặc định trong account
