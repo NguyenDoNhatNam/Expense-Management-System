@@ -11,6 +11,7 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'VND', 'CNY', 'AUD', 'CAD', 'SGD
 export default function WalletsPage() {
   const { wallets, addWallet, updateWallet, deleteWallet, currentWallet, setCurrentWallet } = useApp();
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     currency: 'USD',
@@ -26,17 +27,46 @@ export default function WalletsPage() {
       return;
     }
 
-    addWallet({
-      name: formData.name,
-      currency: formData.currency,
-      balance: parseFloat(formData.balance),
-      description: formData.description,
-      isDefault: wallets.length === 0,
-      userId: '',
-    });
+    if (editingId) {
+      // Update existing wallet
+      updateWallet(editingId, {
+        name: formData.name,
+        currency: formData.currency,
+        balance: parseFloat(formData.balance),
+        description: formData.description,
+      });
+    } else {
+      // Add new wallet
+      addWallet({
+        name: formData.name,
+        currency: formData.currency,
+        balance: parseFloat(formData.balance),
+        description: formData.description,
+        isDefault: wallets.length === 0,
+        userId: '',
+      });
+    }
 
     setFormData({ name: '', currency: 'USD', balance: '', description: '' });
     setShowForm(false);
+    setEditingId(null);
+  };
+
+  const handleEditClick = (wallet: any) => {
+    setEditingId(wallet.id);
+    setFormData({
+      name: wallet.name,
+      currency: wallet.currency,
+      balance: wallet.balance.toString(),
+      description: wallet.description || '',
+    });
+    setShowForm(true);
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormData({ name: '', currency: 'USD', balance: '', description: '' });
   };
 
   return (
@@ -157,7 +187,7 @@ export default function WalletsPage() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Edit functionality would go here
+                        handleEditClick(wallet);
                       }}
                       className="flex-1"
                     >

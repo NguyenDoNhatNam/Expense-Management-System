@@ -49,6 +49,11 @@ export default function TransactionForm({ editingId, onClose }: TransactionFormP
       return;
     }
 
+    if (!currentWallet) {
+      alert('No wallet selected. Please select a wallet before adding transactions.');
+      return;
+    }
+
     if (editingId) {
       updateTransaction(editingId, {
         ...formData,
