@@ -61,7 +61,7 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
       {/* Footer */}
       <div className="p-4 border-t border-border">
         <p className="text-xs text-muted-foreground text-center">
-          © 2024 ExpenseFlow
+          © 2026 ExpenseMate
         </p>
       </div>
     </aside>

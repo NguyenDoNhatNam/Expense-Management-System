@@ -46,7 +46,12 @@ export default function Dashboard() {
       <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="border-b bg-card p-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">ExpenseFlow</h1>
+          <div className="relative h-20 w-20">
+            <img src="/logo2.png" alt="ExpenseFlow logo" className="absolute inset-0 h-full w-full object-contain" />
+            <h1 className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-blue-500 drop-shadow-lg ml-35">
+              ExpenseMate
+            </h1>
+          </div>
           <button
             onClick={logout}
             className="px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary rounded-lg transition"

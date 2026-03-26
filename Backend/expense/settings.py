@@ -78,9 +78,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'expense.wsgi.application'
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'api.authentication.CustomTokenAuthentication'
-    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ], 
@@ -89,6 +86,20 @@ REST_FRAMEWORK = {
 }
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'mssql',
+#         'NAME': 'ExpenseManagementDB',
+#         'USER' : 'sa',
+#         'PASSWORD' : 'Thang@123', 
+#         'HOST' : '127.0.0.1',
+#         'PORT' : '1433',
+#         'OPTIONS': {
+#             'driver': 'ODBC Driver 17 for SQL Server',
+#         },
+#     }
+# }
 
 DATABASES = {
  "default": {
@@ -174,11 +185,4 @@ CACHES = {
             }
         }
     }
-}
-
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'Expense Management API',
-    'DESCRIPTION': 'API Documentation for Expense Management System',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
 }
