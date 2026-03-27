@@ -109,19 +109,30 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl">
-            {isLogin ? 'Welcome Back' : 'Create Account'}
-          </CardTitle>
-          <CardDescription>
-            {isLogin
-              ? 'Manage your expenses efficiently'
-              : 'Start tracking your finances today'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="min-h-screen flex">
+      {/* Left Side - Logo Section */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-50 to-blue-100 items-center justify-center p-8">
+        <div className="text-center">
+          <img src="/logo.png" alt="Logo" className="object-contain" />
+          <h1 className="text-4xl font-bold text-blue-600 mb-4">Expense Manager</h1>
+          <p className="text-blue-400 text-lg">Track, manage, and optimize your finances</p>
+        </div>
+      </div>
+
+      {/* Right Side - Login Form Section */}
+      <div className="w-full lg:w-1/2 bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">
+              {isLogin ? 'Welcome Back' : 'Create Account'}
+            </CardTitle>
+            <CardDescription>
+              {isLogin
+                ? 'Manage your expenses efficiently'
+                : 'Start tracking your finances today'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
           {error && (
             <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {error}
@@ -239,6 +250,7 @@ export default function LoginPage() {
 
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
