@@ -12,7 +12,8 @@ from rest_framework.decorators import action
 import logging
 from api.permissions.permission import PermissionMixin , DynamicPermission ,HasPermission
 logger = logging.getLogger(__name__)
-
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse
 
 class TransactionViewset(viewsets.ViewSet):
     permission_classes = [IsAuthenticated , DynamicPermission] 
@@ -25,6 +26,14 @@ class TransactionViewset(viewsets.ViewSet):
 
     
     # ===================== CREATE =====================
+    @extend_schema(
+        request=CreateTransactionSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Lấy danh sách ngân sách "
+            )
+        }
+    )
     @action(detail=False, methods=['post'], url_path='create')
     def create_transaction(self, request, *args, **kwargs):
         print("=== DEBUG: ĐÃ VÀO create_transaction ===")
@@ -66,6 +75,14 @@ class TransactionViewset(viewsets.ViewSet):
             )
 
     # ===================== UPDATE =====================
+    @extend_schema(
+        request=UpdateTransactionSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Lấy danh sách ngân sách "
+            )
+        }
+    )
     @action(detail=False, methods=['put', 'patch'], url_path='update/(?P<transaction_id>[^/.]+)')
     def update_transaction(self, request, transaction_id=None, *args, **kwargs):
         """
@@ -127,6 +144,14 @@ class TransactionViewset(viewsets.ViewSet):
             )
 
     # ===================== DELETE =====================
+    @extend_schema(
+        request=DeleteTransactionSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Lấy danh sách ngân sách "
+            )
+        }
+    )
     @action(detail=False, methods=['delete'], url_path='delete/(?P<transaction_id>[^/.]+)')
     def delete_transaction(self, request, transaction_id=None, *args, **kwargs):
         """
@@ -192,6 +217,13 @@ class TransactionViewset(viewsets.ViewSet):
             )
 
     # ===================== RESTORE =====================
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="Lấy danh sách ngân sách "
+            )
+        }
+    )
     @action(detail=False, methods=['post'], url_path='restore/(?P<transaction_id>[^/.]+)')
     def restore_transaction(self, request, transaction_id=None, *args, **kwargs):
         """

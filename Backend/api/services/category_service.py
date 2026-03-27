@@ -1,10 +1,11 @@
 from django.db import transaction as db_transaction
-from django.db.models import Count, Sum, Q, Value
+from django.db.models import Count, DecimalField, Sum, Q, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from uuid import uuid4
 from api.models import Categories, Transactions
 from api.services.transaction_service import TransactionService
+from decimal import Decimal
 
 class CategoryService:
 
@@ -24,7 +25,8 @@ class CategoryService:
                     'transactions__amount',
                     filter=Q(transactions__is_deleted=False)
                 ),
-                Value(0.0)
+                Value(Decimal('0.00')),
+                output_field=DecimalField(max_digits=18, decimal_places=2),
             )
         ).order_by('category_type', 'category_name')
         

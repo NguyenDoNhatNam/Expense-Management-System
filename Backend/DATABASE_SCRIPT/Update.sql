@@ -1,6 +1,9 @@
 ALTER TABLE transactions ADD is_deleted BIT DEFAULT 0 NOT NULL;
 ALTER TABLE transactions ADD deleted_at DATETIME NULL;
 
+ALTER TABLE categories ADD is_deleted BIT DEFAULT 0 NOT NULL;
+ALTER TABLE categories ADD deleted_at DATETIME NULL;
+
 -- Bảng Roles (Vai trò)
 CREATE TABLE roles (
     role_id VARCHAR(50) NOT NULL ,
