@@ -86,6 +86,13 @@ class BudgetViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response({'success': False, 'message': 'Lỗi server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                description="Xóa ngân sách thành công"
+            )
+        }
+    )
     @action(detail=False, methods=['delete'], url_path='delete/(?P<budget_id>[^/.]+)')
     def delete_budget(self, request, budget_id=None):
         try:

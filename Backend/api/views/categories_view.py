@@ -38,6 +38,7 @@ class CategoryViewSet(viewsets.ViewSet):
     def list_categories(self, request):
         try:
             categories = CategoryService.get_categories(request.user)
+            # print(f"Categories for user {request.user.user_id}: {categories}")
             serializer = CategoryListSerializer(categories, many=True)
             
             return Response({
@@ -46,6 +47,7 @@ class CategoryViewSet(viewsets.ViewSet):
                 'data': serializer.data
             }, status=status.HTTP_200_OK)
         except Exception as e:
+            # print(f"Error occurred while fetching categories for user {request.user.user_id}: {e}")
             return Response({
                 'success': False,
                 'message': 'Đã xảy ra lỗi khi lấy danh sách danh mục'
