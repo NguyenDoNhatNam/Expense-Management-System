@@ -60,3 +60,6 @@ celerybeat.pid
 # Secrets
 *.pem
 *.key
+
+__pycache__/
+*.pyc
