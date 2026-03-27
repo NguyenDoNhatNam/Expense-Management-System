@@ -1,6 +1,6 @@
 ALTER TABLE transactions ADD is_deleted BIT DEFAULT 0 NOT NULL;
 ALTER TABLE transactions ADD deleted_at DATETIME NULL;
-
+GO
 -- Bảng Roles (Vai trò)
 CREATE TABLE roles (
     role_id VARCHAR(50) NOT NULL ,
@@ -10,6 +10,7 @@ CREATE TABLE roles (
     CONSTRAINT pk_roles PRIMARY KEY (role_id)
 );
 
+GO
 -- Bảng Permissions (Quyền)
 CREATE TABLE permissions (
     permission_id VARCHAR(50) NOT NULL ,
@@ -17,7 +18,7 @@ CREATE TABLE permissions (
     description TEXT,
     CONSTRAINT pk_permissions PRIMARY KEY (permission_id)
 );
-
+GO
 -- Bảng Role_Permissions (Gán quyền cho role)
 CREATE TABLE role_permissions (
     role_id VARCHAR(50) NOT NULL,
@@ -27,10 +28,12 @@ CREATE TABLE role_permissions (
     CONSTRAINT fk_role_permissions_permission_id FOREIGN KEY (permission_id) REFERENCES permissions(permission_id)
 );
 
+GO
 -- Thêm role_id vào bảng users
 ALTER TABLE users ADD COLUMN role_id DEFAULT 'user';
 ALTER TABLE users ADD FOREIGN KEY (role_id) REFERENCES roles(role_id);
 
+GO
 
 INSERT INTO roles (role_id, role_name, description) VALUES
 ('1', 'user', 'Người dùng thông thường - Có thể quản lý chi tiêu cá nhân'),
