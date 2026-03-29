@@ -196,7 +196,7 @@ class Transactions(models.Model):
     transaction_id = models.CharField(primary_key=True, max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
     user = models.ForeignKey('Users', models.DO_NOTHING)
     account = models.ForeignKey(Accounts, models.DO_NOTHING)
-    category = models.ForeignKey(Categories, models.DO_NOTHING)
+    category = models.ForeignKey(Categories, models.DO_NOTHING , related_name='transactions')
     amount = models.DecimalField(max_digits=18, decimal_places=2)
     transaction_type = models.CharField(max_length=20, db_collation='SQL_Latin1_General_CP1_CI_AS')
     transaction_date = models.DateTimeField()
