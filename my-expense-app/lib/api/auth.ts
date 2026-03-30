@@ -4,6 +4,7 @@ import api from './client';
 export interface LoginPayload {
   email: string;
   password: string;
+  remember_me?: boolean;
 }
 
 export interface SignupPayload {

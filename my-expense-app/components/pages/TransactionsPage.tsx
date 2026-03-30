@@ -93,6 +93,13 @@ export default function TransactionsPage() {
                           {new Date(tx.date).toLocaleDateString()}
                           {tx.isRecurring && ` • Recurring: ${tx.recurringPattern}`}
                         </p>
+                        {tx.attachmentUrl && (
+                          <img
+                            src={tx.attachmentUrl}
+                            alt="Receipt"
+                            className="mt-2 h-20 w-20 object-cover rounded-md border"
+                          />
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

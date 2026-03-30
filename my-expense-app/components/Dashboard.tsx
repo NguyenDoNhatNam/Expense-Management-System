@@ -3,25 +3,24 @@
 import { useState } from 'react';
 import { useApp } from '@/lib/AppContext';
 import Sidebar from '@/components/Sidebar';
-import OverviewPage from '@/components/pages/OverviewPage';
+import DashboardPage from '@/components/pages/DashboardPage';
 import TransactionsPage from '@/components/pages/TransactionsPage';
 import BudgetsPage from '@/components/pages/BudgetsPage';
 import WalletsPage from '@/components/pages/WalletsPage';
 import SavingsPage from '@/components/pages/SavingsPage';
 import DebtsPage from '@/components/pages/DebtsPage';
-import ReportsPage from '@/components/pages/ReportsPage';
 import SettingsPage from '@/components/pages/SettingsPage';
 
-type Page = 'overview' | 'transactions' | 'budgets' | 'wallets' | 'savings' | 'debts' | 'reports' | 'settings';
+type Page = 'dashboard' | 'transactions' | 'budgets' | 'wallets' | 'savings' | 'debts' | 'settings';
 
 export default function Dashboard() {
   const { logout } = useApp();
-  const [currentPage, setCurrentPage] = useState<Page>('overview');
+  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'overview':
-        return <OverviewPage />;
+      case 'dashboard':
+        return <DashboardPage />;
       case 'transactions':
         return <TransactionsPage />;
       case 'budgets':
@@ -32,12 +31,10 @@ export default function Dashboard() {
         return <SavingsPage />;
       case 'debts':
         return <DebtsPage />;
-      case 'reports':
-        return <ReportsPage />;
       case 'settings':
         return <SettingsPage />;
       default:
-        return <OverviewPage />;
+        return <DashboardPage />;
     }
   };
 

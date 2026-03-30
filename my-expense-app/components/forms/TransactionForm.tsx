@@ -21,6 +21,7 @@ export default function TransactionForm({ editingId, onClose }: TransactionFormP
     date: new Date().toISOString().split('T')[0],
     isRecurring: false,
     recurringPattern: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+    attachmentUrl: '',
   });
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function TransactionForm({ editingId, onClose }: TransactionFormP
           date: new Date(tx.date).toISOString().split('T')[0],
           isRecurring: tx.isRecurring,
           recurringPattern: (tx.recurringPattern || 'monthly') as 'daily' | 'weekly' | 'monthly' | 'yearly',
+          attachmentUrl: tx.attachmentUrl || '',
         };
         setFormData(newFormData);
       }
@@ -72,6 +74,7 @@ export default function TransactionForm({ editingId, onClose }: TransactionFormP
         walletId: currentWallet!.id,
         userId: '', // Demo user
         tags: [],
+        attachmentUrl: formData.attachmentUrl || '',
       } as Omit<Types.Transaction, 'id' | 'createdAt' | 'updatedAt'>);
     }
 
@@ -152,6 +155,27 @@ export default function TransactionForm({ editingId, onClose }: TransactionFormP
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, date: e.target.value })}
           required
         />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Receipt Image</label>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              const url = URL.createObjectURL(file);
+              setFormData({ ...formData, attachmentUrl: url });
+            } else {
+              setFormData({ ...formData, attachmentUrl: '' });
+            }
+          }}
+          className="mt-2"
+        />
+        {formData.attachmentUrl && (
+          <img src={formData.attachmentUrl} alt="Receipt" className="mt-2 h-24 w-24 object-cover rounded-md border" />
+        )}
       </div>
 
       <div className="pt-4 border-t">

@@ -2,7 +2,7 @@
 
 import { useApp } from '@/lib/AppContext';
 
-type Page = 'overview' | 'transactions' | 'budgets' | 'wallets' | 'savings' | 'debts' | 'reports' | 'settings';
+type Page = 'dashboard' | 'transactions' | 'budgets' | 'wallets' | 'savings' | 'debts' | 'settings';
 
 interface SidebarProps {
   currentPage: Page;
@@ -13,13 +13,12 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   const { currentUser } = useApp();
 
   const menuItems: Array<{ label: string; page: Page; icon: string }> = [
-    { label: 'Overview', page: 'overview', icon: '📊' },
+    { label: 'Dashboard', page: 'dashboard', icon: '📊' },
     { label: 'Transactions', page: 'transactions', icon: '💳' },
     { label: 'Budgets', page: 'budgets', icon: '🎯' },
     { label: 'Wallets', page: 'wallets', icon: '👛' },
     { label: 'Savings Goals', page: 'savings', icon: '🏦' },
     { label: 'Debts', page: 'debts', icon: '💰' },
-    { label: 'Reports', page: 'reports', icon: '📈' },
     { label: 'Settings', page: 'settings', icon: '⚙️' },
   ];
 

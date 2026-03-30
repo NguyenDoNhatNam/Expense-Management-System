@@ -129,7 +129,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   password: string,
   rememberMe = false
 ): Promise<any> => {          
-  const res = await loginApi({ email, password });
+  const res = await loginApi({ email, password, remember_me: rememberMe });
   const { user: apiUser, access_token, refresh_token } = res.data;
 
   const storage = rememberMe ? localStorage : sessionStorage;
