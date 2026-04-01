@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useNotification } from '@/lib/notification';
 import { useApp } from '@/lib/AppContext';
 import { getApiErrorMessage } from '@/lib/api/auth';
@@ -11,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 export default function LoginPage() {
   const { login, register } = useApp();
   const { showNotification } = useNotification();
+  const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -98,6 +100,7 @@ export default function LoginPage() {
       } else {
         await register(email, password, fullName, phone);
         showNotification('Account created successfully!', 'success');
+        router.push('/verify');
       }
     } catch (err) {
       const msg = getApiErrorMessage(err);

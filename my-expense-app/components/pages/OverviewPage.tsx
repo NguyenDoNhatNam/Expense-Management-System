@@ -98,7 +98,7 @@ export default function OverviewPage() {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `${currentWallet?.currency || 'USD'} ${value.toFixed(2)}`} />
+                  <Tooltip formatter={(value) => `${currentWallet?.currency || 'USD'} ${Number(value).toFixed(2)}`} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (

@@ -132,6 +132,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const res = await loginApi({ email, password });
   const { user: apiUser, access_token, refresh_token } = res.data;
 
+  // Enforce OTP verification on the frontend
+  const unverified = JSON.parse(localStorage.getItem('unverified_emails') || '[]');
+  if (unverified.includes(email) || unverified.includes(apiUser.email)) {
+    throw new Error('Account not verified. Please complete OTP verification first.');
+  }
+
   const storage = rememberMe ? localStorage : sessionStorage;
   storage.setItem('access_token', access_token);
   storage.setItem('refresh_token', refresh_token);
@@ -159,22 +165,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     console.log('Signup response:', res);
     const { user: apiUser, access_token, refresh_token, account, categories: apiCategories } = res.data;
 
-    localStorage.setItem('access_token', access_token);
-    localStorage.setItem('refresh_token', refresh_token);
-
-    const user: Types.User = {
-      id: apiUser.user_id,
-      email: apiUser.email,
-      fullName: apiUser.full_name,
-      createdAt: new Date(apiUser.created_at),
-    };
-    setCurrentUser(user);
+    // the user must verify first, so we don't setCurrentUser yet.
+    // Instead they will do OTP verification, then login.
+    const unverified = JSON.parse(localStorage.getItem('unverified_emails') || '[]');
+    if (!unverified.includes(email)) {
+      unverified.push(email);
+      localStorage.setItem('unverified_emails', JSON.stringify(unverified));
+    }
 
     // Map the default account from backend into a wallet
     const acct = account as Record<string, any>;
     const defaultWallet: Types.Wallet = {
       id: acct.account_id,
-      userId: user.id,
+      userId: apiUser.user_id,
       name: acct.account_name,
       currency: acct.currency,
       balance: Number(acct.balance),
@@ -183,12 +186,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       updatedAt: new Date(acct.created_at),
     };
     setWallets([defaultWallet]);
-    setCurrentWallet(defaultWallet);
 
     // Map default categories from backend
     const cats: Types.Category[] = (apiCategories as Record<string, any>[]).map((c) => ({
       id: c.category_id,
-      userId: user.id,
+      userId: apiUser.user_id,
       name: c.category_name,
       icon: c.icon,
       color: c.color,
