@@ -9,9 +9,10 @@ import BudgetsPage from '@/components/pages/BudgetsPage';
 import WalletsPage from '@/components/pages/WalletsPage';
 import SavingsPage from '@/components/pages/SavingsPage';
 import DebtsPage from '@/components/pages/DebtsPage';
+import CategoriesPage from '@/components/pages/CategoriesPage';
 import SettingsPage from '@/components/pages/SettingsPage';
 
-type Page = 'dashboard' | 'transactions' | 'budgets' | 'wallets' | 'savings' | 'debts' | 'settings';
+type Page = 'dashboard' | 'transactions' | 'budgets' | 'wallets' | 'savings' | 'debts' | 'categories' | 'settings';
 
 export default function Dashboard() {
   const { logout } = useApp();
@@ -31,6 +32,8 @@ export default function Dashboard() {
         return <SavingsPage />;
       case 'debts':
         return <DebtsPage />;
+      case 'categories':
+        return <CategoriesPage />;
       case 'settings':
         return <SettingsPage />;
       default:

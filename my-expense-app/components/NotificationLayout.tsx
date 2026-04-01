@@ -1,6 +1,5 @@
 "use client";
 
-import { AppProvider } from "@/lib/AppContext";
 import {
   NotificationProvider,
   NotificationContainer,
@@ -18,11 +17,9 @@ export default function NotificationLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AppProvider>
-      <NotificationProvider>
-        <NotificationDisplay />
-        {children}
-      </NotificationProvider>
-    </AppProvider>
+    <NotificationProvider>
+      <NotificationDisplay />
+      {children}
+    </NotificationProvider>
   );
 }

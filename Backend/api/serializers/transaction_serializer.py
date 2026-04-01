@@ -4,6 +4,32 @@ from uuid import uuid4
 from django.utils import timezone  
 from dateutil.relativedelta import relativedelta
 
+class TransactionListSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.category_name', read_only=True)
+    category_icon = serializers.CharField(source='category.icon', read_only=True)
+    account_name = serializers.CharField(source='account.account_name', read_only=True)
+    account_id = serializers.CharField(source='account.account_id', read_only=True)
+    category_id = serializers.CharField(source='category.category_id', read_only=True)
+
+    class Meta:
+        model = Transactions
+        fields = [
+            'transaction_id',
+            'amount',
+            'transaction_type',
+            'transaction_date',
+            'description',
+            'note',
+            'category_id',
+            'category_name',
+            'category_icon',
+            'account_id',
+            'account_name',
+            'is_recurring',
+            'receipt_image_url',
+            'location',
+        ]
+
 class CreateTransactionSerializer(serializers.Serializer):
     account_id = serializers.CharField(required = True )
     category_id = serializers.CharField(required = True) 

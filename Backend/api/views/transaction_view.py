@@ -3,12 +3,14 @@ from api.serializers.transaction_serializer import (
     CreateTransactionSerializer,
     UpdateTransactionSerializer,
     DeleteTransactionSerializer,
+    TransactionListSerializer,
 )
 from api.models import Transactions
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
+from django.db.models import Q
 import logging
 from api.permissions.permission import PermissionMixin , DynamicPermission ,HasPermission
 logger = logging.getLogger(__name__)
@@ -18,6 +20,7 @@ from drf_spectacular.utils import OpenApiResponse
 class TransactionViewset(viewsets.ViewSet):
     permission_classes = [IsAuthenticated , DynamicPermission] 
     permission_map = {
+        'list_transactions': 'view_own_expense',
         'create_transaction': 'create_expense',
         'update_transaction': 'edit_own_expense',
         'delete_transaction': 'delete_own_expense',
@@ -25,6 +28,37 @@ class TransactionViewset(viewsets.ViewSet):
     }
 
     
+    # ===================== LIST =====================
+    @extend_schema(
+        responses=TransactionListSerializer(many=True),
+        description="Lấy danh sách giao dịch của người dùng với các bộ lọc tùy chọn."
+    )
+    @action(detail=False, methods=['get'], url_path='list')
+    def list_transactions(self, request, *args, **kwargs):
+        """
+        GET /api/transactions/list/
+        """
+        user = request.user
+        queryset = Transactions.objects.filter(user=user, is_deleted=False).order_by('-transaction_date')
+        account_id = request.query_params.get('account_id')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        trans_type = request.query_params.get('transaction_type')
+        keyword = request.query_params.get('keyword')
+
+        if account_id:
+            queryset = queryset.filter(account__account_id=account_id)
+        if start_date:
+            queryset = queryset.filter(transaction_date__date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(transaction_date__date__lte=end_date)
+        if trans_type and trans_type in ['income', 'expense']:
+            queryset = queryset.filter(transaction_type=trans_type)
+        if keyword:
+            queryset = queryset.filter(Q(description__icontains=keyword) | Q(note__icontains=keyword))
+
+        serializer = TransactionListSerializer(queryset, many=True)
+        return Response({'success': True, 'message': 'Lấy danh sách giao dịch thành công.', 'data': serializer.data,}, status=status.HTTP_200_OK)
     # ===================== CREATE =====================
     @extend_schema(
         request=CreateTransactionSerializer,
@@ -36,9 +70,9 @@ class TransactionViewset(viewsets.ViewSet):
     )
     @action(detail=False, methods=['post'], url_path='create')
     def create_transaction(self, request, *args, **kwargs):
-        print("=== DEBUG: ĐÃ VÀO create_transaction ===")
-        print("User từ request:", request.user)
-        print("Token header:", request.headers.get('Authorization'))
+        # print("=== DEBUG: ĐÃ VÀO create_transaction ===")
+        # print("User từ request:", request.user)
+        # print("Token header:", request.headers.get('Authorization'))
         serializer = CreateTransactionSerializer(
             data=request.data,
             context={'user': request.user}

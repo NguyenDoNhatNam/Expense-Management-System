@@ -1,48 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useApp } from '@/lib/AppContext';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 
 export default function SettingsPage() {
-  const { currentUser, categories, addCategory } = useApp();
-  const [showAddCategory, setShowAddCategory] = useState(false);
-  const [newCategory, setNewCategory] = useState({
-    name: '',
-    icon: '📝',
-    color: '#8b5cf6',
-    type: 'expense' as 'income' | 'expense',
-  });
-
-  const expenseCategories = categories.filter((c) => c.type === 'expense');
-  const incomeCategories = categories.filter((c) => c.type === 'income');
-
-  const handleAddCategory = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!newCategory.name) {
-      alert('Please enter a category name');
-      return;
-    }
-
-    addCategory({
-      name: newCategory.name,
-      icon: newCategory.icon,
-      color: newCategory.color,
-      type: newCategory.type,
-      userId: '',
-    });
-
-    setNewCategory({
-      name: '',
-      icon: '📝',
-      color: '#8b5cf6',
-      type: 'expense',
-    });
-    setShowAddCategory(false);
-  };
+  const { currentUser, categories } = useApp();
 
   const handleExportData = () => {
     const data = {
@@ -78,7 +43,7 @@ export default function SettingsPage() {
     <div className="p-6 space-y-6">
       <div>
         <h2 className="text-3xl font-bold">Settings</h2>
-        <p className="text-muted-foreground mt-1">Manage your preferences and categories</p>
+        <p className="text-muted-foreground mt-1">Manage your profile and data preferences</p>
       </div>
 
       {/* User Profile */}
@@ -113,116 +78,15 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Categories Management */}
       <Card>
-        <CardHeader className="flex items-center justify-between">
-          <div>
-            <CardTitle>Categories</CardTitle>
-            <CardDescription>Manage transaction categories</CardDescription>
-          </div>
-          <Button onClick={() => setShowAddCategory(!showAddCategory)}>
-            {showAddCategory ? 'Cancel' : '+ Add Category'}
-          </Button>
+        <CardHeader>
+          <CardTitle>Categories</CardTitle>
+          <CardDescription>Category management moved to the dedicated Categories page</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {showAddCategory && (
-            <form onSubmit={handleAddCategory} className="p-4 border rounded-lg space-y-4 bg-secondary/50">
-              <div>
-                <label className="text-sm font-medium">Category Name</label>
-                <Input
-                  placeholder="e.g., Groceries"
-                  value={newCategory.name}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCategory({ ...newCategory, name: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Icon</label>
-                  <Input
-                    placeholder="🛒"
-                    value={newCategory.icon}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCategory({ ...newCategory, icon: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Color</label>
-                  <div className="flex gap-2 mt-2">
-                    <input
-                      type="color"
-                      value={newCategory.color}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCategory({ ...newCategory, color: e.target.value })}
-                      className="w-12 h-10 rounded border"
-                    />
-                    <Input
-                      value={newCategory.color}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCategory({ ...newCategory, color: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Type</label>
-                  <select
-                    value={newCategory.type}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewCategory({ ...newCategory, type: e.target.value as 'income' | 'expense' })}
-                    className="w-full mt-2 px-3 py-2 border rounded-lg bg-background"
-                  >
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Button type="submit" className="flex-1">
-                  Add Category
-                </Button>
-              </div>
-            </form>
-          )}
-
-          <div>
-            <h4 className="font-semibold mb-3">Expense Categories ({expenseCategories.length})</h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {expenseCategories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="flex items-center gap-2 p-3 rounded-lg border"
-                >
-                  <span className="text-2xl">{cat.icon}</span>
-                  <div>
-                    <p className="font-medium text-sm">{cat.name}</p>
-                    <p className="text-xs text-muted-foreground" style={{ color: cat.color }}>
-                      ●● {cat.color.toUpperCase()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-semibold mb-3">Income Categories ({incomeCategories.length})</h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {incomeCategories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="flex items-center gap-2 p-3 rounded-lg border"
-                >
-                  <span className="text-2xl">{cat.icon}</span>
-                  <div>
-                    <p className="font-medium text-sm">{cat.name}</p>
-                    <p className="text-xs text-muted-foreground" style={{ color: cat.color }}>
-                      ●● {cat.color.toUpperCase()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            You currently have {categories.length} categories. Open the Categories page from the left sidebar to add, search, or delete categories.
+          </p>
         </CardContent>
       </Card>
 

@@ -2,7 +2,7 @@
 
 import { useApp } from '@/lib/AppContext';
 
-type Page = 'dashboard' | 'transactions' | 'budgets' | 'wallets' | 'savings' | 'debts' | 'settings';
+type Page = 'dashboard' | 'transactions' | 'budgets' | 'wallets' | 'savings' | 'debts' | 'categories' | 'settings';
 
 interface SidebarProps {
   currentPage: Page;
@@ -19,6 +19,7 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
     { label: 'Wallets', page: 'wallets', icon: '👛' },
     { label: 'Savings Goals', page: 'savings', icon: '🏦' },
     { label: 'Debts', page: 'debts', icon: '💰' },
+    { label: 'Categories', page: 'categories', icon: '🏷️' },
     { label: 'Settings', page: 'settings', icon: '⚙️' },
   ];
 
