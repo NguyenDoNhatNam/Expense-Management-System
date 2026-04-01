@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/lib/AppContext';
+import { getApiErrorMessage } from '@/lib/api/auth';
+import { useNotification } from '@/lib/notification';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -9,9 +11,12 @@ import { Input } from '../ui/input';
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'VND', 'CNY', 'AUD', 'CAD', 'SGD', 'HKD'];
 
 export default function WalletsPage() {
-  const { wallets, addWallet, updateWallet, deleteWallet, currentWallet, setCurrentWallet } = useApp();
+  const { wallets, addWallet, updateWallet, deleteWallet, currentWallet, setCurrentWallet, currentUser } = useApp();
+  const { showNotification } = useNotification();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingWalletId, setDeletingWalletId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     currency: 'USD',
@@ -19,37 +24,49 @@ export default function WalletsPage() {
     description: '',
   });
 
-  const handleAddWallet = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddWallet = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!formData.name || !formData.currency || !formData.balance) {
-      alert('Please fill all required fields');
+      showNotification('Vui lòng điền đầy đủ các trường bắt buộc.', 'warning');
       return;
     }
 
-    if (editingId) {
-      // Update existing wallet
-      updateWallet(editingId, {
-        name: formData.name,
-        currency: formData.currency,
-        balance: parseFloat(formData.balance),
-        description: formData.description,
-      });
-    } else {
-      // Add new wallet
-      addWallet({
-        name: formData.name,
-        currency: formData.currency,
-        balance: parseFloat(formData.balance),
-        description: formData.description,
-        isDefault: wallets.length === 0,
-        userId: '',
-      });
+    if (!currentUser) {
+      showNotification('Bạn cần đăng nhập để thao tác ví.', 'error');
+      return;
     }
 
-    setFormData({ name: '', currency: 'USD', balance: '', description: '' });
-    setShowForm(false);
-    setEditingId(null);
+    setIsSubmitting(true);
+
+    try {
+      if (editingId) {
+        await updateWallet(editingId, {
+          name: formData.name,
+          currency: formData.currency,
+          description: formData.description,
+        });
+        showNotification('Cập nhật ví thành công.', 'success');
+      } else {
+        await addWallet({
+          name: formData.name,
+          currency: formData.currency,
+          balance: parseFloat(formData.balance),
+          description: formData.description,
+          isDefault: wallets.length === 0,
+          userId: currentUser.id,
+        });
+        showNotification('Tạo ví thành công.', 'success');
+      }
+
+      setFormData({ name: '', currency: 'USD', balance: '', description: '' });
+      setShowForm(false);
+      setEditingId(null);
+    } catch (error: unknown) {
+      showNotification(getApiErrorMessage(error), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEditClick = (wallet: any) => {
@@ -67,6 +84,28 @@ export default function WalletsPage() {
     setShowForm(false);
     setEditingId(null);
     setFormData({ name: '', currency: 'USD', balance: '', description: '' });
+  };
+
+  const handleDeleteWallet = async (walletId: string) => {
+    if (wallets.length <= 1) {
+      showNotification('Không thể xóa ví cuối cùng.', 'warning');
+      return;
+    }
+
+    if (!confirm('Bạn có chắc chắn muốn xóa ví này không?')) {
+      return;
+    }
+
+    setDeletingWalletId(walletId);
+
+    try {
+      await deleteWallet(walletId);
+      showNotification('Xóa ví thành công.', 'success');
+    } catch (error: unknown) {
+      showNotification(getApiErrorMessage(error), 'error');
+    } finally {
+      setDeletingWalletId(null);
+    }
   };
 
   return (
@@ -137,10 +176,10 @@ export default function WalletsPage() {
               </div>
 
               <div className="flex gap-3">
-                <Button type="submit" className="flex-1">
-                  Create Wallet
+                <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                  {isSubmitting ? 'Đang xử lý...' : editingId ? 'Cập nhật ví' : 'Tạo ví'}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+                <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
                   Cancel
                 </Button>
               </div>
@@ -196,14 +235,14 @@ export default function WalletsPage() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        if (wallets.length > 1) deleteWallet(wallet.id);
-                        else alert('Cannot delete the last wallet');
+                        await handleDeleteWallet(wallet.id);
                       }}
+                      disabled={deletingWalletId === wallet.id}
                       className="flex-1"
                     >
-                      Delete
+                      {deletingWalletId === wallet.id ? 'Đang xóa...' : 'Delete'}
                     </Button>
                   </div>
                 </div>

@@ -1,8 +1,24 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import * as Types from './types';
-import { loginApi, signupApi } from './api/auth';
+import { getApiErrorMessage, loginApi, signupApi } from './api/auth';
+import {
+  BackendCategory,
+  createCategoryApi,
+  deleteCategoryApi,
+  listCategoriesApi,
+  updateCategoryApi,
+} from './api/categories';
+import {
+  BackendAccount,
+  CreateAccountPayload,
+  UpdateAccountPayload,
+  createAccountApi,
+  deleteAccountApi,
+  listAccountsApi,
+  updateAccountApi,
+} from './api/accounts';
 interface AppContextType {
   // Auth
   currentUser: Types.User | null;
@@ -15,15 +31,15 @@ interface AppContextType {
   wallets: Types.Wallet[];
   currentWallet: Types.Wallet | null;
   setCurrentWallet: (wallet: Types.Wallet) => void;
-  addWallet: (wallet: Omit<Types.Wallet, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateWallet: (id: string, data: Partial<Types.Wallet>) => void;
-  deleteWallet: (id: string) => void;
+  addWallet: (wallet: Omit<Types.Wallet, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateWallet: (id: string, data: Partial<Types.Wallet>) => Promise<void>;
+  deleteWallet: (id: string) => Promise<void>;
 
   // Categories
   categories: Types.Category[];
-  addCategory: (category: Omit<Types.Category, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateCategory: (id: string, data: Partial<Types.Category>) => void;
-  deleteCategory: (id: string) => void;
+  addCategory: (category: Omit<Types.Category, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateCategory: (id: string, data: Partial<Types.Category>) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
 
   // Transactions
   transactions: Types.Transaction[];
@@ -68,6 +84,78 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [budgets, setBudgets] = useState<Types.Budget[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<Types.SavingsGoal[]>([]);
   const [debts, setDebts] = useState<Types.Debt[]>([]);
+
+  const mapBackendCategoryToCategory = useCallback(
+    (backendCategory: BackendCategory, userId: string): Types.Category => {
+      const now = new Date();
+      return {
+        id: backendCategory.category_id,
+        userId,
+        name: backendCategory.category_name,
+        icon: backendCategory.icon || '📝',
+        color: backendCategory.color || '#0ea5e9',
+        type: backendCategory.category_type,
+        createdAt: now,
+        updatedAt: now,
+      };
+    },
+    []
+  );
+
+  const syncCategoriesFromBackend = useCallback(
+    async (userId: string) => {
+      const response = await listCategoriesApi();
+      const mappedCategories = response.data.map((item) => mapBackendCategoryToCategory(item, userId));
+      setCategories(mappedCategories);
+    },
+    [mapBackendCategoryToCategory]
+  );
+
+  const mapBackendAccountToWallet = useCallback(
+    (backendAccount: BackendAccount, userId: string, isDefault: boolean): Types.Wallet => {
+      const createdAt = backendAccount.created_at ? new Date(backendAccount.created_at) : new Date();
+      const updatedAt = backendAccount.updated_at ? new Date(backendAccount.updated_at) : createdAt;
+
+      return {
+        id: backendAccount.account_id,
+        userId,
+        name: backendAccount.account_name,
+        currency: backendAccount.currency,
+        balance: Number(backendAccount.balance || 0),
+        description: backendAccount.description || undefined,
+        isDefault,
+        createdAt,
+        updatedAt,
+      };
+    },
+    []
+  );
+
+  const syncWalletsFromBackend = useCallback(
+    async (userId: string) => {
+      const response = await listAccountsApi();
+      const mappedWallets = response.data.accounts.map((account, index) =>
+        mapBackendAccountToWallet(account, userId, index === 0)
+      );
+
+      setWallets(mappedWallets);
+      setCurrentWallet((previousWallet) => {
+        if (mappedWallets.length === 0) {
+          return null;
+        }
+
+        if (previousWallet) {
+          const sameWallet = mappedWallets.find((wallet) => wallet.id === previousWallet.id);
+          if (sameWallet) {
+            return sameWallet;
+          }
+        }
+
+        return mappedWallets[0];
+      });
+    },
+    [mapBackendAccountToWallet]
+  );
   // Load data from localStorage on mount
   useEffect(() => {
     const savedUser = localStorage.getItem('expenseapp_user') || sessionStorage.getItem('expenseapp_user');
@@ -93,6 +181,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (savedGoals) setSavingsGoals(JSON.parse(savedGoals));
     if (savedDebts) setDebts(JSON.parse(savedDebts));
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    if (!token) return;
+
+    Promise.all([
+      syncCategoriesFromBackend(currentUser.id),
+      syncWalletsFromBackend(currentUser.id),
+    ]).catch((error) => {
+      console.error('[sync] Failed to sync initial user data:', getApiErrorMessage(error));
+    });
+  }, [currentUser, syncCategoriesFromBackend, syncWalletsFromBackend]);
 
   // Persist data to localStorage
   useEffect(() => {
@@ -150,6 +252,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }
 
   setCurrentUser(user);
+  await Promise.all([syncCategoriesFromBackend(user.id), syncWalletsFromBackend(user.id)]);
 
   return res;
 };
@@ -170,33 +273,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setCurrentUser(user);
 
-    // Map the default account from backend into a wallet
-    const acct = account as Record<string, any>;
-    const defaultWallet: Types.Wallet = {
-      id: acct.account_id,
-      userId: user.id,
-      name: acct.account_name,
-      currency: acct.currency,
-      balance: Number(acct.balance),
-      isDefault: true,
-      createdAt: new Date(acct.created_at),
-      updatedAt: new Date(acct.created_at),
-    };
-    setWallets([defaultWallet]);
-    setCurrentWallet(defaultWallet);
+    // Keep values to avoid unused variables from backend response while syncing from API.
+    void account;
+    void apiCategories;
 
-    // Map default categories from backend
-    const cats: Types.Category[] = (apiCategories as Record<string, any>[]).map((c) => ({
-      id: c.category_id,
-      userId: user.id,
-      name: c.category_name,
-      icon: c.icon,
-      color: c.color,
-      type: c.category_type as 'income' | 'expense',
-      createdAt: new Date(c.created_at),
-      updatedAt: new Date(c.created_at),
-    }));
-    setCategories(cats);
+    await Promise.all([syncWalletsFromBackend(user.id), syncCategoriesFromBackend(user.id)]);
   };
 
   const logout = () => {
@@ -223,44 +304,89 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Wallet functions
-  const addWallet = (wallet: Omit<Types.Wallet, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newWallet: Types.Wallet = {
-      ...wallet,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
-      updatedAt: new Date(),
+  const addWallet = async (wallet: Omit<Types.Wallet, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!currentUser) {
+      throw new Error('Bạn cần đăng nhập để tạo ví.');
+    }
+
+    const payload: CreateAccountPayload = {
+      account_name: wallet.name,
+      account_type: 'cash',
+      currency: wallet.currency,
+      initial_balance: wallet.balance,
+      is_include_in_total: true,
+      description: wallet.description,
     };
-    setWallets([...wallets, newWallet]);
-    if (wallet.isDefault) setCurrentWallet(newWallet);
+
+    await createAccountApi(payload);
+    await syncWalletsFromBackend(currentUser.id);
   };
 
-  const updateWallet = (id: string, data: Partial<Types.Wallet>) => {
-    setWallets(wallets.map(w => w.id === id ? { ...w, ...data, updatedAt: new Date() } : w));
-    if (currentWallet?.id === id) setCurrentWallet({ ...currentWallet, ...data });
+  const updateWallet = async (id: string, data: Partial<Types.Wallet>) => {
+    if (!currentUser) {
+      throw new Error('Bạn cần đăng nhập để cập nhật ví.');
+    }
+
+    const payload: UpdateAccountPayload = {};
+
+    if (data.name !== undefined) payload.account_name = data.name;
+    if (data.currency !== undefined) payload.currency = data.currency;
+    if (data.description !== undefined) payload.description = data.description;
+
+    if (Object.keys(payload).length === 0) {
+      return;
+    }
+
+    await updateAccountApi(id, payload);
+    await syncWalletsFromBackend(currentUser.id);
   };
 
-  const deleteWallet = (id: string) => {
-    setWallets(wallets.filter(w => w.id !== id));
-    if (currentWallet?.id === id) setCurrentWallet(wallets[0] || null);
+  const deleteWallet = async (id: string) => {
+    if (!currentUser) {
+      throw new Error('Bạn cần đăng nhập để xóa ví.');
+    }
+
+    await deleteAccountApi(id);
+    await syncWalletsFromBackend(currentUser.id);
   };
 
   // Category functions
-  const addCategory = (category: Omit<Types.Category, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newCategory: Types.Category = {
-      ...category,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setCategories([...categories, newCategory]);
+  const addCategory = async (category: Omit<Types.Category, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!currentUser) {
+      throw new Error('Bạn cần đăng nhập để tạo danh mục.');
+    }
+
+    await createCategoryApi({
+      category_name: category.name,
+      category_type: category.type,
+      icon: category.icon,
+      color: category.color,
+    });
+
+    await syncCategoriesFromBackend(currentUser.id);
   };
 
-  const updateCategory = (id: string, data: Partial<Types.Category>) => {
-    setCategories(categories.map(c => c.id === id ? { ...c, ...data, updatedAt: new Date() } : c));
+  const updateCategory = async (id: string, data: Partial<Types.Category>) => {
+    if (!currentUser) {
+      throw new Error('Bạn cần đăng nhập để cập nhật danh mục.');
+    }
+
+    await updateCategoryApi(id, {
+      category_name: data.name,
+      icon: data.icon,
+      color: data.color,
+    });
+
+    await syncCategoriesFromBackend(currentUser.id);
   };
 
-  const deleteCategory = (id: string) => {
-    setCategories(categories.filter(c => c.id !== id));
+  const deleteCategory = async (id: string) => {
+    if (!currentUser) {
+      throw new Error('Bạn cần đăng nhập để xóa danh mục.');
+    }
+
+    await deleteCategoryApi(id);
+    await syncCategoriesFromBackend(currentUser.id);
   };
 
   // Transaction functions
@@ -279,7 +405,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const newBalance = transaction.type === 'income'
         ? wallets[walletIdx].balance + transaction.amount
         : wallets[walletIdx].balance - transaction.amount;
-      updateWallet(transaction.walletId, { balance: newBalance });
+      setWallets((prevWallets) =>
+        prevWallets.map((wallet) =>
+          wallet.id === transaction.walletId ? { ...wallet, balance: newBalance, updatedAt: new Date() } : wallet
+        )
+      );
+      setCurrentWallet((previousWallet) =>
+        previousWallet?.id === transaction.walletId
+          ? { ...previousWallet, balance: newBalance, updatedAt: new Date() }
+          : previousWallet
+      );
     }
 
     // Update budget spent
@@ -297,7 +432,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const newBalance = oldTx.type === 'income'
         ? currentWallet!.balance + diff
         : currentWallet!.balance - diff;
-      updateWallet(walletId, { balance: newBalance });
+      setWallets((prevWallets) =>
+        prevWallets.map((wallet) =>
+          wallet.id === walletId ? { ...wallet, balance: newBalance, updatedAt: new Date() } : wallet
+        )
+      );
+      setCurrentWallet((previousWallet) =>
+        previousWallet?.id === walletId
+          ? { ...previousWallet, balance: newBalance, updatedAt: new Date() }
+          : previousWallet
+      );
     }
     setTransactions(transactions.map(t => t.id === id ? { ...t, ...data, updatedAt: new Date() } : t));
   };
@@ -308,7 +452,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const newBalance = tx.type === 'income'
         ? currentWallet!.balance - tx.amount
         : currentWallet!.balance + tx.amount;
-      updateWallet(tx.walletId, { balance: newBalance });
+      setWallets((prevWallets) =>
+        prevWallets.map((wallet) =>
+          wallet.id === tx.walletId ? { ...wallet, balance: newBalance, updatedAt: new Date() } : wallet
+        )
+      );
+      setCurrentWallet((previousWallet) =>
+        previousWallet?.id === tx.walletId
+          ? { ...previousWallet, balance: newBalance, updatedAt: new Date() }
+          : previousWallet
+      );
     }
     setTransactions(transactions.filter(t => t.id !== id));
   };

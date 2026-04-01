@@ -60,7 +60,7 @@ class ReportService:
         current_expense = transactions.filter(transaction_type='expense').aggregate(total=Sum('amount'))['total'] or 0
         current_balance = current_income - current_expense
 
-        # B. SO SÁNH KỲ TRƯỚC
+        # B. SO SÁNH KỲ TRƯỚC ( so sánh với kỳ trước cùng độ dài)
         duration = (end_date - start_date).days + 1
         prev_end_date = start_date - timedelta(days=1)
         prev_start_date = prev_end_date - timedelta(days=duration - 1)

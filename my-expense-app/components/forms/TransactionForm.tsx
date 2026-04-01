@@ -1,84 +1,128 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '@/lib/AppContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import * as Types from '@/lib/types';
+import { getApiErrorMessage } from '@/lib/api/auth';
+import { useNotification } from '@/lib/notification';
+import {
+  BackendTransaction,
+  CreateTransactionPayload,
+  createTransactionApi,
+  updateTransactionApi,
+} from '@/lib/api/transactions';
 
 interface TransactionFormProps {
   editingId?: string | null;
+  editingTransaction?: BackendTransaction | null;
   onClose: () => void;
 }
 
-export default function TransactionForm({ editingId, onClose }: TransactionFormProps) {
-  const { addTransaction, updateTransaction, transactions, categories, currentWallet } = useApp();
-  const [formData, setFormData] = useState({
-    type: 'expense' as 'income' | 'expense',
-    amount: '',
-    categoryId: '',
-    description: '',
-    date: new Date().toISOString().split('T')[0],
-    isRecurring: false,
-    recurringPattern: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
-    attachmentUrl: '',
-  });
+interface TransactionFormData {
+  type: 'income' | 'expense';
+  amount: string;
+  categoryId: string;
+  description: string;
+  date: string;
+  isRecurring: boolean;
+  recurringPattern: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  attachmentUrl: string;
+}
 
-  useEffect(() => {
-    if (editingId) {
-      const tx = transactions.find((t) => t.id === editingId);
-      if (tx) {
-        const newFormData = {
-          type: tx.type as 'income' | 'expense',
-          amount: tx.amount.toString(),
-          categoryId: tx.categoryId,
-          description: tx.description,
-          date: new Date(tx.date).toISOString().split('T')[0],
-          isRecurring: tx.isRecurring,
-          recurringPattern: (tx.recurringPattern || 'monthly') as 'daily' | 'weekly' | 'monthly' | 'yearly',
-          attachmentUrl: tx.attachmentUrl || '',
-        };
-        setFormData(newFormData);
-      }
-    }
-  }, [editingId, transactions]);
+const defaultFormData: TransactionFormData = {
+  type: 'expense' as 'income' | 'expense',
+  amount: '',
+  categoryId: '',
+  description: '',
+  date: new Date().toISOString().split('T')[0],
+  isRecurring: false,
+  recurringPattern: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+  attachmentUrl: '',
+};
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+export default function TransactionForm({ editingId, editingTransaction, onClose }: TransactionFormProps) {
+  const { categories, currentWallet } = useApp();
+  const { showNotification } = useNotification();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const initialFormData = useMemo<TransactionFormData>(() => {
+    if (!editingTransaction) return defaultFormData;
+
+    return {
+      type: editingTransaction.transaction_type === 'income' ? 'income' : 'expense',
+      amount: String(editingTransaction.amount),
+      categoryId: editingTransaction.category_id,
+      description: editingTransaction.description || '',
+      date: new Date(editingTransaction.transaction_date).toISOString().split('T')[0],
+      isRecurring: editingTransaction.is_recurring,
+      recurringPattern: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+      attachmentUrl: editingTransaction.receipt_image_url || '',
+    };
+  }, [editingTransaction]);
+
+  const [formData, setFormData] = useState<TransactionFormData>(initialFormData);
+
+  const sanitizedReceiptUrl = useMemo(() => {
+    if (!formData.attachmentUrl) return '';
+    if (formData.attachmentUrl.startsWith('blob:')) return '';
+    return formData.attachmentUrl;
+  }, [formData.attachmentUrl]);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!formData.amount || !formData.categoryId || !formData.description) {
-      alert('Please fill all required fields');
+      showNotification('Please fill all required fields', 'error');
       return;
     }
 
     if (!currentWallet) {
-      alert('No wallet selected. Please select a wallet before adding transactions.');
+      showNotification('No wallet selected. Please select a wallet before adding transactions.', 'error');
       return;
     }
 
-    if (editingId) {
-      updateTransaction(editingId, {
-        ...formData,
-        amount: parseFloat(formData.amount),
-        date: new Date(formData.date),
-      });
-    } else {
-      addTransaction({
-        type: formData.type,
-        amount: parseFloat(formData.amount),
-        categoryId: formData.categoryId,
-        description: formData.description,
-        date: new Date(formData.date),
-        isRecurring: formData.isRecurring,
-        recurringPattern: formData.recurringPattern,
-        walletId: currentWallet!.id,
-        userId: '', // Demo user
-        tags: [],
-        attachmentUrl: formData.attachmentUrl || '',
-      } as Omit<Types.Transaction, 'id' | 'createdAt' | 'updatedAt'>);
-    }
+    const payload: CreateTransactionPayload = {
+      account_id: currentWallet.id,
+      category_id: formData.categoryId,
+      transaction_type: formData.type,
+      transaction_date: `${formData.date}T00:00:00`,
+      description: formData.description,
+      note: '',
+      location: '',
+      receipt_image_url: sanitizedReceiptUrl,
+      is_recurring: formData.isRecurring,
+      recurring_id: '',
+      amount: parseFloat(formData.amount),
+    };
 
-    onClose();
+    setIsSubmitting(true);
+    try {
+      if (editingId) {
+        await updateTransactionApi(editingId, payload);
+      } else {
+        await createTransactionApi({
+          account_id: payload.account_id,
+          category_id: payload.category_id,
+          amount: payload.amount,
+          transaction_type: payload.transaction_type,
+          transaction_date: payload.transaction_date,
+          description: payload.description,
+          note: payload.note,
+          location: payload.location,
+          receipt_image_url: payload.receipt_image_url,
+          is_recurring: payload.is_recurring,
+          recurring_id: payload.recurring_id,
+        });
+      }
+
+      showNotification(editingId ? 'Transaction updated successfully.' : 'Transaction created successfully.', 'success');
+      onClose();
+    } catch (error) {
+      showNotification(getApiErrorMessage(error), 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const expenseCategories = categories.filter((c) => c.type === 'expense');
@@ -176,6 +220,11 @@ export default function TransactionForm({ editingId, onClose }: TransactionFormP
         {formData.attachmentUrl && (
           <img src={formData.attachmentUrl} alt="Receipt" className="mt-2 h-24 w-24 object-cover rounded-md border" />
         )}
+        {formData.attachmentUrl.startsWith('blob:') && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Local preview image is not uploaded yet, so receipt URL will be skipped for this transaction.
+          </p>
+        )}
       </div>
 
       <div className="pt-4 border-t">
@@ -204,10 +253,10 @@ export default function TransactionForm({ editingId, onClose }: TransactionFormP
       </div>
 
       <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1">
-          {editingId ? 'Update' : 'Add'} Transaction
+        <Button type="submit" className="flex-1" disabled={isSubmitting}>
+          {isSubmitting ? 'Saving...' : editingId ? 'Update' : 'Add'} Transaction
         </Button>
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           Cancel
         </Button>
       </div>

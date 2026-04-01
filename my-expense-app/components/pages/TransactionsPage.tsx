@@ -1,25 +1,105 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '@/lib/AppContext';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import TransactionForm from '../forms/TransactionForm';
+import { getApiErrorMessage } from '@/lib/api/auth';
+import { useNotification } from '@/lib/notification';
+import {
+  BackendTransaction,
+  deleteTransactionApi,
+  listTransactionsApi,
+} from '@/lib/api/transactions';
+
+type Transaction = BackendTransaction;
 
 export default function TransactionsPage() {
-  const { transactions, categories, currentWallet, deleteTransaction } = useApp();
+  const { currentWallet } = useApp();
+  const { showNotification } = useNotification();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [searchText, setSearchText] = useState('');
 
-  const filteredTransactions = transactions.filter((tx) => {
-    if (tx.walletId !== currentWallet?.id) return false;
-    if (filterType !== 'all' && tx.type !== filterType) return false;
-    if (searchText && !tx.description.toLowerCase().includes(searchText.toLowerCase())) return false;
-    return true;
-  });
+  const fetchTransactions = useCallback(async () => {
+    if (!currentWallet) {
+      setTransactions([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await listTransactionsApi({
+        account_id: currentWallet.id,
+        transaction_type: filterType === 'all' ? undefined : filterType,
+        keyword: searchText || undefined,
+      });
+
+      if (result.success) {
+        setTransactions(result.data);
+      } else {
+        throw new Error(result.message || 'Đã xảy ra lỗi khi tải dữ liệu');
+      }
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error);
+      setError(message);
+      showNotification(message, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentWallet, filterType, searchText, showNotification]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchTransactions();
+    }, 300); // Debounce để tránh gọi API liên tục khi gõ
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [fetchTransactions]);
+
+  const deleteTransactionAPI = async (transactionId: string) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa giao dịch này không?')) {
+      return;
+    }
+
+    try {
+      const result = await deleteTransactionApi(transactionId);
+
+      if (result.success) {
+        showNotification('Xóa giao dịch thành công.', 'success');
+        fetchTransactions(); // Tải lại danh sách sau khi xóa
+      } else {
+        throw new Error(result.message || 'Không thể xóa giao dịch.');
+      }
+    } catch (error: unknown) {
+      showNotification(getApiErrorMessage(error), 'error');
+    }
+  };
+
+  const onFormClose = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setEditingTransaction(null);
+    fetchTransactions(); // Tải lại dữ liệu khi form đóng
+  };
+
+  const onEditTransaction = (transaction: Transaction) => {
+    setEditingId(transaction.transaction_id);
+    setEditingTransaction(transaction);
+    setShowForm(true);
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -42,8 +122,10 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             <TransactionForm
+              key={editingId || 'create'}
               editingId={editingId}
-              onClose={() => { setShowForm(false); setEditingId(null); }}
+              editingTransaction={editingTransaction}
+              onClose={onFormClose}
             />
           </CardContent>
         </Card>
@@ -51,76 +133,72 @@ export default function TransactionsPage() {
 
       <div className="flex gap-4">
         <Input
-          placeholder="Search transactions..."
+          placeholder="Tìm kiếm giao dịch..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           className="flex-1"
         />
         <select
           value={filterType}
-          onChange={(e) => setFilterType(e.target.value as any)}
+          onChange={(e) => setFilterType(e.target.value as 'all' | 'income' | 'expense')}
           className="px-4 py-2 border rounded-lg bg-background"
         >
-          <option value="all">All Types</option>
-          <option value="income">Income</option>
-          <option value="expense">Expense</option>
+          <option value="all">Tất cả</option>
+          <option value="income">Thu nhập</option>
+          <option value="expense">Chi tiêu</option>
         </select>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
+          <CardTitle>Lịch sử giao dịch</CardTitle>
           <CardDescription>
-            {filteredTransactions.length} transactions found
+            {isLoading ? 'Đang tải...' : `${transactions.length} giao dịch được tìm thấy`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {filteredTransactions.length > 0 ? (
-              filteredTransactions.map((tx) => {
-                const category = categories.find((c) => c.id === tx.categoryId);
+            {isLoading ? (
+              <div className="text-center py-12">Đang tải dữ liệu...</div>
+            ) : error ? (
+              <div className="text-center py-12 text-destructive">{error}</div>
+            ) : transactions.length > 0 ? (
+              transactions.map((tx) => {
                 return (
                   <div
-                    key={tx.id}
+                    key={tx.transaction_id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-secondary/50 transition"
                   >
                     <div className="flex items-center gap-4 flex-1">
-                      <span className="text-3xl">{category?.icon}</span>
+                      <span className="text-3xl">{tx.category_icon || '📝'}</span>
                       <div className="flex-1">
-                        <p className="font-semibold">{category?.name}</p>
+                        <p className="font-semibold">{tx.category_name}</p>
                         <p className="text-sm text-muted-foreground">{tx.description}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(tx.date).toLocaleDateString()}
-                          {tx.isRecurring && ` • Recurring: ${tx.recurringPattern}`}
+                          {new Date(tx.transaction_date).toLocaleDateString()}
+                          {tx.is_recurring && ` • Định kỳ`}
                         </p>
-                        {tx.attachmentUrl && (
-                          <img
-                            src={tx.attachmentUrl}
-                            alt="Receipt"
-                            className="mt-2 h-20 w-20 object-cover rounded-md border"
-                          />
-                        )}
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`font-bold text-lg ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                        {tx.type === 'income' ? '+' : '-'} {currentWallet?.currency || 'USD'} {tx.amount.toFixed(2)}
+                      <p className={`font-bold text-lg ${tx.transaction_type === 'income' ? 'text-success' : 'text-destructive'}`}>
+                        {tx.transaction_type === 'income' ? '+' : '-'} {currentWallet?.currency || 'USD'} {Number(tx.amount).toFixed(2)}
                       </p>
                     </div>
                     <div className="flex gap-2 ml-4">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => { setEditingId(tx.id); setShowForm(true); }}
+                        onClick={() => onEditTransaction(tx)}
                       >
-                        Edit
+                        Sửa
                       </Button>
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => deleteTransaction(tx.id)}
+                        onClick={() => deleteTransactionAPI(tx.transaction_id)}
                       >
-                        Delete
+                        Xóa
                       </Button>
                     </div>
                   </div>
@@ -128,7 +206,7 @@ export default function TransactionsPage() {
               })
             ) : (
               <div className="text-center py-12">
-                <p className="text-muted-foreground">No transactions found</p>
+                <p className="text-muted-foreground">Không tìm thấy giao dịch nào.</p>
               </div>
             )}
           </div>
