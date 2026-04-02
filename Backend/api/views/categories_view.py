@@ -13,6 +13,8 @@ from api.serializers.categories_serializers import (
 )
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import OpenApiResponse
+from drf_spectacular.utils import OpenApiParameter
+from api.pagination import CustomPagination
 
 class CategoryViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
@@ -27,27 +29,49 @@ class CategoryViewSet(viewsets.ViewSet):
     # ===================== LIST CATEGORIES =====================
 
     @extend_schema(
-        request=CategoryListSerializer,
+        parameters=[
+            OpenApiParameter(name='p', description='Trang hiện tại (mặc định 1)', required=False, type=int),
+            OpenApiParameter(name='ipp', description='Số lượng bản ghi mỗi trang', required=False, type=int),
+            OpenApiParameter(name='search', description='Từ khóa tìm kiếm theo tên', required=False, type=str),
+            OpenApiParameter(name='category_type', description='Loại (income/expense)', required=False, type=str),
+            OpenApiParameter(name='is_default', description='Danh mục mặc định (true/false)', required=False, type=bool),
+        ],
         responses={
-            200: OpenApiResponse(
-                description="Lấy danh sách danh mục "
-            )
+            200: OpenApiResponse(description="Lấy danh sách danh mục thành công")
         }
     )
     @action(detail=False, methods=['get'], url_path='list')
     def list_categories(self, request):
         try:
-            categories = CategoryService.get_categories(request.user)
-            # print(f"Categories for user {request.user.user_id}: {categories}")
-            serializer = CategoryListSerializer(categories, many=True)
-            
-            return Response({
-                'success': True,
-                'message': 'Lấy danh sách danh mục thành công',
-                'data': serializer.data
-            }, status=status.HTTP_200_OK)
+            # 1. Lấy queryset cơ bản từ Service
+            queryset = CategoryService.get_categories(request.user)
+
+            # 2. Lấy các tham số filter từ URL
+            search_query = request.query_params.get('search', '').strip()
+            category_type = request.query_params.get('category_type', '').strip()
+            is_default = request.query_params.get('is_default', None)
+
+            # 3. Áp dụng filter (Lọc & Tìm kiếm)
+            if search_query:
+                queryset = queryset.filter(category_name__icontains=search_query)
+            if category_type in ['income', 'expense']:
+                queryset = queryset.filter(category_type=category_type)
+            if is_default is not None:
+                is_default_bool = str(is_default).lower() == 'true'
+                queryset = queryset.filter(is_default=is_default_bool)
+
+            # Đảm bảo sắp xếp để phân trang hoạt động ổn định
+            queryset = queryset.order_by('-created_at')
+
+            # 4. Phân trang
+            paginator = CustomPagination()
+            paginated_queryset = paginator.paginate_queryset(queryset, request)
+
+            # 5. Serialize & Trả về Response chuẩn hoá
+            serializer = CategoryListSerializer(paginated_queryset, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
         except Exception as e:
-            # print(f"Error occurred while fetching categories for user {request.user.user_id}: {e}")
             return Response({
                 'success': False,
                 'message': 'Đã xảy ra lỗi khi lấy danh sách danh mục'
@@ -93,7 +117,7 @@ class CategoryViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response({
                 'success': False,
-                'message': 'Đã xảy ra lỗi khi tạo danh mục'
+                'message': f'Đã xảy ra lỗi khi tạo danh mục: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # ===================== UPDATE  =====================
