@@ -22,8 +22,11 @@ interface TransactionFormProps {
 interface TransactionFormData {
   type: 'income' | 'expense';
   amount: string;
+  accountId: string;
   categoryId: string;
   description: string;
+  note: string;
+  location: string;
   date: string;
   isRecurring: boolean;
   recurringPattern: 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -31,35 +34,61 @@ interface TransactionFormData {
 }
 
 const defaultFormData: TransactionFormData = {
-  type: 'expense' as 'income' | 'expense',
+  type: 'expense',
   amount: '',
+  accountId: '',
   categoryId: '',
   description: '',
+  note: '',
+  location: '',
   date: new Date().toISOString().split('T')[0],
   isRecurring: false,
-  recurringPattern: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+  recurringPattern: 'monthly',
   attachmentUrl: '',
 };
 
-export default function TransactionForm({ editingId, editingTransaction, onClose }: TransactionFormProps) {
-  const { categories, currentWallet } = useApp();
+const formatAmount = (value: string) => {
+  if (!value) return '';
+  const raw = value.replace(/[^\d]/g, '');
+  if (!raw) return '';
+  return Number(raw).toLocaleString('vi-VN');
+};
+
+const normalizeAmountInput = (value: string) => {
+  return value.replace(/[^\d]/g, '');
+};
+
+export default function TransactionForm({
+  editingId,
+  editingTransaction,
+  onClose,
+}: TransactionFormProps) {
+  const { categories, currentWallet, wallets } = useApp();
   const { showNotification } = useNotification();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const initialFormData = useMemo<TransactionFormData>(() => {
-    if (!editingTransaction) return defaultFormData;
+    if (!editingTransaction) {
+      return {
+        ...defaultFormData,
+        accountId: currentWallet?.id || '',
+      };
+    }
 
     return {
       type: editingTransaction.transaction_type === 'income' ? 'income' : 'expense',
       amount: String(editingTransaction.amount),
+      accountId: editingTransaction.account_id,
       categoryId: editingTransaction.category_id,
       description: editingTransaction.description || '',
+      note: editingTransaction.note || '',
+      location: editingTransaction.location || '',
       date: new Date(editingTransaction.transaction_date).toISOString().split('T')[0],
-      isRecurring: editingTransaction.is_recurring,
-      recurringPattern: 'monthly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+      isRecurring: Boolean(editingTransaction.is_recurring),
+      recurringPattern: 'monthly',
       attachmentUrl: editingTransaction.receipt_image_url || '',
     };
-  }, [editingTransaction]);
+  }, [editingTransaction, currentWallet?.id]);
 
   const [formData, setFormData] = useState<TransactionFormData>(initialFormData);
 
@@ -72,27 +101,22 @@ export default function TransactionForm({ editingId, editingTransaction, onClose
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!formData.amount || !formData.categoryId || !formData.description) {
+    if (!formData.amount || !formData.accountId || !formData.categoryId || !formData.description) {
       showNotification('Please fill all required fields', 'error');
       return;
     }
 
-    if (!currentWallet) {
-      showNotification('No wallet selected. Please select a wallet before adding transactions.', 'error');
-      return;
-    }
-
     const payload: CreateTransactionPayload = {
-      account_id: currentWallet.id,
+      account_id: formData.accountId,
       category_id: formData.categoryId,
       transaction_type: formData.type,
-      transaction_date: `${formData.date}T00:00:00`,
+      transaction_date: `${formData.date} 00:00:00`,
       description: formData.description,
-      note: '',
-      location: '',
+      note: formData.note,
+      location: formData.location,
       receipt_image_url: sanitizedReceiptUrl,
       is_recurring: formData.isRecurring,
-      recurring_id: '',
+      recurring_id: formData.isRecurring ? 'REC001' : '',
       amount: parseFloat(formData.amount),
     };
 
@@ -116,7 +140,10 @@ export default function TransactionForm({ editingId, editingTransaction, onClose
         });
       }
 
-      showNotification(editingId ? 'Transaction updated successfully.' : 'Transaction created successfully.', 'success');
+      showNotification(
+        editingId ? 'Transaction updated successfully.' : 'Transaction created successfully.',
+        'success'
+      );
       onClose();
     } catch (error) {
       showNotification(getApiErrorMessage(error), 'error');
@@ -125,21 +152,27 @@ export default function TransactionForm({ editingId, editingTransaction, onClose
     }
   };
 
+  const selectedWallet = wallets.find((w) => w.id === formData.accountId);
+
   const expenseCategories = categories.filter((c) => c.type === 'expense');
   const incomeCategories = categories.filter((c) => c.type === 'income');
   const relevantCategories = formData.type === 'income' ? incomeCategories : expenseCategories;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="text-sm font-medium">Type</label>
           <select
             value={formData.type}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-              setFormData({ ...formData, type: e.target.value as 'income' | 'expense', categoryId: '' });
+              setFormData({
+                ...formData,
+                type: e.target.value as 'income' | 'expense',
+                categoryId: '',
+              });
             }}
-            className="w-full mt-2 px-3 py-2 border rounded-lg bg-background"
+            className="mt-2 w-full rounded-lg border bg-background px-3 py-2"
           >
             <option value="expense">Expense</option>
             <option value="income">Income</option>
@@ -147,11 +180,32 @@ export default function TransactionForm({ editingId, editingTransaction, onClose
         </div>
 
         <div>
+          <label className="text-sm font-medium">Wallet</label>
+          <select
+            value={formData.accountId}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setFormData({ ...formData, accountId: e.target.value })
+            }
+            className="mt-2 w-full rounded-lg border bg-background px-3 py-2"
+            required
+          >
+            <option value="">Select Wallet</option>
+            {wallets.map((wallet) => (
+              <option key={wallet.id} value={wallet.id}>
+                {wallet.name} ({wallet.currency})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label className="text-sm font-medium">Category</label>
           <select
             value={formData.categoryId}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, categoryId: e.target.value })}
-            className="w-full mt-2 px-3 py-2 border rounded-lg bg-background"
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setFormData({ ...formData, categoryId: e.target.value })
+            }
+            className="mt-2 w-full rounded-lg border bg-background px-3 py-2"
             required
           >
             <option value="">Select Category</option>
@@ -166,16 +220,19 @@ export default function TransactionForm({ editingId, editingTransaction, onClose
 
       <div>
         <label className="text-sm font-medium">Amount</label>
-        <div className="flex gap-2 mt-2">
-          <span className="px-3 py-2 bg-secondary rounded-lg font-medium">
-            {currentWallet?.currency || 'USD'}
+        <div className="mt-2 flex gap-2">
+          <span className="rounded-lg bg-secondary px-3 py-2 font-medium">
+            {selectedWallet?.currency || 'USD'}
           </span>
           <Input
-            type="number"
-            step="0.01"
-            placeholder="0.00"
-            value={formData.amount}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, amount: e.target.value })}
+            type="text"
+            inputMode="numeric"
+            placeholder="0"
+            value={formatAmount(formData.amount)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              const raw = normalizeAmountInput(e.target.value);
+              setFormData({ ...formData, amount: raw });
+            }}
             required
           />
         </div>
@@ -186,8 +243,32 @@ export default function TransactionForm({ editingId, editingTransaction, onClose
         <Input
           placeholder="What is this transaction for?"
           value={formData.description}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, description: e.target.value })}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
           required
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Note</label>
+        <Input
+          placeholder="Optional note"
+          value={formData.note}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setFormData({ ...formData, note: e.target.value })
+          }
+        />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Location</label>
+        <Input
+          placeholder="e.g. Ho Chi Minh City"
+          value={formData.location}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setFormData({ ...formData, location: e.target.value })
+          }
         />
       </div>
 
@@ -196,7 +277,9 @@ export default function TransactionForm({ editingId, editingTransaction, onClose
         <Input
           type="date"
           value={formData.date}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, date: e.target.value })}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setFormData({ ...formData, date: e.target.value })
+          }
           required
         />
       </div>
@@ -218,7 +301,11 @@ export default function TransactionForm({ editingId, editingTransaction, onClose
           className="mt-2"
         />
         {formData.attachmentUrl && (
-          <img src={formData.attachmentUrl} alt="Receipt" className="mt-2 h-24 w-24 object-cover rounded-md border" />
+          <img
+            src={formData.attachmentUrl}
+            alt="Receipt"
+            className="mt-2 h-24 w-24 rounded-md border object-cover"
+          />
         )}
         {formData.attachmentUrl.startsWith('blob:') && (
           <p className="mt-2 text-xs text-muted-foreground">
@@ -227,12 +314,14 @@ export default function TransactionForm({ editingId, editingTransaction, onClose
         )}
       </div>
 
-      <div className="pt-4 border-t">
-        <label className="flex items-center gap-2 cursor-pointer">
+      <div className="border-t pt-4">
+        <label className="flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"
             checked={formData.isRecurring}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, isRecurring: e.target.checked })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setFormData({ ...formData, isRecurring: e.target.checked })
+            }
             className="rounded"
           />
           <span className="text-sm font-medium">This is a recurring transaction</span>
@@ -241,8 +330,13 @@ export default function TransactionForm({ editingId, editingTransaction, onClose
         {formData.isRecurring && (
           <select
             value={formData.recurringPattern}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, recurringPattern: e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly' })}
-            className="w-full mt-3 px-3 py-2 border rounded-lg bg-background"
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setFormData({
+                ...formData,
+                recurringPattern: e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly',
+              })
+            }
+            className="mt-3 w-full rounded-lg border bg-background px-3 py-2"
           >
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>

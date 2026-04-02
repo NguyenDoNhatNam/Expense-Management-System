@@ -10,13 +10,28 @@ import { Input } from '../ui/input';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'VND', 'CNY', 'AUD', 'CAD', 'SGD', 'HKD'];
 
+// ✅ FORMAT HIỂN THỊ (1.000.000)
+const formatAmount = (value: string) => {
+  if (!value) return '';
+  const raw = value.replace(/[^\d]/g, '');
+  if (!raw) return '';
+  return Number(raw).toLocaleString('vi-VN');
+};
+
+// ✅ LẤY GIÁ TRỊ THÔ (1000000)
+const normalizeAmountInput = (value: string) => {
+  return value.replace(/[^\d]/g, '');
+};
+
 export default function WalletsPage() {
   const { wallets, addWallet, updateWallet, deleteWallet, currentWallet, setCurrentWallet, currentUser } = useApp();
   const { showNotification } = useNotification();
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingWalletId, setDeletingWalletId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     name: '',
     currency: 'USD',
@@ -28,12 +43,12 @@ export default function WalletsPage() {
     e.preventDefault();
 
     if (!formData.name || !formData.currency || !formData.balance) {
-      showNotification('Vui lòng điền đầy đủ các trường bắt buộc.', 'warning');
+      showNotification('Please fill in all required fields.', 'warning');
       return;
     }
 
     if (!currentUser) {
-      showNotification('Bạn cần đăng nhập để thao tác ví.', 'error');
+      showNotification('You need to log in to manage wallets.', 'error');
       return;
     }
 
@@ -46,17 +61,17 @@ export default function WalletsPage() {
           currency: formData.currency,
           description: formData.description,
         });
-        showNotification('Cập nhật ví thành công.', 'success');
+        showNotification('Wallet updated successfully.', 'success');
       } else {
         await addWallet({
           name: formData.name,
           currency: formData.currency,
-          balance: parseFloat(formData.balance),
+          balance: parseFloat(formData.balance), // ✅ vẫn là số
           description: formData.description,
           isDefault: wallets.length === 0,
           userId: currentUser.id,
         });
-        showNotification('Tạo ví thành công.', 'success');
+        showNotification('Wallet created successfully.', 'success');
       }
 
       setFormData({ name: '', currency: 'USD', balance: '', description: '' });
@@ -74,7 +89,7 @@ export default function WalletsPage() {
     setFormData({
       name: wallet.name,
       currency: wallet.currency,
-      balance: wallet.balance.toString(),
+      balance: String(wallet.balance ?? ''),
       description: wallet.description || '',
     });
     setShowForm(true);
@@ -88,11 +103,11 @@ export default function WalletsPage() {
 
   const handleDeleteWallet = async (walletId: string) => {
     if (wallets.length <= 1) {
-      showNotification('Không thể xóa ví cuối cùng.', 'warning');
+      showNotification('You cannot delete the last wallet.', 'warning');
       return;
     }
 
-    if (!confirm('Bạn có chắc chắn muốn xóa ví này không?')) {
+    if (!confirm('Are you sure you want to delete this wallet?')) {
       return;
     }
 
@@ -100,7 +115,7 @@ export default function WalletsPage() {
 
     try {
       await deleteWallet(walletId);
-      showNotification('Xóa ví thành công.', 'success');
+      showNotification('Wallet deleted successfully.', 'success');
     } catch (error: unknown) {
       showNotification(getApiErrorMessage(error), 'error');
     } finally {
@@ -123,16 +138,18 @@ export default function WalletsPage() {
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>Add New Wallet</CardTitle>
+            <CardTitle>{editingId ? 'Edit Wallet' : 'Add New Wallet'}</CardTitle>
+            <CardDescription>
+              {editingId ? 'Update wallet information' : 'Create a new financial account'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleAddWallet} className="space-y-4">
               <div>
                 <label className="text-sm font-medium">Wallet Name</label>
                 <Input
-                  placeholder="e.g., Checking Account"
                   value={formData.name}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
               </div>
@@ -142,44 +159,44 @@ export default function WalletsPage() {
                   <label className="text-sm font-medium">Currency</label>
                   <select
                     value={formData.currency}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, currency: e.target.value })}
-                    className="w-full mt-2 px-3 py-2 border rounded-lg bg-background"
+                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                    className="mt-2 w-full rounded-lg border px-3 py-2"
                   >
                     {CURRENCIES.map((curr) => (
-                      <option key={curr} value={curr}>
-                        {curr}
-                      </option>
+                      <option key={curr}>{curr}</option>
                     ))}
                   </select>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium">Initial Balance</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={formData.balance}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, balance: e.target.value })}
-                      required
-                    />
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={formatAmount(formData.balance)}
+                    onChange={(e) => {
+                      const raw = normalizeAmountInput(e.target.value);
+                      setFormData({ ...formData, balance: raw });
+                    }}
+                    required
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium">Description (Optional)</label>
+                <label className="text-sm font-medium">Description</label>
                 <Input
-                  placeholder="Add notes about this wallet..."
                   value={formData.description}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
 
               <div className="flex gap-3">
                 <Button type="submit" className="flex-1" disabled={isSubmitting}>
-                  {isSubmitting ? 'Đang xử lý...' : editingId ? 'Cập nhật ví' : 'Tạo ví'}
+                  {isSubmitting ? 'Processing...' : editingId ? 'Update Wallet' : 'Create Wallet'}
                 </Button>
-                <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
+                <Button type="button" variant="outline" onClick={handleCancel}>
                   Cancel
                 </Button>
               </div>
@@ -188,74 +205,32 @@ export default function WalletsPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {wallets.length > 0 ? (
-          wallets.map((wallet) => (
-            <Card
-              key={wallet.id}
-              className={`cursor-pointer transition ${currentWallet?.id === wallet.id ? 'ring-2 ring-primary' : ''}`}
-              onClick={() => setCurrentWallet(wallet)}
-            >
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between mb-6">
-                  <div>
-                    <h3 className="font-bold text-lg">{wallet.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {wallet.currency}
-                      {wallet.isDefault && ' • Default'}
-                    </p>
-                  </div>
-                  <span className="text-3xl">👛</span>
-                </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {wallets.map((wallet) => (
+          <Card key={wallet.id} onClick={() => setCurrentWallet(wallet)}>
+            <CardContent className="pt-6">
+              <h3 className="text-lg font-bold">{wallet.name}</h3>
+              <p className="text-sm text-muted-foreground">{wallet.currency}</p>
 
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Balance</p>
-                    <p className="text-3xl font-bold">
-                      {wallet.currency} {wallet.balance.toFixed(2)}
-                    </p>
-                  </div>
+              <p className="text-3xl font-bold mt-4">
+                {wallet.currency} {Number(wallet.balance).toLocaleString('vi-VN')}
+              </p>
 
-                  {wallet.description && (
-                    <p className="text-sm text-muted-foreground">{wallet.description}</p>
-                  )}
-
-                  <div className="flex gap-2 pt-4 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditClick(wallet);
-                      }}
-                      className="flex-1"
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        await handleDeleteWallet(wallet.id);
-                      }}
-                      disabled={deletingWalletId === wallet.id}
-                      className="flex-1"
-                    >
-                      {deletingWalletId === wallet.id ? 'Đang xóa...' : 'Delete'}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <Card>
-            <CardContent className="pt-6 text-center">
-              <p className="text-muted-foreground">No wallets yet. Create one to get started!</p>
+              <div className="flex gap-2 mt-4">
+                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleEditClick(wallet); }}>
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={(e) => { e.stopPropagation(); handleDeleteWallet(wallet.id); }}
+                >
+                  Delete
+                </Button>
+              </div>
             </CardContent>
           </Card>
-        )}
+        ))}
       </div>
     </div>
   );

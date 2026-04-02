@@ -16,6 +16,12 @@ import {
 
 type Transaction = BackendTransaction;
 
+const formatAmount = (value: number | string) => {
+  const num = typeof value === 'string' ? Number(value) : value;
+  if (Number.isNaN(num)) return String(value);
+  return num.toLocaleString('vi-VN');
+};
+
 export default function TransactionsPage() {
   const { currentWallet } = useApp();
   const { showNotification } = useNotification();
@@ -35,6 +41,7 @@ export default function TransactionsPage() {
       setIsLoading(false);
       return;
     }
+
     setIsLoading(true);
     setError(null);
 
@@ -48,7 +55,7 @@ export default function TransactionsPage() {
       if (result.success) {
         setTransactions(result.data);
       } else {
-        throw new Error(result.message || 'Đã xảy ra lỗi khi tải dữ liệu');
+        throw new Error(result.message || 'An error occurred while loading the data.');
       }
     } catch (error: unknown) {
       const message = getApiErrorMessage(error);
@@ -62,7 +69,7 @@ export default function TransactionsPage() {
   useEffect(() => {
     const handler = setTimeout(() => {
       fetchTransactions();
-    }, 300); // Debounce để tránh gọi API liên tục khi gõ
+    }, 300);
 
     return () => {
       clearTimeout(handler);
@@ -70,7 +77,7 @@ export default function TransactionsPage() {
   }, [fetchTransactions]);
 
   const deleteTransactionAPI = async (transactionId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa giao dịch này không?')) {
+    if (!confirm('Are you sure you want to delete this transaction?')) {
       return;
     }
 
@@ -78,10 +85,10 @@ export default function TransactionsPage() {
       const result = await deleteTransactionApi(transactionId);
 
       if (result.success) {
-        showNotification('Xóa giao dịch thành công.', 'success');
-        fetchTransactions(); // Tải lại danh sách sau khi xóa
+        showNotification('Transaction deleted successfully.', 'success');
+        fetchTransactions();
       } else {
-        throw new Error(result.message || 'Không thể xóa giao dịch.');
+        throw new Error(result.message || 'Failed to delete transaction.');
       }
     } catch (error: unknown) {
       showNotification(getApiErrorMessage(error), 'error');
@@ -92,7 +99,7 @@ export default function TransactionsPage() {
     setShowForm(false);
     setEditingId(null);
     setEditingTransaction(null);
-    fetchTransactions(); // Tải lại dữ liệu khi form đóng
+    fetchTransactions();
   };
 
   const onEditTransaction = (transaction: Transaction) => {
@@ -108,7 +115,12 @@ export default function TransactionsPage() {
           <h2 className="text-3xl font-bold">Transactions</h2>
           <p className="text-muted-foreground mt-1">Manage your income and expenses</p>
         </div>
-        <Button onClick={() => { setEditingId(null); setShowForm(!showForm); }}>
+        <Button
+          onClick={() => {
+            setEditingId(null);
+            setShowForm(!showForm);
+          }}
+        >
           {showForm ? 'Cancel' : '+ Add Transaction'}
         </Button>
       </div>
@@ -116,9 +128,7 @@ export default function TransactionsPage() {
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>
-              {editingId ? 'Edit Transaction' : 'Add New Transaction'}
-            </CardTitle>
+            <CardTitle>{editingId ? 'Edit Transaction' : 'Add New Transaction'}</CardTitle>
           </CardHeader>
           <CardContent>
             <TransactionForm
@@ -133,7 +143,7 @@ export default function TransactionsPage() {
 
       <div className="flex gap-4">
         <Input
-          placeholder="Tìm kiếm giao dịch..."
+          placeholder="Search transactions..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           className="flex-1"
@@ -143,23 +153,23 @@ export default function TransactionsPage() {
           onChange={(e) => setFilterType(e.target.value as 'all' | 'income' | 'expense')}
           className="px-4 py-2 border rounded-lg bg-background"
         >
-          <option value="all">Tất cả</option>
-          <option value="income">Thu nhập</option>
-          <option value="expense">Chi tiêu</option>
+          <option value="all">All</option>
+          <option value="income">Income</option>
+          <option value="expense">Expense</option>
         </select>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Lịch sử giao dịch</CardTitle>
+          <CardTitle>History transactions</CardTitle>
           <CardDescription>
-            {isLoading ? 'Đang tải...' : `${transactions.length} giao dịch được tìm thấy`}
+            {isLoading ? 'Loading...' : `${transactions.length} transactions found`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {isLoading ? (
-              <div className="text-center py-12">Đang tải dữ liệu...</div>
+              <div className="text-center py-12">Loading data...</div>
             ) : error ? (
               <div className="text-center py-12 text-destructive">{error}</div>
             ) : transactions.length > 0 ? (
@@ -180,25 +190,28 @@ export default function TransactionsPage() {
                         </p>
                       </div>
                     </div>
+
                     <div className="text-right">
-                      <p className={`font-bold text-lg ${tx.transaction_type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                        {tx.transaction_type === 'income' ? '+' : '-'} {currentWallet?.currency || 'USD'} {Number(tx.amount).toFixed(2)}
+                      <p
+                        className={`font-bold text-lg ${
+                          tx.transaction_type === 'income' ? 'text-success' : 'text-destructive'
+                        }`}
+                      >
+                        {tx.transaction_type === 'income' ? '+' : '-'}{' '}
+                        {currentWallet?.currency || 'USD'} {formatAmount(tx.amount)}
                       </p>
                     </div>
+
                     <div className="flex gap-2 ml-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEditTransaction(tx)}
-                      >
-                        Sửa
+                      <Button variant="outline" size="sm" onClick={() => onEditTransaction(tx)}>
+                        Edit
                       </Button>
                       <Button
                         variant="destructive"
                         size="sm"
                         onClick={() => deleteTransactionAPI(tx.transaction_id)}
                       >
-                        Xóa
+                        Delete
                       </Button>
                     </div>
                   </div>
@@ -206,7 +219,7 @@ export default function TransactionsPage() {
               })
             ) : (
               <div className="text-center py-12">
-                <p className="text-muted-foreground">Không tìm thấy giao dịch nào.</p>
+                <p className="text-muted-foreground">No transactions found.</p>
               </div>
             )}
           </div>
