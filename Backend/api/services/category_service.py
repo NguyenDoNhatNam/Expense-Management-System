@@ -53,6 +53,7 @@ class CategoryService:
                 color=validated_data.get('color', ''),
                 parent_category=validated_data.get('parent_category', None),
                 is_default=is_default,
+                is_deleted = False, 
                 created_at=timezone.now()
             )
             
