@@ -15,6 +15,7 @@ class CategoryService:
         Lấy danh sách danh mục của user, kèm theo số lượng giao dịch
         và tổng tiền giao dịch (áp dụng cho các giao dịch chưa bị xóa).
         """
+        print(f"Fetching categories for user {user.user_id}...")
         categories = Categories.objects.filter(user=user).annotate(
             expense_count=Count(
                 'transactions',

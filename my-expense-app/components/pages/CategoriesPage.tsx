@@ -2,6 +2,22 @@
 
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import {
+  Baby,
+  BriefcaseBusiness,
+  CircleHelp,
+  Gamepad2,
+  GraduationCap,
+  HeartPulse,
+  Home,
+  Plane,
+  ShoppingCart,
+  Utensils,
+  Wallet,
+  CarFront,
+  Gift,
+  type LucideIcon,
+} from 'lucide-react';
 import { useApp } from '@/lib/AppContext';
 import { getApiErrorMessage } from '@/lib/api/auth';
 import { Button } from '../ui/button';
@@ -10,12 +26,59 @@ import { Input } from '../ui/input';
 
 type CategoryType = 'income' | 'expense';
 
+type CategoryIconKey =
+  | 'ShoppingCart'
+  | 'Utensils'
+  | 'Wallet'
+  | 'BriefcaseBusiness'
+  | 'Home'
+  | 'CarFront'
+  | 'HeartPulse'
+  | 'GraduationCap'
+  | 'Plane'
+  | 'Gamepad2'
+  | 'Gift'
+  | 'Baby'
+  | 'Other';
+
+const ICON_OPTIONS: { value: CategoryIconKey; label: string; Icon: LucideIcon }[] = [
+  { value: 'ShoppingCart', label: 'Shopping Cart', Icon: ShoppingCart },
+  { value: 'Utensils', label: 'Food & Dining', Icon: Utensils },
+  { value: 'Wallet', label: 'Wallet', Icon: Wallet },
+  { value: 'BriefcaseBusiness', label: 'Business', Icon: BriefcaseBusiness },
+  { value: 'Home', label: 'Home', Icon: Home },
+  { value: 'CarFront', label: 'Transport', Icon: CarFront },
+  { value: 'HeartPulse', label: 'Health', Icon: HeartPulse },
+  { value: 'GraduationCap', label: 'Education', Icon: GraduationCap },
+  { value: 'Plane', label: 'Travel', Icon: Plane },
+  { value: 'Gamepad2', label: 'Entertainment', Icon: Gamepad2 },
+  { value: 'Gift', label: 'Gift', Icon: Gift },
+  { value: 'Baby', label: 'Family', Icon: Baby },
+  { value: 'Other', label: 'Other', Icon: CircleHelp },
+];
+
 const INITIAL_FORM = {
   name: '',
-  icon: '📝',
+  icon: 'ShoppingCart' as CategoryIconKey,
   color: '#0ea5e9',
   type: 'expense' as CategoryType,
 };
+
+function CategoryIcon({
+  iconName,
+  className = 'h-5 w-5',
+}: {
+  iconName: string;
+  className?: string;
+}) {
+  const matched = ICON_OPTIONS.find((item) => item.value === iconName);
+  if (matched) {
+    const Icon = matched.Icon;
+    return <Icon className={className} />;
+  }
+
+  return <span className="text-lg leading-none">{iconName || '❔'}</span>;
+}
 
 export default function CategoriesPage() {
   const { categories, addCategory, deleteCategory, currentUser } = useApp();
@@ -29,7 +92,11 @@ export default function CategoriesPage() {
     if (!normalized) return categories;
 
     return categories.filter((cat) => {
-      return cat.name.toLowerCase().includes(normalized) || cat.type.includes(normalized);
+      return (
+        cat.name.toLowerCase().includes(normalized) ||
+        cat.type.toLowerCase().includes(normalized) ||
+        cat.icon.toLowerCase().includes(normalized)
+      );
     });
   }, [categories, query]);
 
@@ -58,7 +125,7 @@ export default function CategoriesPage() {
     try {
       await addCategory({
         name,
-        icon: form.icon.trim() || '📝',
+        icon: form.icon,
         color: form.color,
         type: form.type,
         userId: currentUser?.id || '',
@@ -90,22 +157,45 @@ export default function CategoriesPage() {
   const renderCategoryGroup = (title: string, items: typeof categories) => {
     return (
       <div>
-        <h4 className="font-semibold mb-3">{title} ({items.length})</h4>
+        <h4 className="mb-3 font-semibold">
+          {title} ({items.length})
+        </h4>
+
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">No categories in this group.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {items.map((cat) => (
-              <div key={cat.id} className="flex items-center justify-between gap-2 p-3 rounded-lg border">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-2xl">{cat.icon}</span>
+              <div
+                key={cat.id}
+                className="flex items-center justify-between gap-3 rounded-xl border p-3 shadow-sm"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-full border"
+                    style={{
+                      backgroundColor: `${cat.color}20`,
+                      borderColor: cat.color,
+                      color: cat.color,
+                    }}
+                  >
+                    <CategoryIcon iconName={cat.icon} className="h-5 w-5" />
+                  </div>
+
                   <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{cat.name}</p>
-                    <p className="text-xs" style={{ color: cat.color }}>
-                      {cat.color.toUpperCase()}
-                    </p>
+                    <p className="truncate text-sm font-medium">{cat.name}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span
+                        className="inline-block h-3 w-3 rounded-full border"
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {cat.type} • {cat.color.toUpperCase()}
+                      </p>
+                    </div>
                   </div>
                 </div>
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -122,13 +212,19 @@ export default function CategoriesPage() {
     );
   };
 
+  const selectedIcon = ICON_OPTIONS.find((item) => item.value === form.icon);
+  const SelectedIcon = selectedIcon?.Icon || CircleHelp;
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold">Categories</h2>
-          <p className="text-muted-foreground mt-1">Manage income and expense categories in one dedicated page</p>
+          <p className="mt-1 text-muted-foreground">
+            Manage income and expense categories in one dedicated page
+          </p>
         </div>
+
         <Button onClick={() => setShowAddForm((prev) => !prev)}>
           {showAddForm ? 'Cancel' : '+ Add Category'}
         </Button>
@@ -137,7 +233,7 @@ export default function CategoriesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Search Categories</CardTitle>
-          <CardDescription>Find categories by name or type</CardDescription>
+          <CardDescription>Find categories by name, type, or icon</CardDescription>
         </CardHeader>
         <CardContent>
           <Input
@@ -152,6 +248,7 @@ export default function CategoriesPage() {
         <Card>
           <CardHeader>
             <CardTitle>Create Category</CardTitle>
+            <CardDescription>Choose an icon and a color for the category</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleAddCategory} className="space-y-4">
@@ -167,28 +264,51 @@ export default function CategoriesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
                   <label className="text-sm font-medium">Icon</label>
-                  <Input
-                    placeholder="🛒"
+                  <select
                     value={form.icon}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setForm((prev) => ({ ...prev, icon: e.target.value }))
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setForm((prev) => ({ ...prev, icon: e.target.value as CategoryIconKey }))
                     }
-                  />
+                    className="mt-2 w-full rounded-lg border bg-background px-3 py-2"
+                  >
+                    {ICON_OPTIONS.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="mt-3 flex items-center gap-3 rounded-lg border p-3">
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-full border"
+                      style={{
+                        backgroundColor: `${form.color}20`,
+                        borderColor: form.color,
+                        color: form.color,
+                      }}
+                    >
+                      <SelectedIcon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{selectedIcon?.label || 'Preview'}</p>
+                      <p className="text-xs text-muted-foreground">Icon preview</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium">Color</label>
-                  <div className="flex gap-2 mt-2">
+                  <div className="mt-2 flex gap-2">
                     <input
                       type="color"
                       value={form.color}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                         setForm((prev) => ({ ...prev, color: e.target.value }))
                       }
-                      className="w-12 h-10 rounded border"
+                      className="h-10 w-12 rounded border"
                     />
                     <Input
                       value={form.color}
@@ -206,7 +326,7 @@ export default function CategoriesPage() {
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                       setForm((prev) => ({ ...prev, type: e.target.value as CategoryType }))
                     }
-                    className="w-full mt-2 px-3 py-2 border rounded-lg bg-background"
+                    className="mt-2 w-full rounded-lg border bg-background px-3 py-2"
                   >
                     <option value="expense">Expense</option>
                     <option value="income">Income</option>
@@ -214,7 +334,7 @@ export default function CategoriesPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full md:w-auto">
+              <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting}>
                 {isSubmitting ? 'Saving...' : 'Save Category'}
               </Button>
             </form>

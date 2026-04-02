@@ -3,7 +3,19 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/lib/AppContext';
 import StatCard from '../StatCard';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import api from '@/lib/api/client';
@@ -29,6 +41,16 @@ interface DashboardData {
   };
 }
 
+const formatAmount = (value: number | string) => {
+  const num = typeof value === 'string' ? Number(value) : value;
+  if (Number.isNaN(num)) return String(value);
+  return num.toLocaleString('vi-VN');
+};
+
+const formatMoney = (currency: string, value: number | string) => {
+  return `${currency} ${formatAmount(value)}`;
+};
+
 export default function DashboardPage() {
   const { currentWallet, categories, budgets, transactions } = useApp();
   const [dashboardData, setDashboardData] = useState<DashboardData>({
@@ -38,18 +60,18 @@ export default function DashboardPage() {
       balance: 0,
       changes: {
         income_percentage: 0,
-        expense_percentage: 0
-      }
+        expense_percentage: 0,
+      },
     },
     categories: {
       income: [],
-      expense: []
+      expense: [],
     },
     trends: [],
     metadata: {
       cached: false,
-      generated_at: new Date().toISOString()
-    }
+      generated_at: new Date().toISOString(),
+    },
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,20 +83,20 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async (isRetry = false) => {
     const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-    
+
     if (!token) {
       setHasToken(false);
-      return; // Don't fetch if no token
+      return;
     }
-    
+
     setHasToken(true);
-    if (!currentWallet) return; // Wait for wallet to be loaded
-    
+    if (!currentWallet) return;
+
     if (!isRetry) {
       setLoading(true);
       setError(null);
     }
-    
+
     try {
       const params = new URLSearchParams();
       if (startDate) params.append('start_date', startDate);
@@ -83,7 +105,7 @@ export default function DashboardPage() {
 
       console.log('Fetching dashboard data...', { startDate, endDate, keyword });
       const response = await api.get(`/reports/dashboard/?${params.toString()}`);
-      
+
       if (response.data.success) {
         setDashboardData(response.data.data);
         setError(null);
@@ -92,8 +114,7 @@ export default function DashboardPage() {
       }
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
-      
-      // Keep existing data on error, just show error message
+
       if (error.code === 'ECONNABORTED') {
         setError('Request timeout. Please check your connection.');
       } else if (error.response?.status === 401) {
@@ -112,7 +133,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
     const newHasToken = !!token;
-    
+
     if (newHasToken !== hasToken) {
       setHasToken(newHasToken);
       if (newHasToken && currentWallet) {
@@ -151,15 +172,7 @@ export default function DashboardPage() {
     setEndDate(end);
   };
 
-  const COLORS = [
-    '#8b5cf6',
-    '#ec4899',
-    '#f59e0b',
-    '#10b981',
-    '#3b82f6',
-    '#06b6d4',
-    '#14b8a6',
-  ];
+  const COLORS = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#06b6d4', '#14b8a6'];
 
   const recentTransactions = transactions.slice(-5).reverse();
 
@@ -200,12 +213,11 @@ export default function DashboardPage() {
             <p className="text-muted-foreground mt-1">Please login to view your financial data</p>
           </div>
         </div>
-        
-        {/* Show empty dashboard layout */}
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard title="Total Income" value="$0.00" icon="💚" color="bg-success/10" />
-          <StatCard title="Total Expense" value="$0.00" icon="❤️" color="bg-destructive/10" />
-          <StatCard title="Balance" value="$0.00" icon="💰" color="bg-primary/10" />
+          <StatCard title="Total Income" value="$0" icon="💚" color="bg-success/10" />
+          <StatCard title="Total Expense" value="$0" icon="❤️" color="bg-destructive/10" />
+          <StatCard title="Balance" value="$0" icon="💰" color="bg-primary/10" />
           <StatCard title="Current Wallet" value="N/A" icon="👛" color="bg-accent/10" />
         </div>
 
@@ -284,7 +296,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-      
+
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between">
@@ -295,18 +307,14 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Dashboard</h2>
           <p className="text-muted-foreground mt-1">Overview of your financial data</p>
         </div>
         <div className="flex items-center gap-4">
-          <Button 
-            onClick={() => fetchDashboardData(true)} 
-            disabled={loading}
-            variant="outline"
-            size="sm"
-          >
+          <Button onClick={() => fetchDashboardData(true)} disabled={loading} variant="outline" size="sm">
             {loading ? 'Refreshing...' : 'Refresh Data'}
           </Button>
           <input
@@ -314,14 +322,12 @@ export default function DashboardPage() {
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             className="px-3 py-2 border rounded-lg bg-background"
-            placeholder="Start Date"
           />
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             className="px-3 py-2 border rounded-lg bg-background"
-            placeholder="End Date"
           />
           <input
             type="text"
@@ -346,25 +352,24 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard
           title="Total Income"
-          value={`${currentWallet?.currency || 'USD'} ${overview.income.toFixed(2)}`}
+          value={formatMoney(currentWallet?.currency || 'USD', overview.income)}
           icon="💚"
           color="bg-success/10"
           change={overview.changes.income_percentage}
         />
         <StatCard
           title="Total Expense"
-          value={`${currentWallet?.currency || 'USD'} ${overview.expense.toFixed(2)}`}
+          value={formatMoney(currentWallet?.currency || 'USD', overview.expense)}
           icon="❤️"
           color="bg-destructive/10"
           change={overview.changes.expense_percentage}
         />
         <StatCard
           title="Balance"
-          value={`${currentWallet?.currency || 'USD'} ${overview.balance.toFixed(2)}`}
+          value={formatMoney(currentWallet?.currency || 'USD', overview.balance)}
           icon="💰"
           color="bg-primary/10"
         />
@@ -377,7 +382,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Income by Category */}
         <Card>
           <CardHeader>
             <CardTitle>Income Breakdown</CardTitle>
@@ -401,7 +405,9 @@ export default function DashboardPage() {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `${currentWallet?.currency || 'USD'} ${value.toFixed(2)}`} />
+                  <Tooltip
+                    formatter={(value: any) => formatMoney(currentWallet?.currency || 'USD', value)}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -412,7 +418,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Expense by Category */}
         <Card>
           <CardHeader>
             <CardTitle>Expense Breakdown</CardTitle>
@@ -436,7 +441,9 @@ export default function DashboardPage() {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `${currentWallet?.currency || 'USD'} ${value.toFixed(2)}`} />
+                  <Tooltip
+                    formatter={(value: any) => formatMoney(currentWallet?.currency || 'USD', value)}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -447,7 +454,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Budget Alert */}
         <Card>
           <CardHeader>
             <CardTitle>Budget Status</CardTitle>
@@ -460,7 +466,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{budget.category}</span>
                     <span className={`text-xs ${budget.isOver ? 'text-destructive' : 'text-muted-foreground'}`}>
-                      {budget.spent.toFixed(2)} / {budget.limit.toFixed(2)}
+                      {formatAmount(budget.spent)} / {formatAmount(budget.limit)}
                     </span>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-2">
@@ -478,7 +484,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Trends Chart */}
       <Card>
         <CardHeader>
           <CardTitle>Income vs Expense Trends</CardTitle>
@@ -491,7 +496,7 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value) => `${currentWallet?.currency || 'USD'} ${value.toFixed(2)}`} />
+                <Tooltip formatter={(value: any) => formatMoney(currentWallet?.currency || 'USD', value)} />
                 <Legend />
                 <Line type="monotone" dataKey="income" stroke="#10b981" name="Income" />
                 <Line type="monotone" dataKey="expense" stroke="#ef4444" name="Expense" />
@@ -505,7 +510,6 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Recent Transactions */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Transactions</CardTitle>
@@ -527,7 +531,8 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right">
                       <p className={`font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                        {tx.type === 'income' ? '+' : '-'} {currentWallet?.currency || 'USD'} {tx.amount.toFixed(2)}
+                        {tx.type === 'income' ? '+' : '-'}{' '}
+                        {formatMoney(currentWallet?.currency || 'USD', tx.amount)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(tx.date).toLocaleDateString()}
