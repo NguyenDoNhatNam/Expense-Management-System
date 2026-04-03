@@ -11,11 +11,15 @@ import { Input } from '../ui/input';
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'VND', 'CNY', 'AUD', 'CAD', 'SGD', 'HKD'];
 
 // ✅ FORMAT HIỂN THỊ (1.000.000)
-const formatAmount = (value: string) => {
-  if (!value) return '';
-  const raw = value.replace(/[^\d]/g, '');
-  if (!raw) return '';
-  return Number(raw).toLocaleString('vi-VN');
+const formatAmount = (value?: number | string) => {
+  if (value === null || value === undefined) return '0';
+
+  const raw =
+    typeof value === 'string'
+      ? value.replace(/[^\d]/g, '')
+      : value;
+
+  return Number(raw || 0).toLocaleString('vi-VN');
 };
 
 // ✅ LẤY GIÁ TRỊ THÔ (1000000)

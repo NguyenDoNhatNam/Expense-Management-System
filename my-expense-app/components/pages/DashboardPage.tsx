@@ -41,10 +41,15 @@ interface DashboardData {
   };
 }
 
-const formatAmount = (value: number | string) => {
-  const num = typeof value === 'string' ? Number(value) : value;
-  if (Number.isNaN(num)) return String(value);
-  return num.toLocaleString('vi-VN');
+const formatAmount = (value?: number | string) => {
+  if (value === null || value === undefined) return '0';
+
+  const raw =
+    typeof value === 'string'
+      ? value.replace(/[^\d]/g, '')
+      : value;
+
+  return Number(raw || 0).toLocaleString('vi-VN');
 };
 
 const formatMoney = (currency: string, value: number | string) => {
