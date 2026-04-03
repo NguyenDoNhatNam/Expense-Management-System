@@ -20,9 +20,18 @@ export interface BackendTransaction {
 export interface TransactionListResponse {
   success: boolean;
   message: string;
-  data: BackendTransaction[];
+  data: {
+    items: BackendTransaction[];           
+    pagination: {
+      total_items: number;
+      total_pages: number;
+      current_page: number;
+      items_per_page: number;
+      has_next: boolean;
+      has_previous: boolean;
+    };
+  };
 }
-
 export interface CreateTransactionPayload {
   account_id: string;
   category_id: string;

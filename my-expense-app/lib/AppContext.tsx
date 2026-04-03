@@ -105,7 +105,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const syncCategoriesFromBackend = useCallback(
     async (userId: string) => {
       const response = await listCategoriesApi();
-      const mappedCategories = response.data.map((item) => mapBackendCategoryToCategory(item, userId));
+      const mappedCategories = response.data.items.map((item) => mapBackendCategoryToCategory(item, userId));
       setCategories(mappedCategories);
     },
     [mapBackendCategoryToCategory]

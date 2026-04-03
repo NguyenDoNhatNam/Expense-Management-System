@@ -53,7 +53,7 @@ export default function TransactionsPage() {
       });
 
       if (result.success) {
-        setTransactions(result.data);
+        setTransactions(result.data.items || []);
       } else {
         throw new Error(result.message || 'An error occurred while loading the data.');
       }
