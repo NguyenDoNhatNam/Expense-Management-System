@@ -22,7 +22,24 @@ Create `.env.local` in `my-expense-app`:
 
 ```bash
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api
+# Optional: enable verbose API logs in browser console
+NEXT_PUBLIC_API_DEBUG=false
 ```
+
+Important:
+
+- `NEXT_PUBLIC_API_BASE_URL` should always point to the backend host reachable from the browser machine.
+- If frontend and backend run on different machines, do **not** use `127.0.0.1` on frontend machine.
+- Example for LAN setup:
+	- Backend machine IP: `192.168.1.50`
+	- Frontend `.env.local`: `NEXT_PUBLIC_API_BASE_URL=http://192.168.1.50:8000/api`
+
+If `NEXT_PUBLIC_API_BASE_URL` is missing, the client now infers:
+
+- `http://127.0.0.1:8000/api` when running on localhost
+- `http(s)://<current-host>:8000/api` when accessed from another host
+
+This fallback helps local development, but production should always set `NEXT_PUBLIC_API_BASE_URL` explicitly.
 
 ## Run Locally
 

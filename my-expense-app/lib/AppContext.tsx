@@ -186,7 +186,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!currentUser) return;
 
     const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-    if (!token) return;
+    if (!token) {
+      console.warn('[sync] Skip initial sync because access_token is missing.');
+      return;
+    }
 
     Promise.all([
       syncCategoriesFromBackend(currentUser.id),
