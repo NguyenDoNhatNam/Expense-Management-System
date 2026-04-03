@@ -38,4 +38,4 @@ class ReportViewSet(viewsets.ViewSet):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"Error generating report: {str(e)}", exc_info=True)
-            return Response({'success': False, 'message': 'Đã xảy ra lỗi khi tạo báo cáo'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'success': False, 'message': f'Đã xảy ra lỗi khi tạo báo cáo: {str(e)} '}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

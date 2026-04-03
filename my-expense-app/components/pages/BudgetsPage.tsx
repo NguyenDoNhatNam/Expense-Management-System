@@ -16,36 +16,81 @@ export default function BudgetsPage() {
     alertThreshold: '80',
   });
 
-  const handleAddBudget = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddBudget = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!formData.categoryId || !formData.limit) {
-      alert('Please fill all required fields');
-      return;
+  if (!formData.categoryId || !formData.limit) {
+    alert('Please fill all required fields');
+    return;
+  }
+
+  try {
+    const today = new Date();
+
+    // format YYYY-MM-DD
+    const formatDate = (date: Date) => {
+      return date.toISOString().split('T')[0];
+    };
+
+    // tính end_date dựa theo period
+    const endDate = new Date(today);
+
+    if (formData.period === 'weekly') {
+      endDate.setDate(today.getDate() + 7);
+    } else if (formData.period === 'monthly') {
+      endDate.setMonth(today.getMonth() + 1);
+    } else if (formData.period === 'yearly') {
+      endDate.setFullYear(today.getFullYear() + 1);
     }
 
-    addBudget({
-      categoryId: formData.categoryId,
-      limit: parseFloat(formData.limit),
-      spent: 0,
-      currency: currentWallet?.currency || 'USD',
-      period: formData.period,
-      alertThreshold: parseFloat(formData.alertThreshold),
-      startDate: new Date(),
-      userId: '',
+    // lấy category name làm budget_name
+    const category = categories.find(c => c.id === formData.categoryId);
+
+    const payload = {
+      category_id: formData.categoryId,
+      budget_name: category?.name || 'Budget',
+      amount: String(parseFloat(formData.limit)), // backend cần string
+      period: 'daily', // ⚠️ backend bạn đang dùng daily
+      start_date: formatDate(today),
+      end_date: formatDate(endDate),
+      alert_threshold: parseFloat(formData.alertThreshold),
+    };
+
+    // 🔥 gọi API trực tiếp (nếu bạn đã import)
+    // await createBudgetApi(payload);
+
+    // hoặc nếu vẫn dùng context
+    await addBudget(payload);
+
+    setFormData({
+      categoryId: '',
+      limit: '',
+      period: 'monthly',
+      alertThreshold: '80',
     });
 
-    setFormData({ categoryId: '', limit: '', period: 'monthly', alertThreshold: '80' });
     setShowForm(false);
-  };
 
-  const budgetWithCategories = budgets.map((budget) => ({
+  } catch (err) {
+    console.error(err);
+    alert('Create budget failed');
+  }
+};
+
+  const budgetWithCategories = budgets.map((budget) => {
+  const limit = Number(budget.limit || 0);
+  const spent = Number(budget.spent || 0);
+  const percentage = limit > 0 ? (spent / limit) * 100 : 0;
+
+  return {
     ...budget,
     category: categories.find((c) => c.id === budget.categoryId),
-    percentage: (budget.spent / budget.limit) * 100,
-    isOver: budget.spent > budget.limit,
-    shouldAlert: (budget.spent / budget.limit) * 100 >= budget.alertThreshold,
-  }));
+    percentage,
+    isOver: spent > limit,
+    shouldAlert: percentage >= budget.alertThreshold,
+  };
+});
+
 
   return (
     <div className="p-6 space-y-6">
@@ -166,12 +211,12 @@ export default function BudgetsPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">
-                      {budget.spent.toFixed(2)} / {budget.limit.toFixed(2)} {currentWallet?.currency || 'USD'}
+                      {Number(budget.spent || 0).toFixed(2)} / {Number(budget.limit || 0).toFixed(2)} {currentWallet?.currency || 'USD'}
                     </span>
                     <span className={`text-sm font-medium ${
                       budget.isOver ? 'text-destructive' : budget.shouldAlert ? 'text-warning' : 'text-success'
                     }`}>
-                      {budget.percentage.toFixed(0)}%
+                      {Number(budget.percentage || 0).toFixed(0)}%
                     </span>
                   </div>
 
@@ -180,13 +225,13 @@ export default function BudgetsPage() {
                       className={`h-3 rounded-full ${
                         budget.isOver ? 'bg-destructive' : budget.shouldAlert ? 'bg-warning' : 'bg-success'
                       }`}
-                      style={{ width: `${Math.min(budget.percentage, 100)}%` }}
+                      style={{ width: `${Math.min(budget.percentage || 0, 100)}%` }}
                     />
                   </div>
 
                   {budget.isOver && (
                     <p className="text-xs text-destructive font-medium">
-                      ⚠️ Over budget by {currentWallet?.currency || 'USD'} {(budget.spent - budget.limit).toFixed(2)}
+                      ⚠️ Over budget by {currentWallet?.currency || 'USD'} {Number(budget.spent - budget.limit || 0).toFixed(2)}
                     </p>
                   )}
                   {budget.shouldAlert && !budget.isOver && (
@@ -204,7 +249,7 @@ export default function BudgetsPage() {
               <p className="text-muted-foreground">No budgets created yet</p>
             </CardContent>
           </Card>
-        )}
+        )}  
       </div>
     </div>
   );
