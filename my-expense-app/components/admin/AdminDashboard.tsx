@@ -68,8 +68,8 @@ export default function AdminDashboard() {
       {/* Top Header */}
       <header className="bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] z-10 sticky top-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gray-900 rounded-full flex items-center justify-center text-white font-bold tracking-tight">E</div>
-          <h1 className="text-xl font-bold tracking-tight text-gray-900">ExpenseFlow</h1>
+          <img src="/logo.png" alt="ExpenseMate Logo" className="h-10 w-auto object-contain" />
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">ExpenseMate</h1>
         </div>
         <button
           onClick={handleLogout}

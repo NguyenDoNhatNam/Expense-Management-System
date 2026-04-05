@@ -113,7 +113,8 @@ class UserRegistrationSerializer(serializers.Serializer):
                 icon = category['icon'],
                 color = category['color'] , 
                 created_at = timezone.now(),
-                is_default = True 
+                is_default = True,
+                is_deleted = False 
             )
             categories.append(category)
 

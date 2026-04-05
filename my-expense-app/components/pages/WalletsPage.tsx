@@ -1,240 +1,312 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useApp } from '@/lib/AppContext';
-import { getApiErrorMessage } from '@/lib/api/auth';
-import { useNotification } from '@/lib/notification';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Input } from '../ui/input';
+import React, { useState, useMemo } from "react";
+import { useApp } from "@/lib/AppContext";
+import { getApiErrorMessage } from "@/lib/api/auth";
+import { useNotification } from "@/lib/notification";
+import { Button } from "../ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Input } from "../ui/input";
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'VND', 'CNY', 'AUD', 'CAD', 'SGD', 'HKD'];
+const WALLET_TYPES = [
+  "all",
+  "cash",
+  "bank",
+  "credit",
+  "ewallet",
+  "investment",
+];
 
-// ✅ FORMAT HIỂN THỊ (1.000.000)
-const formatAmount = (value?: number | string) => {
-  if (value === null || value === undefined) return '0';
+const CURRENCIES = [
+  "USD",
+  "EUR",
+  "VND",
+  "JPY",
+  "CNY",
+];
 
-  const raw =
-    typeof value === 'string'
-      ? value.replace(/[^\d]/g, '')
-      : value;
-
-  return Number(raw || 0).toLocaleString('vi-VN');
-};
-
-// ✅ LẤY GIÁ TRỊ THÔ (1000000)
-const normalizeAmountInput = (value: string) => {
-  return value.replace(/[^\d]/g, '');
+const formatAmount = (value?: number) => {
+  return Number(value || 0).toLocaleString("vi-VN");
 };
 
 export default function WalletsPage() {
-  const { wallets, addWallet, updateWallet, deleteWallet, currentWallet, setCurrentWallet, currentUser } = useApp();
+  const {
+    wallets,
+    addWallet,
+    updateWallet,
+    deleteWallet,
+    currentWallet,
+    setCurrentWallet,
+    currentUser,
+  } = useApp();
+
   const { showNotification } = useNotification();
 
+  // ===== FILTER STATE =====
+  const [search, setSearch] = useState("");
+  const [type, setType] = useState("all");
+  const [currency, setCurrency] = useState("all");
+  const [includeOnly, setIncludeOnly] = useState(false);
+
+  // ===== FORM =====
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deletingWalletId, setDeletingWalletId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    name: '',
-    currency: 'USD',
-    balance: '',
-    description: '',
+    name: "",
+    type: "cash",
+    currency: "VND",
+    balance: "",
+    description: "",
+    is_include_in_total: true,
   });
 
-  const handleAddWallet = async (e: React.FormEvent<HTMLFormElement>) => {
+  // ===== FILTER LOGIC =====
+  const filteredWallets = useMemo(() => {
+    return wallets.filter((w: any) => {
+      if (search && !w.name.toLowerCase().includes(search.toLowerCase()))
+        return false;
+
+      if (type !== "all" && w.type !== type) return false;
+
+      if (currency !== "all" && w.currency !== currency) return false;
+
+      if (includeOnly && !w.is_include_in_total) return false;
+
+      return true;
+    });
+  }, [wallets, search, type, currency, includeOnly]);
+
+  // ===== ACTIONS =====
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!formData.name || !formData.currency || !formData.balance) {
-      showNotification('Please fill in all required fields.', 'warning');
-      return;
-    }
-
-    if (!currentUser) {
-      showNotification('You need to log in to manage wallets.', 'error');
-      return;
-    }
-
-    setIsSubmitting(true);
 
     try {
       if (editingId) {
-        await updateWallet(editingId, {
-          name: formData.name,
-          currency: formData.currency,
-          description: formData.description,
-        });
-        showNotification('Wallet updated successfully.', 'success');
+        await updateWallet(editingId, formData);
+        showNotification("Updated", "success");
       } else {
         await addWallet({
-          name: formData.name,
-          currency: formData.currency,
-          balance: parseFloat(formData.balance), // ✅ vẫn là số
-          description: formData.description,
-          isDefault: wallets.length === 0,
-          userId: currentUser.id,
+          ...formData,
+          balance: Number(formData.balance),
+          userId: currentUser?.id,
         });
-        showNotification('Wallet created successfully.', 'success');
+        showNotification("Created", "success");
       }
 
-      setFormData({ name: '', currency: 'USD', balance: '', description: '' });
       setShowForm(false);
       setEditingId(null);
-    } catch (error: unknown) {
-      showNotification(getApiErrorMessage(error), 'error');
-    } finally {
-      setIsSubmitting(false);
+      setFormData({
+        name: "",
+        type: "cash",
+        currency: "VND",
+        balance: "",
+        description: "",
+        is_include_in_total: true,
+      });
+    } catch (err) {
+      showNotification(getApiErrorMessage(err), "error");
     }
   };
 
-  const handleEditClick = (wallet: any) => {
-    setEditingId(wallet.id);
-    setFormData({
-      name: wallet.name,
-      currency: wallet.currency,
-      balance: String(wallet.balance ?? ''),
-      description: wallet.description || '',
-    });
-    setShowForm(true);
-  };
-
-  const handleCancel = () => {
-    setShowForm(false);
-    setEditingId(null);
-    setFormData({ name: '', currency: 'USD', balance: '', description: '' });
-  };
-
-  const handleDeleteWallet = async (walletId: string) => {
-    if (wallets.length <= 1) {
-      showNotification('You cannot delete the last wallet.', 'warning');
-      return;
-    }
-
-    if (!confirm('Are you sure you want to delete this wallet?')) {
-      return;
-    }
-
-    setDeletingWalletId(walletId);
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete wallet?")) return;
 
     try {
-      await deleteWallet(walletId);
-      showNotification('Wallet deleted successfully.', 'success');
-    } catch (error: unknown) {
-      showNotification(getApiErrorMessage(error), 'error');
-    } finally {
-      setDeletingWalletId(null);
+      await deleteWallet(id);
+      showNotification("Deleted", "success");
+    } catch (err) {
+      showNotification(getApiErrorMessage(err), "error");
     }
   };
 
+  // ===== UI =====
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-6 flex gap-6">
+      {/* SIDEBAR */}
+      <div className="w-64 space-y-4">
+        <Input
+          placeholder="🔍 Search wallet..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
         <div>
-          <h2 className="text-3xl font-bold">Wallets</h2>
-          <p className="text-muted-foreground mt-1">Manage your financial accounts</p>
+          <p className="font-semibold mb-2">Type</p>
+          <div className="flex flex-wrap gap-2">
+            {WALLET_TYPES.map((t) => (
+              <Button
+                key={t}
+                size="sm"
+                variant={type === t ? "default" : "outline"}
+                onClick={() => setType(t)}
+              >
+                {t}
+              </Button>
+            ))}
+          </div>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Cancel' : '+ Add Wallet'}
-        </Button>
+
+        <div>
+          <p className="font-semibold mb-2">Currency</p>
+          <select
+            className="w-full border rounded-lg p-2"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+          >
+            <option value="all">All</option>
+            {CURRENCIES.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={includeOnly}
+            onChange={(e) => setIncludeOnly(e.target.checked)}
+          />
+          <span className="text-sm">Include in total only</span>
+        </div>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingId ? 'Edit Wallet' : 'Add New Wallet'}</CardTitle>
-            <CardDescription>
-              {editingId ? 'Update wallet information' : 'Create a new financial account'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleAddWallet} className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Wallet Name</label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
+      {/* MAIN */}
+      <div className="flex-1 space-y-6">
+        {/* HEADER */}
+        <div className="flex justify-between items-center">
+          <h2 className="text-3xl font-bold">Wallets</h2>
+          <Button onClick={() => setShowForm(!showForm)}>
+            {showForm ? "Cancel" : "+ Add"}
+          </Button>
+        </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Currency</label>
-                  <select
-                    value={formData.currency}
-                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                    className="mt-2 w-full rounded-lg border px-3 py-2"
-                  >
-                    {CURRENCIES.map((curr) => (
-                      <option key={curr}>{curr}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Initial Balance</label>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="0"
-                    value={formatAmount(formData.balance)}
-                    onChange={(e) => {
-                      const raw = normalizeAmountInput(e.target.value);
-                      setFormData({ ...formData, balance: raw });
-                    }}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Description</label>
-                <Input
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <Button type="submit" className="flex-1" disabled={isSubmitting}>
-                  {isSubmitting ? 'Processing...' : editingId ? 'Update Wallet' : 'Create Wallet'}
-                </Button>
-                <Button type="button" variant="outline" onClick={handleCancel}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {wallets.map((wallet) => (
-          <Card key={wallet.id} onClick={() => setCurrentWallet(wallet)}>
+        {/* FORM */}
+        {showForm && (
+          <Card>
             <CardContent className="pt-6">
-              <h3 className="text-lg font-bold">{wallet.name}</h3>
-              <p className="text-sm text-muted-foreground">{wallet.currency}</p>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <Input
+                  placeholder="Wallet name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                />
 
-              <p className="text-3xl font-bold mt-4">
-                {wallet.currency} {Number(wallet.balance).toLocaleString('vi-VN')}
-              </p>
-
-              <div className="flex gap-2 mt-4">
-                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleEditClick(wallet); }}>
-                  Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={(e) => { e.stopPropagation(); handleDeleteWallet(wallet.id); }}
+                <select
+                  value={formData.type}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value })
+                  }
+                  className="w-full border p-2 rounded-lg"
                 >
-                  Delete
-                </Button>
-              </div>
+                  {WALLET_TYPES.slice(1).map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+
+                <Input
+                  placeholder="Balance"
+                  value={formData.balance}
+                  onChange={(e) =>
+                    setFormData({ ...formData, balance: e.target.value })
+                  }
+                />
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_include_in_total}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        is_include_in_total: e.target.checked,
+                      })
+                    }
+                  />
+                  Include in total
+                </div>
+
+                <Button type="submit">Save</Button>
+              </form>
             </CardContent>
           </Card>
-        ))}
+        )}
+
+        {/* LIST */}
+        <div className="grid md:grid-cols-2 gap-4">
+          {filteredWallets.map((w: any) => {
+            const isActive = currentWallet?.id === w.id;
+
+            return (
+              <Card
+                key={w.id}
+                onClick={() => setCurrentWallet(w)}
+                className={`cursor-pointer ${
+                  isActive ? "border-2 border-blue-500" : ""
+                }`}
+              >
+                <CardContent className="pt-6">
+                  <h3 className="font-bold text-lg">{w.name}</h3>
+
+                  <p className="text-sm text-muted-foreground">
+                    {w.type} • {w.currency}
+                  </p>
+
+                  <p
+                    className={`text-2xl font-bold mt-2 ${
+                      w.balance >= 0 ? "text-green-500" : "text-red-500"
+                    }`}
+                  >
+                    {formatAmount(w.balance)}
+                  </p>
+
+                  {/* STATS */}
+                  <div className="mt-4 text-sm text-muted-foreground">
+                    <p>Transactions: {w.transaction_count || 0}</p>
+                    <p className="text-green-500">
+                      Income: {formatAmount(w.total_income)}
+                    </p>
+                    <p className="text-red-500">
+                      Expense: {formatAmount(w.total_expense)}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(w.id);
+                        setFormData(w);
+                        setShowForm(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(w.id);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -20,18 +20,9 @@ export interface BackendTransaction {
 export interface TransactionListResponse {
   success: boolean;
   message: string;
-  data: {
-    items: BackendTransaction[];           
-    pagination: {
-      total_items: number;
-      total_pages: number;
-      current_page: number;
-      items_per_page: number;
-      has_next: boolean;
-      has_previous: boolean;
-    };
+  data: 
+     BackendTransaction[];           
   };
-}
 export interface CreateTransactionPayload {
   account_id: string;
   category_id: string;
@@ -55,7 +46,7 @@ export interface MutationTransactionResponse {
 }
 
 export const listTransactionsApi = async (params: {
-  account_id?: string;
+  account?: string;
   transaction_type?: 'income' | 'expense';
   keyword?: string;
   start_date?: string;

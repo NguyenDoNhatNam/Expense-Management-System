@@ -3,7 +3,7 @@ import AdminDashboard from '@/components/admin/AdminDashboard';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Admin Dashboard - ExpenseFlow',
+  title: 'Admin Dashboard - ExpenseMate',
 };
 
 export default function AdminPage() {
