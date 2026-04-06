@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework import viewsets
-from api.serializers.authentication_serializer import UserSerializer , UserRegistrationSerializer , UserLoginSerializer , AccountSerializer , CategorySerializer , UserSettingSerializer
+from api.serializers.authentication_serializer import UserSerializer , UserRegistrationSerializer , UserLoginSerializer , AccountSerializer , CategorySerializer , UserSettingSerializer ,VerifyOTPSerializer, ResendOTPSerializer, ForgotPasswordSerializer, ResetPasswordOTPSerializer, ResetPasswordLinkSerializer
 from api.models import Users
 from rest_framework.response import Response
 from rest_framework import status
@@ -14,6 +14,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.cache import cache
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import OpenApiResponse
+from django.db import transaction as db_transaction
+from api.services.otp_service import OTPService
+from api.services.email_token_service import EmailTokenService
+from rest_framework.throttling import AnonRateThrottle
+from django.contrib.auth.hashers import make_password
+from api.tasks import send_verification_link_email
 
 class UserViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
@@ -31,7 +37,11 @@ class UserViewSet(viewsets.ViewSet):
         serializer = UserRegistrationSerializer(data = request.data)
         if serializer.is_valid(raise_exception = True):
             user = serializer.save()
-            token = get_tokens_for_user(user)
+            user.is_active = False
+            user.save(update_fields=['is_active'])
+            
+            OTPService.send_activation_otp(user)
+
             user_data = UserSerializer(user).data
             return Response({
                 'success': True , 
@@ -40,10 +50,8 @@ class UserViewSet(viewsets.ViewSet):
                     'account': AccountSerializer(user.default_account).data,
                     'categories': CategorySerializer(user.default_categories, many=True).data,
                     'setting': UserSettingSerializer(user.default_setting).data,
-                    'access_token' : token['access'], 
-                    'refresh_token' : token['refresh'] ,
                 },
-                'message': 'Tài khoản đã được tạo thành công'
+                'message': 'Tài khoản đã được tạo thành công. Vui lòng kiểm tra email để lấy mã OTP kích hoạt tài khoản.'
             }, status = status.HTTP_201_CREATED)
         return Response({
             'success' : False ,
@@ -64,6 +72,13 @@ class UserViewSet(viewsets.ViewSet):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             user = serializer.validated_data['user']
+
+            if not user.is_active:
+                return Response({
+                    'success': False,
+                    'message': 'Tài khoản chưa được kích hoạt. Vui lòng xác thực email.',
+                    'require_activation': True
+                }, status=status.HTTP_403_FORBIDDEN)
 
             user.last_login = timezone.now()
             user.save(update_fields=['last_login'])
@@ -168,4 +183,127 @@ class UserViewSet(viewsets.ViewSet):
             }, status=401)
             response.delete_cookie('refresh_token')
             return response
+
+    @extend_schema(
+        request=VerifyOTPSerializer,
+        responses={200: OpenApiResponse(description="Verify OTP successful")}
+    )
+    @action(detail=False, methods=['post'], url_path='verify-activation', throttle_classes=[AnonRateThrottle])
+    def verify_activation(self, request, *args, **kwargs):
+        serializer = VerifyOTPSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            email = serializer.validated_data['email']
+            code = serializer.validated_data['code']
+            try:
+                with db_transaction.atomic():
+                    user = Users.objects.select_for_update().get(email=email)
+                    if user.is_active:
+                        return Response({'success': False, 'message': 'Tài khoản đã được kích hoạt trước đó.'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    if OTPService.verify_otp(user, code, 'activation'):
+                        user.is_active = True
+                        user.save(update_fields=['is_active'])
+                        return Response({'success': True, 'message': 'Kích hoạt tài khoản thành công. Bạn có thể đăng nhập ngay bây giờ.'}, status=status.HTTP_200_OK)
+                    else:
+                        return Response({'success': False, 'message': 'Mã OTP không hợp lệ hoặc đã hết hạn.'}, status=status.HTTP_400_BAD_REQUEST)
+            except Users.DoesNotExist:
+                return Response({'success': False, 'message': 'Tài khoản không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        request=ResendOTPSerializer,
+        responses={200: OpenApiResponse(description="Resend OTP successful")}
+    )
+    @action(detail=False, methods=['post'], url_path='resend-otp', throttle_classes=[AnonRateThrottle])
+    def resend_otp(self, request, *args, **kwargs):
+        serializer = ResendOTPSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            email = serializer.validated_data['email']
+            otp_type = serializer.validated_data['otp_type']
+            try:
+                user = Users.objects.get(email=email)
+                if otp_type == 'activation' and user.is_active:
+                    return Response({'success': False, 'message': 'Tài khoản đã được kích hoạt.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                if otp_type == 'activation':
+                    OTPService.send_activation_otp(user)
+                elif otp_type == 'reset_password':
+                    OTPService.send_reset_password_otp(user)
+            except Users.DoesNotExist:
+                pass
+            return Response({'success': True, 'message': 'Nếu email hợp lệ, mã OTP mới sẽ được gửi tới hòm thư của bạn.'}, status=status.HTTP_200_OK)
+        return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        request=ForgotPasswordSerializer,
+        responses={200: OpenApiResponse(description="Forgot password successful")}
+    )
+    @action(detail=False, methods=['post'], url_path='forgot-password', throttle_classes=[AnonRateThrottle])
+    def forgot_password(self, request, *args, **kwargs):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            email = serializer.validated_data['email']
+            method = serializer.validated_data['method']
+            try:
+                user = Users.objects.get(email=email)
+                if user.is_active:
+                    if method == 'otp':
+                        OTPService.send_reset_password_otp(user)
+                    elif method == 'link':
+                        token = EmailTokenService.create_token(user.user_id, 'reset_password', expiry_hours=1)
+                        send_verification_link_email.delay(
+                            user_email=user.email,
+                            user_name=user.full_name,
+                            token=token,
+                            token_type='reset_password'
+                        )
+            except Users.DoesNotExist:
+                pass
+            return Response({'success': True, 'message': 'Nếu email hợp lệ, hướng dẫn lấy lại mật khẩu sẽ được gửi.'}, status=status.HTTP_200_OK)
+        return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        request=ResetPasswordOTPSerializer,
+        responses={200: OpenApiResponse(description="Reset password via OTP successful")}
+    )
+    @action(detail=False, methods=['post'], url_path='reset-password-otp', throttle_classes=[AnonRateThrottle])
+    def reset_password_otp(self, request, *args, **kwargs):
+        serializer = ResetPasswordOTPSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            email = serializer.validated_data['email']
+            code = serializer.validated_data['code']
+            new_password = serializer.validated_data['new_password']
+            try:
+                with db_transaction.atomic():
+                    user = Users.objects.select_for_update().get(email=email)
+                    if OTPService.verify_otp(user, code, 'reset_password'):
+                        user.password = make_password(new_password)
+                        user.save(update_fields=['password'])
+                        return Response({'success': True, 'message': 'Mật khẩu đã được đặt lại thành công.'}, status=status.HTTP_200_OK)
+                    else:
+                        return Response({'success': False, 'message': 'Mã OTP không hợp lệ hoặc đã hết hạn.'}, status=status.HTTP_400_BAD_REQUEST)
+            except Users.DoesNotExist:
+                return Response({'success': False, 'message': 'Thông tin không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        request=ResetPasswordLinkSerializer,
+        responses={200: OpenApiResponse(description="Reset password via link successful")}
+    )
+    @action(detail=False, methods=['post'], url_path='reset-password-link', throttle_classes=[AnonRateThrottle])
+    def reset_password_link(self, request, *args, **kwargs):
+        serializer = ResetPasswordLinkSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            token = serializer.validated_data['token']
+            new_password = serializer.validated_data['new_password']
+            
+            with db_transaction.atomic():
+                user = EmailTokenService.verify_token(token, 'reset_password')
+                if user:
+                    user.password = make_password(new_password)
+                    user.save(update_fields=['password'])
+                    return Response({'success': True, 'message': 'Mật khẩu đã được đặt lại thành công.'}, status=status.HTTP_200_OK)
+                else:
+                    return Response({'success': False, 'message': 'Token không hợp lệ hoặc đã hết hạn.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
             

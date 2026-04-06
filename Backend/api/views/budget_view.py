@@ -9,8 +9,10 @@ from api.serializers.budget_serializer import (
     BudgetListSerializer, CreateBudgetSerializer, UpdateBudgetSerializer
 )
 import logging
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.utils import OpenApiResponse
+from api.pagination import CustomPagination
+from django.db.models import F
 
 class BudgetViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
@@ -23,23 +25,61 @@ class BudgetViewSet(viewsets.ViewSet):
     }
     
     @extend_schema(
-        request=BudgetListSerializer,
+        parameters=[
+            OpenApiParameter(name='p', description='Trang hiện tại (mặc định 1)', required=False, type=int),
+            OpenApiParameter(name='ipp', description='Số lượng bản ghi mỗi trang', required=False, type=int),
+            OpenApiParameter(name='search', description='Từ khóa tìm kiếm theo tên ngân sách', required=False, type=str),
+            OpenApiParameter(name='category_id', description='Lọc theo ID danh mục', required=False, type=str),
+            OpenApiParameter(name='period', description='Lọc theo kỳ (daily, weekly, monthly, yearly)', required=False, type=str),
+            OpenApiParameter(name='status', description='Lọc theo trạng thái (safe, warning, exceeded)', required=False, type=str),
+            OpenApiParameter(name='min_progress', description='Tiến độ tối thiểu (%)', required=False, type=float),
+            OpenApiParameter(name='max_progress', description='Tiến độ tối đa (%)', required=False, type=float),
+        ],
         responses={
             200: OpenApiResponse(
-                description="Lấy danh sách ngân sách "
+                description="Lấy danh sách ngân sách thành công"
             )
         }
     )
     @action(detail=False, methods=['get'], url_path='list')
     def list_budgets(self, request):
         try:
-            budgets = BudgetService.get_budgets(request.user)
-            serializer = BudgetListSerializer(budgets, many=True)
-            return Response({
-                'success': True, 'message': 'Thành công', 'data': serializer.data
-            }, status=status.HTTP_200_OK)
+            queryset = BudgetService.get_budgets(request.user)
+
+            search_query = request.query_params.get('search', '').strip()
+            category_id = request.query_params.get('category_id', '').strip()
+            period = request.query_params.get('period', '').strip()
+            status_filter = request.query_params.get('status', '').strip().lower()
+            min_progress = request.query_params.get('min_progress')
+            max_progress = request.query_params.get('max_progress')
+
+            if search_query:
+                queryset = queryset.filter(budget_name__icontains=search_query)
+            if category_id:
+                queryset = queryset.filter(category_id=category_id)
+            if period in ['daily', 'weekly', 'monthly', 'yearly']:
+                queryset = queryset.filter(period=period)
+                
+            if min_progress is not None:
+                queryset = queryset.filter(percentage_calc__gte=float(min_progress))
+            if max_progress is not None:
+                queryset = queryset.filter(percentage_calc__lte=float(max_progress))
+                
+            if status_filter == 'exceeded':
+                queryset = queryset.filter(percentage_calc__gte=100)
+            elif status_filter == 'warning':
+                queryset = queryset.filter(percentage_calc__gte=F('alert_threshold'), percentage_calc__lt=100)
+            elif status_filter == 'safe':
+                queryset = queryset.filter(percentage_calc__lt=F('alert_threshold'))
+
+            paginator = CustomPagination()
+            paginated_queryset = paginator.paginate_queryset(queryset, request)
+
+            serializer = BudgetListSerializer(paginated_queryset, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
         except Exception as e:
-            return Response({'success': False, 'message': 'Lỗi server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'success': False, 'message': f'Lỗi server: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @extend_schema(
         request=CreateBudgetSerializer,

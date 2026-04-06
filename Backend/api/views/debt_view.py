@@ -18,7 +18,6 @@ class DebtViewSet(viewsets.ViewSet):
     }
 
     @extend_schema(
-        request=CreateDebtSerializer,
         responses={
             200: OpenApiResponse(
                 description="Lấy danh sách khoản nợ thành công"
@@ -40,7 +39,6 @@ class DebtViewSet(viewsets.ViewSet):
             return Response({'success': True, 'data': {'debt_id': debt.debt_id}}, status=status.HTTP_201_CREATED)
         return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-    @extend_schema(request=CreateDebtPaymentSerializer)
     @action(detail=False, methods=['post'], url_path='pay/(?P<debt_id>[^/.]+)')
     def pay_debt(self, request, debt_id=None):
         try:

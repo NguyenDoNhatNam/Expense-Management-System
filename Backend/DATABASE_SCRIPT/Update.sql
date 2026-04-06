@@ -210,3 +210,33 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 -- =============================================
 -- Đặt tất cả user hiện tại thành role 'user' (role_id = 1)
 UPDATE users SET role_id = 1 WHERE role_id IS NULL;
+
+-- Bảng OTPCode
+CREATE TABLE otp_codes (
+    id BIGINT PRIMARY KEY IDENTITY(1,1),
+    user_id VARCHAR(50) NOT NULL,
+    code VARCHAR(6) NOT NULL,
+    otp_type VARCHAR(20) NOT NULL,           -- activation, reset_password, login
+    is_used BIT DEFAULT 0,
+    created_at DATETIME DEFAULT GETDATE(),
+    expires_at DATETIME NOT NULL,
+    CONSTRAINT fk_otp_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT check_otp_type CHECK (otp_type IN ('activation', 'reset_password', 'login'))
+);
+
+-- Bảng Email Verification Token
+CREATE TABLE email_verification_tokens (
+    id BIGINT PRIMARY KEY IDENTITY(1,1),
+    user_id VARCHAR(50) NOT NULL,
+    token VARCHAR(100) NOT NULL UNIQUE,
+    token_type VARCHAR(20) NOT NULL,
+    is_used BIT DEFAULT 0,
+    created_at DATETIME DEFAULT GETDATE(),
+    expires_at DATETIME NOT NULL,
+    CONSTRAINT fk_email_token_user FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT check_token_type CHECK (token_type IN ('activation', 'reset_password', 'login'))
+);
+
+-- Index để query nhanh
+CREATE INDEX idx_otp_user_type ON otp_codes(user_id, otp_type, is_used);
+CREATE INDEX idx_email_token_user ON email_verification_tokens(user_id, token_type, is_used);

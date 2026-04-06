@@ -35,6 +35,11 @@ class CategoryViewSet(viewsets.ViewSet):
             OpenApiParameter(name='search', description='Từ khóa tìm kiếm theo tên', required=False, type=str),
             OpenApiParameter(name='category_type', description='Loại (income/expense)', required=False, type=str),
             OpenApiParameter(name='is_default', description='Danh mục mặc định (true/false)', required=False, type=bool),
+            OpenApiParameter(name='min_count', description='Số lượng GD tối thiểu', required=False, type=int),
+            OpenApiParameter(name='max_count', description='Số lượng GD tối đa', required=False, type=int),
+            OpenApiParameter(name='min_amount', description='Tổng tiền tối thiểu', required=False, type=float),
+            OpenApiParameter(name='max_amount', description='Tổng tiền tối đa', required=False, type=float),
+            OpenApiParameter(name='tree', description='Hiển thị dạng cây cha-con (true/false)', required=False, type=bool),
         ],
         responses={
             200: OpenApiResponse(description="Lấy danh sách danh mục thành công")
@@ -43,15 +48,18 @@ class CategoryViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='list')
     def list_categories(self, request):
         try:
-            # 1. Lấy queryset cơ bản từ Service
+            
             queryset = CategoryService.get_categories(request.user)
 
-            # 2. Lấy các tham số filter từ URL
             search_query = request.query_params.get('search', '').strip()
             category_type = request.query_params.get('category_type', '').strip()
             is_default = request.query_params.get('is_default', None)
+            min_count = request.query_params.get('min_count')
+            max_count = request.query_params.get('max_count')
+            min_amount = request.query_params.get('min_amount')
+            max_amount = request.query_params.get('max_amount')
+            is_tree = request.query_params.get('tree', 'false').lower() == 'true'
 
-            # 3. Áp dụng filter (Lọc & Tìm kiếm)
             if search_query:
                 queryset = queryset.filter(category_name__icontains=search_query)
             if category_type in ['income', 'expense']:
@@ -59,22 +67,45 @@ class CategoryViewSet(viewsets.ViewSet):
             if is_default is not None:
                 is_default_bool = str(is_default).lower() == 'true'
                 queryset = queryset.filter(is_default=is_default_bool)
+            if min_count is not None:
+                queryset = queryset.filter(transaction_count__gte=min_count)
+            if max_count is not None:
+                queryset = queryset.filter(transaction_count__lte=max_count)
+            if min_amount is not None:
+                queryset = queryset.filter(total_amount__gte=min_amount)
+            if max_amount is not None:
+                queryset = queryset.filter(total_amount__lte=max_amount)
 
-            # Đảm bảo sắp xếp để phân trang hoạt động ổn định
             queryset = queryset.order_by('-created_at')
 
-            # 4. Phân trang
+            if is_tree:
+                all_categories = list(queryset)
+                cat_dict = {cat.category_id: cat for cat in all_categories}
+                roots = []
+                
+                for cat in all_categories:
+                    cat._children = []
+                    
+                for cat in all_categories:
+                    if cat.parent_category_id and cat.parent_category_id in cat_dict:
+                        cat_dict[cat.parent_category_id]._children.append(cat)
+                    else:
+                        roots.append(cat)
+                
+                paginator = CustomPagination()
+                paginated_roots = paginator.paginate_queryset(roots, request)
+                serializer = CategoryListSerializer(paginated_roots, many=True, context={'tree_mode': True})
+                return paginator.get_paginated_response(serializer.data)
+
             paginator = CustomPagination()
             paginated_queryset = paginator.paginate_queryset(queryset, request)
-
-            # 5. Serialize & Trả về Response chuẩn hoá
-            serializer = CategoryListSerializer(paginated_queryset, many=True)
+            serializer = CategoryListSerializer(paginated_queryset, many=True, context={'tree_mode': False})
             return paginator.get_paginated_response(serializer.data)
 
         except Exception as e:
             return Response({
                 'success': False,
-                'message': 'Đã xảy ra lỗi khi lấy danh sách danh mục'
+                'message': f'Đã xảy ra lỗi khi lấy danh sách danh mục: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # ===================== CREATE NEW CATEGORY =====================

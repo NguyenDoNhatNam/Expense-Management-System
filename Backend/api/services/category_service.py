@@ -11,13 +11,9 @@ class CategoryService:
 
     @staticmethod
     def get_categories(user):
-        """
-        Lấy danh sách danh mục của user, kèm theo số lượng giao dịch
-        và tổng tiền giao dịch (áp dụng cho các giao dịch chưa bị xóa).
-        """
         print(f"Fetching categories for user {user.user_id}...")
-        categories = Categories.objects.filter(user=user).annotate(
-            expense_count=Count(
+        categories = Categories.objects.filter(Q(user=user) | Q(is_default=True), is_deleted=False).annotate(
+            transaction_count=Count(
                 'transactions',
                 filter=Q(transactions__is_deleted=False)
             ),

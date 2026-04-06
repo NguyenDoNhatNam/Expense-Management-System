@@ -2,12 +2,17 @@ from rest_framework import serializers
 from api.models import Accounts
 
 class AccountListSerializer(serializers.ModelSerializer):
+    transaction_count = serializers.IntegerField(read_only=True, default=0)
+    total_income = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True, default=0)
+    total_expense = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True, default=0)
+
     class Meta:
         model = Accounts
         fields = [
             'account_id', 'account_name', 'account_type', 'balance', 
             'currency', 'bank_name', 'account_number', 'description', 
-            'is_include_in_total', 'created_at', 'updated_at'
+            'is_include_in_total', 'created_at', 'updated_at',
+            'transaction_count', 'total_income', 'total_expense'
         ]
 
 class CreateAccountSerializer(serializers.Serializer):

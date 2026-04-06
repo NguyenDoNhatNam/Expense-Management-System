@@ -10,9 +10,22 @@ class CategoryListSerializer(serializers.Serializer):
     is_default = serializers.BooleanField()
     parent_category_id = serializers.CharField(source='parent_category.category_id', allow_null=True)
     
-    expense_count = serializers.IntegerField(default=0)
+    transaction_count = serializers.IntegerField(default=0)
     total_amount = serializers.DecimalField(max_digits=18, decimal_places=2, default=0)
 
+    children = serializers.SerializerMethodField()
+
+    def get_children(self, obj):
+        if self.context.get('tree_mode', False):
+            children = getattr(obj, '_children', [])
+            return CategoryListSerializer(children, many=True, context=self.context).data
+        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self.context.get('tree_mode', False):
+            data.pop('children', None)
+        return data
 
 class CreateCategorySerializer(serializers.Serializer):
     category_name = serializers.CharField(max_length=100, required=True)
