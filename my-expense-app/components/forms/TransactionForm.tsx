@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useApp } from "@/lib/AppContext";
+import { CategoryIcon } from '@/components/ui/categoryicon';
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { getApiErrorMessage } from "@/lib/api/auth";
@@ -224,7 +225,7 @@ export default function TransactionForm({
             <option value="">Select Category</option>
             {relevantCategories.map((cat) => (
               <option key={cat.id} value={cat.id}>
-                {cat.icon} {cat.name}
+                {cat.name}
               </option>
             ))}
           </select>
