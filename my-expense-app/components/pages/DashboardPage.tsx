@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useApp } from '@/lib/AppContext';
-import StatCard from '../StatCard';
+import React, { useState, useEffect } from "react";
+import { useApp } from "@/lib/AppContext";
+import StatCard from "../StatCard";
 import {
   PieChart,
   Pie,
@@ -15,10 +15,16 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-} from 'recharts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import api from '@/lib/api/client';
+} from "recharts";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Button } from "../ui/button";
+import api from "@/lib/api/client";
 
 interface DashboardData {
   overview: {
@@ -31,8 +37,18 @@ interface DashboardData {
     };
   };
   categories: {
-    income: Array<{ name: string; color: string; value: number; percentage: number }>;
-    expense: Array<{ name: string; color: string; value: number; percentage: number }>;
+    income: Array<{
+      name: string;
+      color: string;
+      value: number;
+      percentage: number;
+    }>;
+    expense: Array<{
+      name: string;
+      color: string;
+      value: number;
+      percentage: number;
+    }>;
   };
   trends: Array<{ date: string; income: number; expense: number }>;
   metadata: {
@@ -40,16 +56,42 @@ interface DashboardData {
     generated_at: string;
   };
 }
+const renderCustomizedPieLabel = ({
+  cx,
+  cy,
+  midAngle,
+  outerRadius,
+  percent,
+  name,
+}: any) => {
+  if (percent < 0.08) return null;
+
+  const RADIAN = Math.PI / 180;
+  const radius = outerRadius + 18;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="currentColor"
+      textAnchor={x > cx ? "start" : "end"}
+      dominantBaseline="central"
+      fontSize={18}
+      fontWeight={500}
+    >
+      {name}
+    </text>
+  );
+};
 
 const formatAmount = (value?: number | string) => {
-  if (value === null || value === undefined) return '0';
+  if (value === null || value === undefined) return "0";
 
-  const raw =
-    typeof value === 'string'
-      ? value.replace(/[^\d]/g, '')
-      : value;
+  const raw = typeof value === "string" ? value.replace(/[^\d]/g, "") : value;
 
-  return Number(raw || 0).toLocaleString('vi-VN');
+  return Number(raw || 0).toLocaleString("vi-VN");
 };
 
 const formatMoney = (currency: string, value: number | string) => {
@@ -81,13 +123,17 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasToken, setHasToken] = useState(false);
-  const [period, setPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [keyword, setKeyword] = useState('');
+  const [period, setPeriod] = useState<"week" | "month" | "quarter" | "year">(
+    "month",
+  );
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [keyword, setKeyword] = useState("");
 
   const fetchDashboardData = async (isRetry = false) => {
-    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const token =
+      localStorage.getItem("access_token") ||
+      sessionStorage.getItem("access_token");
 
     if (!token) {
       setHasToken(false);
@@ -104,31 +150,37 @@ export default function DashboardPage() {
 
     try {
       const params = new URLSearchParams();
-      if (startDate) params.append('start_date', startDate);
-      if (endDate) params.append('end_date', endDate);
-      if (keyword) params.append('keyword', keyword);
+      if (startDate) params.append("start_date", startDate);
+      if (endDate) params.append("end_date", endDate);
+      if (keyword) params.append("keyword", keyword);
 
-      console.log('Fetching dashboard data...', { startDate, endDate, keyword });
-      const response = await api.get(`/reports/dashboard/?${params.toString()}`);
+      console.log("Fetching dashboard data...", {
+        startDate,
+        endDate,
+        keyword,
+      });
+      const response = await api.get(
+        `/reports/dashboard/?${params.toString()}`,
+      );
 
       if (response.data.success) {
         setDashboardData(response.data.data);
         setError(null);
       } else {
-        throw new Error(response.data.message || 'API returned error');
+        throw new Error(response.data.message || "API returned error");
       }
     } catch (error: any) {
-      console.error('Error fetching dashboard data:', error);
+      console.error("Error fetching dashboard data:", error);
 
-      if (error.code === 'ECONNABORTED') {
-        setError('Request timeout. Please check your connection.');
+      if (error.code === "ECONNABORTED") {
+        setError("Request timeout. Please check your connection.");
       } else if (error.response?.status === 401) {
-        setError('Authentication failed. Please login again.');
+        setError("Authentication failed. Please login again.");
         setHasToken(false);
       } else if (error.response?.status >= 500) {
-        setError('Server error. Please try again later.');
+        setError("Server error. Please try again later.");
       } else {
-        setError('Failed to load dashboard data. Please try again.');
+        setError("Failed to load dashboard data. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -136,7 +188,9 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const token =
+      localStorage.getItem("access_token") ||
+      sessionStorage.getItem("access_token");
     const newHasToken = !!token;
 
     if (newHasToken !== hasToken) {
@@ -157,27 +211,40 @@ export default function DashboardPage() {
     const now = new Date();
     let start = new Date();
 
-    if (period === 'week') {
+    if (period === "week") {
       start.setDate(now.getDate() - 7);
-    } else if (period === 'month') {
+    } else if (period === "month") {
       start.setMonth(now.getMonth() - 1);
-    } else if (period === 'quarter') {
+    } else if (period === "quarter") {
       start.setMonth(now.getMonth() - 3);
-    } else if (period === 'year') {
+    } else if (period === "year") {
       start.setFullYear(now.getFullYear() - 1);
     }
 
-    return { start: start.toISOString().split('T')[0], end: now.toISOString().split('T')[0] };
+    return {
+      start: start.toISOString().split("T")[0],
+      end: now.toISOString().split("T")[0],
+    };
   };
 
-  const handlePeriodChange = (newPeriod: 'week' | 'month' | 'quarter' | 'year') => {
+  const handlePeriodChange = (
+    newPeriod: "week" | "month" | "quarter" | "year",
+  ) => {
     setPeriod(newPeriod);
     const { start, end } = getDateRange();
     setStartDate(start);
     setEndDate(end);
   };
 
-  const COLORS = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#06b6d4', '#14b8a6'];
+  const COLORS = [
+    "#8b5cf6",
+    "#ec4899",
+    "#f59e0b",
+    "#10b981",
+    "#3b82f6",
+    "#06b6d4",
+    "#14b8a6",
+  ];
 
   const recentTransactions = transactions.slice(-5).reverse();
 
@@ -186,7 +253,7 @@ export default function DashboardPage() {
     const percentage = (budget.spent / budget.limit) * 100;
     return {
       id: budget.id,
-      category: category?.name || 'Unknown',
+      category: category?.name || "Unknown",
       spent: budget.spent,
       limit: budget.limit,
       percentage: Math.min(percentage, 100),
@@ -196,14 +263,14 @@ export default function DashboardPage() {
 
   const exportToCSV = () => {
     if (!dashboardData) return;
-    let csv = 'Date,Income,Expense\n';
+    let csv = "Date,Income,Expense\n";
     dashboardData.trends.forEach((item) => {
       csv += `"${item.date}","${item.income}","${item.expense}"\n`;
     });
 
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `dashboard-report-${period}.csv`;
     a.click();
@@ -215,15 +282,37 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold">Dashboard</h2>
-            <p className="text-muted-foreground mt-1">Please login to view your financial data</p>
+            <p className="text-muted-foreground mt-1">
+              Please login to view your financial data
+            </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard title="Total Income" value="$0" icon="💚" color="bg-success/10" />
-          <StatCard title="Total Expense" value="$0" icon="❤️" color="bg-destructive/10" />
-          <StatCard title="Balance" value="$0" icon="💰" color="bg-primary/10" />
-          <StatCard title="Current Wallet" value="N/A" icon="👛" color="bg-accent/10" />
+          <StatCard
+            title="Total Income"
+            value="$0"
+            icon="💚"
+            color="bg-success/10"
+          />
+          <StatCard
+            title="Total Expense"
+            value="$0"
+            icon="❤️"
+            color="bg-destructive/10"
+          />
+          <StatCard
+            title="Balance"
+            value="$0"
+            icon="💰"
+            color="bg-primary/10"
+          />
+          <StatCard
+            title="Current Wallet"
+            value="N/A"
+            icon="👛"
+            color="bg-accent/10"
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -283,7 +372,9 @@ export default function DashboardPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <div className="text-lg">Loading dashboard...</div>
-          <div className="text-sm text-muted-foreground mt-2">Fetching your financial data</div>
+          <div className="text-sm text-muted-foreground mt-2">
+            Fetching your financial data
+          </div>
         </div>
       </div>
     );
@@ -306,7 +397,12 @@ export default function DashboardPage() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between">
             <div className="text-sm text-red-700">{error}</div>
-            <Button size="sm" variant="outline" onClick={() => fetchDashboardData(true)} disabled={loading}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => fetchDashboardData(true)}
+              disabled={loading}
+            >
               Retry
             </Button>
           </div>
@@ -316,11 +412,18 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Dashboard</h2>
-          <p className="text-muted-foreground mt-1">Overview of your financial data</p>
+          <p className="text-muted-foreground mt-1">
+            Overview of your financial data
+          </p>
         </div>
         <div className="flex items-center gap-4">
-          <Button onClick={() => fetchDashboardData(true)} disabled={loading} variant="outline" size="sm">
-            {loading ? 'Refreshing...' : 'Refresh Data'}
+          <Button
+            onClick={() => fetchDashboardData(true)}
+            disabled={loading}
+            variant="outline"
+            size="sm"
+          >
+            {loading ? "Refreshing..." : "Refresh Data"}
           </Button>
           <input
             type="date"
@@ -343,7 +446,11 @@ export default function DashboardPage() {
           />
           <select
             value={period}
-            onChange={(e) => handlePeriodChange(e.target.value as 'week' | 'month' | 'quarter' | 'year')}
+            onChange={(e) =>
+              handlePeriodChange(
+                e.target.value as "week" | "month" | "quarter" | "year",
+              )
+            }
             className="px-4 py-2 border rounded-lg bg-background"
           >
             <option value="week">Last 7 Days</option>
@@ -360,27 +467,33 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard
           title="Total Income"
-          value={formatMoney(currentWallet?.currency || 'USD', overview.income)}
+          value={formatMoney(currentWallet?.currency || "USD", overview.income)}
           icon="💚"
           color="bg-success/10"
           change={overview.changes.income_percentage}
         />
         <StatCard
           title="Total Expense"
-          value={formatMoney(currentWallet?.currency || 'USD', overview.expense)}
+          value={formatMoney(
+            currentWallet?.currency || "USD",
+            overview.expense,
+          )}
           icon="❤️"
           color="bg-destructive/10"
           change={overview.changes.expense_percentage}
         />
         <StatCard
           title="Balance"
-          value={formatMoney(currentWallet?.currency || 'USD', overview.balance)}
+          value={formatMoney(
+            currentWallet?.currency || "USD",
+            overview.balance,
+          )}
           icon="💰"
           color="bg-primary/10"
         />
         <StatCard
           title="Current Wallet"
-          value={currentWallet?.name || 'N/A'}
+          value={currentWallet?.name || "N/A"}
           icon="👛"
           color="bg-accent/10"
         />
@@ -401,17 +514,22 @@ export default function DashboardPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percentage }) => `${name}: ${percentage}%`}
-                    outerRadius={80}
+                    label={renderCustomizedPieLabel}
+                    outerRadius={90}
                     fill="#8884d8"
                     dataKey="value"
                   >
                     {categoryData.income.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: any) => formatMoney(currentWallet?.currency || 'USD', value)}
+                    formatter={(value: any) =>
+                      formatMoney(currentWallet?.currency || "USD", value)
+                    }
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -437,17 +555,22 @@ export default function DashboardPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percentage }) => `${name}: ${percentage}%`}
-                    outerRadius={80}
+                    label={renderCustomizedPieLabel}
+                    outerRadius={90}
                     fill="#8884d8"
                     dataKey="value"
                   >
                     {categoryData.expense.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: any) => formatMoney(currentWallet?.currency || 'USD', value)}
+                    formatter={(value: any) =>
+                      formatMoney(currentWallet?.currency || "USD", value)
+                    }
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -469,14 +592,19 @@ export default function DashboardPage() {
               budgetStatus.map((budget) => (
                 <div key={budget.id} className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{budget.category}</span>
-                    <span className={`text-xs ${budget.isOver ? 'text-destructive' : 'text-muted-foreground'}`}>
-                      {formatAmount(budget.spent)} / {formatAmount(budget.limit)}
+                    <span className="text-sm font-medium">
+                      {budget.category}
+                    </span>
+                    <span
+                      className={`text-xs ${budget.isOver ? "text-destructive" : "text-muted-foreground"}`}
+                    >
+                      {formatAmount(budget.spent)} /{" "}
+                      {formatAmount(budget.limit)}
                     </span>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-2">
                     <div
-                      className={`h-2 rounded-full ${budget.isOver ? 'bg-destructive' : 'bg-success'}`}
+                      className={`h-2 rounded-full ${budget.isOver ? "bg-destructive" : "bg-success"}`}
                       style={{ width: `${budget.percentage}%` }}
                     />
                   </div>
@@ -501,10 +629,24 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value: any) => formatMoney(currentWallet?.currency || 'USD', value)} />
+                <Tooltip
+                  formatter={(value: any) =>
+                    formatMoney(currentWallet?.currency || "USD", value)
+                  }
+                />
                 <Legend />
-                <Line type="monotone" dataKey="income" stroke="#10b981" name="Income" />
-                <Line type="monotone" dataKey="expense" stroke="#ef4444" name="Expense" />
+                <Line
+                  type="monotone"
+                  dataKey="income"
+                  stroke="#10b981"
+                  name="Income"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="expense"
+                  stroke="#ef4444"
+                  name="Expense"
+                />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -526,18 +668,30 @@ export default function DashboardPage() {
               recentTransactions.map((tx) => {
                 const category = categories.find((c) => c.id === tx.categoryId);
                 return (
-                  <div key={tx.id} className="flex items-center justify-between py-3 border-b last:border-0">
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between py-3 border-b last:border-0"
+                  >
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{category?.icon}</span>
                       <div>
-                        <p className="font-medium text-sm">{category?.name || 'Unknown'}</p>
-                        <p className="text-xs text-muted-foreground">{tx.description}</p>
+                        <p className="font-medium text-sm">
+                          {category?.name || "Unknown"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {tx.description}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                        {tx.type === 'income' ? '+' : '-'}{' '}
-                        {formatMoney(currentWallet?.currency || 'USD', tx.amount)}
+                      <p
+                        className={`font-semibold ${tx.type === "income" ? "text-success" : "text-destructive"}`}
+                      >
+                        {tx.type === "income" ? "+" : "-"}{" "}
+                        {formatMoney(
+                          currentWallet?.currency || "USD",
+                          tx.amount,
+                        )}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(tx.date).toLocaleDateString()}
@@ -547,7 +701,9 @@ export default function DashboardPage() {
                 );
               })
             ) : (
-              <p className="text-sm text-muted-foreground">No transactions yet</p>
+              <p className="text-sm text-muted-foreground">
+                No transactions yet
+              </p>
             )}
           </div>
         </CardContent>

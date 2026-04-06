@@ -1,10 +1,16 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useApp } from '@/lib/AppContext';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Input } from '../ui/input';
+import React from "react";
+import { useApp } from "@/lib/AppContext";
+import { Button } from "../ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Input } from "../ui/input";
 
 export default function SettingsPage() {
   const { currentUser, categories } = useApp();
@@ -15,11 +21,13 @@ export default function SettingsPage() {
       categories,
     };
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
+    });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'expenseflow-backup.json';
+    a.download = "expenseflow-backup.json";
     a.click();
   };
 
@@ -30,9 +38,9 @@ export default function SettingsPage() {
       reader.onload = (event) => {
         try {
           // In a real app, you would parse and import the data
-          alert('Import functionality would restore your data from backup');
+          alert("Import functionality would restore your data from backup");
         } catch (error) {
-          alert('Failed to import data');
+          alert("Failed to import data");
         }
       };
       reader.readAsText(file);
@@ -43,7 +51,9 @@ export default function SettingsPage() {
     <div className="p-6 space-y-6">
       <div>
         <h2 className="text-3xl font-bold">Settings</h2>
-        <p className="text-muted-foreground mt-1">Manage your profile and data preferences</p>
+        <p className="text-muted-foreground mt-1">
+          Manage your profile and data preferences
+        </p>
       </div>
 
       {/* User Profile */}
@@ -56,7 +66,7 @@ export default function SettingsPage() {
             <div>
               <label className="text-sm font-medium">Full Name</label>
               <Input
-                value={currentUser?.fullName || ''}
+                value={currentUser?.fullName || ""}
                 disabled
                 className="mt-2 bg-secondary"
               />
@@ -65,28 +75,19 @@ export default function SettingsPage() {
             <div>
               <label className="text-sm font-medium">Email</label>
               <Input
-                value={currentUser?.email || ''}
+                value={currentUser?.email || ""}
                 disabled
                 className="mt-2 bg-secondary"
               />
             </div>
 
             <p className="text-sm text-muted-foreground">
-              Account created: {currentUser?.createdAt ? new Date(currentUser.createdAt).toLocaleDateString() : 'N/A'}
+              Account created:{" "}
+              {currentUser?.createdAt
+                ? new Date(currentUser.createdAt).toLocaleDateString()
+                : "N/A"}
             </p>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Categories</CardTitle>
-          <CardDescription>Category management moved to the dedicated Categories page</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            You currently have {categories.length} categories. Open the Categories page from the left sidebar to add, search, or delete categories.
-          </p>
         </CardContent>
       </Card>
 
@@ -98,14 +99,22 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <p className="text-sm mb-3">Export all your data to keep a secure backup</p>
-            <Button onClick={handleExportData} variant="outline" className="w-full bg-transparent">
+            <p className="text-sm mb-3">
+              Export all your data to keep a secure backup
+            </p>
+            <Button
+              onClick={handleExportData}
+              variant="outline"
+              className="w-full bg-transparent"
+            >
               📥 Export Data Backup
             </Button>
           </div>
 
           <div className="border-t pt-4">
-            <p className="text-sm mb-3">Restore data from a previous backup file</p>
+            <p className="text-sm mb-3">
+              Restore data from a previous backup file
+            </p>
             <label className="block">
               <input
                 type="file"
@@ -113,7 +122,10 @@ export default function SettingsPage() {
                 onChange={handleImportData}
                 className="hidden"
               />
-              <Button variant="outline" className="w-full cursor-pointer bg-transparent">
+              <Button
+                variant="outline"
+                className="w-full cursor-pointer bg-transparent"
+              >
                 📤 Import Data Backup
               </Button>
             </label>
@@ -121,7 +133,9 @@ export default function SettingsPage() {
 
           <div className="bg-warning/10 border border-warning/20 rounded-lg p-4">
             <p className="text-sm text-warning">
-              ⚠️ <span className="font-medium">Note:</span> Your data is stored locally in your browser. Clearing browser data will remove everything.
+              ⚠️ <span className="font-medium">Note:</span> Your data is stored
+              locally in your browser. Clearing browser data will remove
+              everything.
             </p>
           </div>
         </CardContent>

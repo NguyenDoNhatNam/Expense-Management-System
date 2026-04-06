@@ -1,8 +1,16 @@
-'use client';
+"use client";
 
-import { useApp } from '@/lib/AppContext';
+import { useApp } from "@/lib/AppContext";
 
-type Page = 'dashboard' | 'transactions' | 'budgets' | 'wallets' | 'savings' | 'debts' | 'categories' | 'settings';
+type Page =
+  | "dashboard"
+  | "transactions"
+  | "budgets"
+  | "wallets"
+  | "savings"
+  | "debts"
+  | "categories"
+  | "settings";
 
 interface SidebarProps {
   currentPage: Page;
@@ -13,14 +21,14 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   const { currentUser } = useApp();
 
   const menuItems: Array<{ label: string; page: Page; icon: string }> = [
-    { label: 'Dashboard', page: 'dashboard', icon: '📊' },
-    { label: 'Transactions', page: 'transactions', icon: '💳' },
-    { label: 'Budgets', page: 'budgets', icon: '🎯' },
-    { label: 'Wallets', page: 'wallets', icon: '👛' },
-    { label: 'Savings Goals', page: 'savings', icon: '🏦' },
-    { label: 'Debts', page: 'debts', icon: '💰' },
-    { label: 'Categories', page: 'categories', icon: '🏷️' },
-    { label: 'Settings', page: 'settings', icon: '⚙️' },
+    { label: "Dashboard", page: "dashboard", icon: "📊" },
+    { label: "Transactions", page: "transactions", icon: "💳" },
+    { label: "Budgets", page: "budgets", icon: "🎯" },
+    { label: "Wallets", page: "wallets", icon: "👛" },
+    { label: "Savings Goals", page: "savings", icon: "🏦" },
+    { label: "Debts", page: "debts", icon: "💰" },
+    { label: "Categories", page: "categories", icon: "🏷️" },
+    { label: "Settings", page: "settings", icon: "⚙️" },
   ];
 
   return (
@@ -32,8 +40,12 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
             <span className="text-lg">👤</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm truncate">{currentUser?.fullName}</p>
-            <p className="text-xs text-muted-foreground truncate">{currentUser?.email}</p>
+            <p className="font-semibold text-sm truncate">
+              {currentUser?.fullName}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {currentUser?.email}
+            </p>
           </div>
         </div>
       </div>
@@ -47,8 +59,8 @@ export default function Sidebar({ currentPage, onPageChange }: SidebarProps) {
               onClick={() => onPageChange(item.page)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition ${
                 currentPage === item.page
-                  ? 'bg-primary text-primary-foreground font-medium'
-                  : 'text-foreground hover:bg-secondary'
+                  ? "bg-primary text-primary-foreground font-medium"
+                  : "text-foreground hover:bg-secondary"
               }`}
             >
               <span className="text-lg">{item.icon}</span>

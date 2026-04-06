@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import React, { useMemo, useState } from 'react';
-import { useApp } from '@/lib/AppContext';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { getApiErrorMessage } from '@/lib/api/auth';
-import { useNotification } from '@/lib/notification';
+import React, { useMemo, useState } from "react";
+import { useApp } from "@/lib/AppContext";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { getApiErrorMessage } from "@/lib/api/auth";
+import { useNotification } from "@/lib/notification";
 import {
   BackendTransaction,
   CreateTransactionPayload,
   createTransactionApi,
   updateTransactionApi,
-} from '@/lib/api/transactions';
+} from "@/lib/api/transactions";
 
 interface TransactionFormProps {
   editingId?: string | null;
@@ -20,7 +20,7 @@ interface TransactionFormProps {
 }
 
 interface TransactionFormData {
-  type: 'income' | 'expense';
+  type: "income" | "expense";
   amount: string;
   accountId: string;
   categoryId: string;
@@ -29,37 +29,34 @@ interface TransactionFormData {
   location: string;
   date: string;
   isRecurring: boolean;
-  recurringPattern: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurringPattern: "daily" | "weekly" | "monthly" | "yearly";
   attachmentUrl: string;
 }
 
 const defaultFormData: TransactionFormData = {
-  type: 'expense',
-  amount: '',
-  accountId: '',
-  categoryId: '',
-  description: '',
-  note: '',
-  location: '',
-  date: new Date().toISOString().split('T')[0],
+  type: "expense",
+  amount: "",
+  accountId: "",
+  categoryId: "",
+  description: "",
+  note: "",
+  location: "",
+  date: new Date().toISOString().split("T")[0],
   isRecurring: false,
-  recurringPattern: 'monthly',
-  attachmentUrl: '',
+  recurringPattern: "monthly",
+  attachmentUrl: "",
 };
 
 const formatAmount = (value?: number | string) => {
-  if (value === null || value === undefined) return '0';
+  if (value === null || value === undefined) return "0";
 
-  const raw =
-    typeof value === 'string'
-      ? value.replace(/[^\d]/g, '')
-      : value;
+  const raw = typeof value === "string" ? value.replace(/[^\d]/g, "") : value;
 
-  return Number(raw || 0).toLocaleString('vi-VN');
+  return Number(raw || 0).toLocaleString("vi-VN");
 };
 
 const normalizeAmountInput = (value: string) => {
-  return value.replace(/[^\d]/g, '');
+  return value.replace(/[^\d]/g, "");
 };
 
 export default function TransactionForm({
@@ -75,38 +72,47 @@ export default function TransactionForm({
     if (!editingTransaction) {
       return {
         ...defaultFormData,
-        accountId: currentWallet?.id || '',
+        accountId: currentWallet?.id || "",
       };
     }
 
     return {
-      type: editingTransaction.transaction_type === 'income' ? 'income' : 'expense',
+      type:
+        editingTransaction.transaction_type === "income" ? "income" : "expense",
       amount: String(editingTransaction.amount),
       accountId: editingTransaction.account_id,
       categoryId: editingTransaction.category_id,
-      description: editingTransaction.description || '',
-      note: editingTransaction.note || '',
-      location: editingTransaction.location || '',
-      date: new Date(editingTransaction.transaction_date).toISOString().split('T')[0],
+      description: editingTransaction.description || "",
+      note: editingTransaction.note || "",
+      location: editingTransaction.location || "",
+      date: new Date(editingTransaction.transaction_date)
+        .toISOString()
+        .split("T")[0],
       isRecurring: Boolean(editingTransaction.is_recurring),
-      recurringPattern: 'monthly',
-      attachmentUrl: editingTransaction.receipt_image_url || '',
+      recurringPattern: "monthly",
+      attachmentUrl: editingTransaction.receipt_image_url || "",
     };
   }, [editingTransaction, currentWallet?.id]);
 
-  const [formData, setFormData] = useState<TransactionFormData>(initialFormData);
+  const [formData, setFormData] =
+    useState<TransactionFormData>(initialFormData);
 
   const sanitizedReceiptUrl = useMemo(() => {
-    if (!formData.attachmentUrl) return '';
-    if (formData.attachmentUrl.startsWith('blob:')) return '';
+    if (!formData.attachmentUrl) return "";
+    if (formData.attachmentUrl.startsWith("blob:")) return "";
     return formData.attachmentUrl;
   }, [formData.attachmentUrl]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!formData.amount || !formData.accountId || !formData.categoryId || !formData.description) {
-      showNotification('Please fill all required fields', 'error');
+    if (
+      !formData.amount ||
+      !formData.accountId ||
+      !formData.categoryId ||
+      !formData.description
+    ) {
+      showNotification("Please fill all required fields", "error");
       return;
     }
 
@@ -120,7 +126,7 @@ export default function TransactionForm({
       location: formData.location,
       receipt_image_url: sanitizedReceiptUrl,
       is_recurring: formData.isRecurring,
-      recurring_id: formData.isRecurring ? 'REC001' : '',
+      recurring_id: formData.isRecurring ? "REC001" : "",
       amount: parseFloat(formData.amount),
     };
 
@@ -145,12 +151,14 @@ export default function TransactionForm({
       }
 
       showNotification(
-        editingId ? 'Transaction updated successfully.' : 'Transaction created successfully.',
-        'success'
+        editingId
+          ? "Transaction updated successfully."
+          : "Transaction created successfully.",
+        "success",
       );
       onClose();
     } catch (error) {
-      showNotification(getApiErrorMessage(error), 'error');
+      showNotification(getApiErrorMessage(error), "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -158,9 +166,10 @@ export default function TransactionForm({
 
   const selectedWallet = wallets.find((w) => w.id === formData.accountId);
 
-  const expenseCategories = categories.filter((c) => c.type === 'expense');
-  const incomeCategories = categories.filter((c) => c.type === 'income');
-  const relevantCategories = formData.type === 'income' ? incomeCategories : expenseCategories;
+  const expenseCategories = categories.filter((c) => c.type === "expense");
+  const incomeCategories = categories.filter((c) => c.type === "income");
+  const relevantCategories =
+    formData.type === "income" ? incomeCategories : expenseCategories;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -172,8 +181,8 @@ export default function TransactionForm({
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
               setFormData({
                 ...formData,
-                type: e.target.value as 'income' | 'expense',
-                categoryId: '',
+                type: e.target.value as "income" | "expense",
+                categoryId: "",
               });
             }}
             className="mt-2 w-full rounded-lg border bg-background px-3 py-2"
@@ -226,7 +235,7 @@ export default function TransactionForm({
         <label className="text-sm font-medium">Amount</label>
         <div className="mt-2 flex gap-2">
           <span className="rounded-lg bg-secondary px-3 py-2 font-medium">
-            {selectedWallet?.currency || 'USD'}
+            {selectedWallet?.currency || "USD"}
           </span>
           <Input
             type="text"
@@ -299,7 +308,7 @@ export default function TransactionForm({
               const url = URL.createObjectURL(file);
               setFormData({ ...formData, attachmentUrl: url });
             } else {
-              setFormData({ ...formData, attachmentUrl: '' });
+              setFormData({ ...formData, attachmentUrl: "" });
             }
           }}
           className="mt-2"
@@ -311,9 +320,10 @@ export default function TransactionForm({
             className="mt-2 h-24 w-24 rounded-md border object-cover"
           />
         )}
-        {formData.attachmentUrl.startsWith('blob:') && (
+        {formData.attachmentUrl.startsWith("blob:") && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Local preview image is not uploaded yet, so receipt URL will be skipped for this transaction.
+            Local preview image is not uploaded yet, so receipt URL will be
+            skipped for this transaction.
           </p>
         )}
       </div>
@@ -328,7 +338,9 @@ export default function TransactionForm({
             }
             className="rounded"
           />
-          <span className="text-sm font-medium">This is a recurring transaction</span>
+          <span className="text-sm font-medium">
+            This is a recurring transaction
+          </span>
         </label>
 
         {formData.isRecurring && (
@@ -337,7 +349,11 @@ export default function TransactionForm({
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
               setFormData({
                 ...formData,
-                recurringPattern: e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly',
+                recurringPattern: e.target.value as
+                  | "daily"
+                  | "weekly"
+                  | "monthly"
+                  | "yearly",
               })
             }
             className="mt-3 w-full rounded-lg border bg-background px-3 py-2"
@@ -352,9 +368,15 @@ export default function TransactionForm({
 
       <div className="flex gap-3 pt-4">
         <Button type="submit" className="flex-1" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : editingId ? 'Update' : 'Add'} Transaction
+          {isSubmitting ? "Saving..." : editingId ? "Update" : "Add"}{" "}
+          Transaction
         </Button>
-        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          disabled={isSubmitting}
+        >
           Cancel
         </Button>
       </div>

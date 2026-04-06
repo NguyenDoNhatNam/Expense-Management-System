@@ -1,106 +1,114 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useApp } from '@/lib/AppContext';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Input } from '../ui/input';
+import React, { useState } from "react";
+import { useApp } from "@/lib/AppContext";
+import { CategoryIcon } from "../ui/categoryicon";
+import { Button } from "../ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Input } from "../ui/input";
 
 export default function BudgetsPage() {
-  const { budgets, categories, addBudget, updateBudget, deleteBudget, currentWallet, getTotalExpense } = useApp();
+  const {
+    budgets,
+    categories,
+    addBudget,
+    updateBudget,
+    deleteBudget,
+    currentWallet,
+    getTotalExpense,
+  } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
-    categoryId: '',
-    limit: '',
-    period: 'monthly' as 'weekly' | 'monthly' | 'yearly',
-    alertThreshold: '80',
+    categoryId: "",
+    limit: "",
+    period: "monthly" as "weekly" | "monthly" | "yearly",
+    alertThreshold: "80",
   });
+  const formatAmount = (value: number | string) => {
+    const num = typeof value === "string" ? Number(value) : value;
+    if (Number.isNaN(num)) return String(value);
+    return num.toLocaleString("vi-VN");
+  };
 
   const handleAddBudget = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!formData.categoryId || !formData.limit) {
-    alert('Please fill all required fields');
-    return;
-  }
-
-  try {
-    const today = new Date();
-
-    // format YYYY-MM-DD
-    const formatDate = (date: Date) => {
-      return date.toISOString().split('T')[0];
-    };
-
-    // tính end_date dựa theo period
-    const endDate = new Date(today);
-
-    if (formData.period === 'weekly') {
-      endDate.setDate(today.getDate() + 7);
-    } else if (formData.period === 'monthly') {
-      endDate.setMonth(today.getMonth() + 1);
-    } else if (formData.period === 'yearly') {
-      endDate.setFullYear(today.getFullYear() + 1);
+    if (!formData.categoryId || !formData.limit) {
+      alert("Vui lòng điền đầy đủ thông tin");
+      return;
     }
 
-    // lấy category name làm budget_name
-    const category = categories.find(c => c.id === formData.categoryId);
+    try {
+      const today = new Date();
+      const formatDate = (date: Date) => date.toISOString().split("T")[0];
 
-    const payload = {
-      category_id: formData.categoryId,
-      budget_name: category?.name || 'Budget',
-      amount: String(parseFloat(formData.limit)), // backend cần string
-      period: 'daily', // ⚠️ backend bạn đang dùng daily
-      start_date: formatDate(today),
-      end_date: formatDate(endDate),
-      alert_threshold: parseFloat(formData.alertThreshold),
-    };
+      const endDate = new Date(today);
+      if (formData.period === "weekly") endDate.setDate(today.getDate() + 7);
+      else if (formData.period === "monthly")
+        endDate.setMonth(today.getMonth() + 1);
+      else if (formData.period === "yearly")
+        endDate.setFullYear(today.getFullYear() + 1);
 
-    // 🔥 gọi API trực tiếp (nếu bạn đã import)
-    // await createBudgetApi(payload);
+      const category = categories.find((c) => c.id === formData.categoryId);
 
-    // hoặc nếu vẫn dùng context
-    await addBudget(payload);
+      const payload: CreateBudgetPayload = {
+        category_id: formData.categoryId,
+        budget_name: category?.name || "Ngân sách",
+        amount: String(parseFloat(formData.limit)),
+        period: formData.period, // ← sửa: không hardcode 'daily'
+        start_date: formatDate(today),
+        end_date: formatDate(endDate),
+        alert_threshold: parseFloat(formData.alertThreshold),
+      };
 
-    setFormData({
-      categoryId: '',
-      limit: '',
-      period: 'monthly',
-      alertThreshold: '80',
-    });
+      await addBudget(payload); // ← giờ gọi API qua context
 
-    setShowForm(false);
-
-  } catch (err) {
-    console.error(err);
-    alert('Create budget failed');
-  }
-};
+      setFormData({
+        categoryId: "",
+        limit: "",
+        period: "monthly",
+        alertThreshold: "80",
+      });
+      setShowForm(false);
+    } catch (err) {
+      console.error(err);
+      alert("Tạo ngân sách thất bại");
+    }
+  };
 
   const budgetWithCategories = budgets.map((budget) => {
-  const limit = Number(budget.limit || 0);
-  const spent = Number(budget.spent || 0);
-  const percentage = limit > 0 ? (spent / limit) * 100 : 0;
+    const limit = Number(budget.limit || 0);
+    const spent = Number(budget.spent || 0);
+    const percentage = limit > 0 ? (spent / limit) * 100 : 0;
 
-  return {
-    ...budget,
-    category: categories.find((c) => c.id === budget.categoryId),
-    percentage,
-    isOver: spent > limit,
-    shouldAlert: percentage >= budget.alertThreshold,
-  };
-});
-
+    return {
+      ...budget,
+      category: categories.find((c) => c.id === budget.categoryId),
+      limit,
+      spent,
+      percentage,
+      isOver: spent > limit,
+      shouldAlert: percentage >= budget.alertThreshold,
+    };
+  });
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold">Budget Management</h2>
-          <p className="text-muted-foreground mt-1">Set and track spending limits</p>
+          <p className="text-muted-foreground mt-1">
+            Set and track spending limits
+          </p>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Cancel' : '+ Add Budget'}
+          {showForm ? "Cancel" : "+ Add Budget"}
         </Button>
       </div>
 
@@ -115,16 +123,20 @@ export default function BudgetsPage() {
                 <label className="text-sm font-medium">Category</label>
                 <select
                   value={formData.categoryId}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, categoryId: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                    setFormData({ ...formData, categoryId: e.target.value })
+                  }
                   className="w-full mt-2 px-3 py-2 border rounded-lg bg-background"
                   required
                 >
                   <option value="">Select Category</option>
-                  {categories.filter((c) => c.type === 'expense').map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.name}
-                    </option>
-                  ))}
+                  {categories
+                    .filter((c) => c.type === "expense")
+                    .map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.icon} {cat.name}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -133,14 +145,16 @@ export default function BudgetsPage() {
                   <label className="text-sm font-medium">Budget Limit</label>
                   <div className="flex gap-2 mt-2">
                     <span className="px-3 py-2 bg-secondary rounded-lg font-medium">
-                      {currentWallet?.currency || 'USD'}
+                      {currentWallet?.currency || "USD"}
                     </span>
                     <Input
                       type="number"
                       step="0.01"
                       placeholder="0.00"
                       value={formData.limit}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, limit: e.target.value })}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setFormData({ ...formData, limit: e.target.value })
+                      }
                       required
                     />
                   </div>
@@ -150,7 +164,15 @@ export default function BudgetsPage() {
                   <label className="text-sm font-medium">Period</label>
                   <select
                     value={formData.period}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, period: e.target.value as 'weekly' | 'monthly' | 'yearly' })}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setFormData({
+                        ...formData,
+                        period: e.target.value as
+                          | "weekly"
+                          | "monthly"
+                          | "yearly",
+                      })
+                    }
                     className="w-full mt-2 px-3 py-2 border rounded-lg bg-background"
                   >
                     <option value="weekly">Weekly</option>
@@ -161,13 +183,17 @@ export default function BudgetsPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Alert Threshold (%)</label>
+                <label className="text-sm font-medium">
+                  Alert Threshold (%)
+                </label>
                 <Input
                   type="number"
                   min="0"
                   max="100"
                   value={formData.alertThreshold}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, alertThreshold: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setFormData({ ...formData, alertThreshold: e.target.value })
+                  }
                 />
               </div>
 
@@ -175,7 +201,11 @@ export default function BudgetsPage() {
                 <Button type="submit" className="flex-1">
                   Create Budget
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowForm(false)}
+                >
                   Cancel
                 </Button>
               </div>
@@ -187,15 +217,30 @@ export default function BudgetsPage() {
       <div className="grid gap-4">
         {budgetWithCategories.length > 0 ? (
           budgetWithCategories.map((budget) => (
-            <Card key={budget.id} className={budget.isOver ? 'border-destructive' : budget.shouldAlert ? 'border-warning' : ''}>
+            <Card
+              key={budget.id}
+              className={
+                budget.isOver
+                  ? "border-destructive"
+                  : budget.shouldAlert
+                    ? "border-warning"
+                    : ""
+              }
+            >
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <span className="text-3xl">{budget.category?.icon}</span>
+                    <CategoryIcon
+                      iconName={budget.category?.icon || "Other"}
+                      className="h-9 w-9"
+                      color={budget.category?.color}
+                    />
                     <div>
                       <p className="font-semibold">{budget.category?.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {budget.period.charAt(0).toUpperCase() + budget.period.slice(1)} • Alert at {budget.alertThreshold}%
+                        {budget.period.charAt(0).toUpperCase() +
+                          budget.period.slice(1)}{" "}
+                        • Alert at {budget.alertThreshold}%
                       </p>
                     </div>
                   </div>
@@ -211,11 +256,19 @@ export default function BudgetsPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">
-                      {Number(budget.spent || 0).toFixed(2)} / {Number(budget.limit || 0).toFixed(2)} {currentWallet?.currency || 'USD'}
+                      {formatAmount(budget.spent || 0)} /{" "}
+                      {formatAmount(budget.limit || 0)}{" "}
+                      {currentWallet?.currency || "USD"}
                     </span>
-                    <span className={`text-sm font-medium ${
-                      budget.isOver ? 'text-destructive' : budget.shouldAlert ? 'text-warning' : 'text-success'
-                    }`}>
+                    <span
+                      className={`text-sm font-medium ${
+                        budget.isOver
+                          ? "text-destructive"
+                          : budget.shouldAlert
+                            ? "text-warning"
+                            : "text-success"
+                      }`}
+                    >
                       {Number(budget.percentage || 0).toFixed(0)}%
                     </span>
                   </div>
@@ -223,15 +276,24 @@ export default function BudgetsPage() {
                   <div className="w-full bg-secondary rounded-full h-3">
                     <div
                       className={`h-3 rounded-full ${
-                        budget.isOver ? 'bg-destructive' : budget.shouldAlert ? 'bg-warning' : 'bg-success'
+                        budget.isOver
+                          ? "bg-destructive"
+                          : budget.shouldAlert
+                            ? "bg-warning"
+                            : "bg-success"
                       }`}
-                      style={{ width: `${Math.min(budget.percentage || 0, 100)}%` }}
+                      style={{
+                        width: `${Math.min(budget.percentage || 0, 100)}%`,
+                      }}
                     />
                   </div>
 
                   {budget.isOver && (
                     <p className="text-xs text-destructive font-medium">
-                      ⚠️ Over budget by {currentWallet?.currency || 'USD'} {Number(budget.spent - budget.limit || 0).toFixed(2)}
+                      ⚠️ Over budget by {currentWallet?.currency || "USD"}{" "}
+                      {formatAmount(
+                        Number(budget.spent || 0) - Number(budget.limit || 0),
+                      )}
                     </p>
                   )}
                   {budget.shouldAlert && !budget.isOver && (
@@ -249,7 +311,7 @@ export default function BudgetsPage() {
               <p className="text-muted-foreground">No budgets created yet</p>
             </CardContent>
           </Card>
-        )}  
+        )}
       </div>
     </div>
   );

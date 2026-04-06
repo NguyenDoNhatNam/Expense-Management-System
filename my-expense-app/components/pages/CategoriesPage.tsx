@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   Baby,
   BriefcaseBusiness,
@@ -17,56 +17,66 @@ import {
   CarFront,
   Gift,
   type LucideIcon,
-} from 'lucide-react';
-import { useApp } from '@/lib/AppContext';
-import { getApiErrorMessage } from '@/lib/api/auth';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Input } from '../ui/input';
+} from "lucide-react";
+import { useApp } from "@/lib/AppContext";
+import { getApiErrorMessage } from "@/lib/api/auth";
+import { Button } from "../ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Input } from "../ui/input";
 
-type CategoryType = 'income' | 'expense';
+type CategoryType = "income" | "expense";
 
 type CategoryIconKey =
-  | 'ShoppingCart'
-  | 'Utensils'
-  | 'Wallet'
-  | 'BriefcaseBusiness'
-  | 'Home'
-  | 'CarFront'
-  | 'HeartPulse'
-  | 'GraduationCap'
-  | 'Plane'
-  | 'Gamepad2'
-  | 'Gift'
-  | 'Baby'
-  | 'Other';
+  | "ShoppingCart"
+  | "Utensils"
+  | "Wallet"
+  | "BriefcaseBusiness"
+  | "Home"
+  | "CarFront"
+  | "HeartPulse"
+  | "GraduationCap"
+  | "Plane"
+  | "Gamepad2"
+  | "Gift"
+  | "Baby"
+  | "Other";
 
-const ICON_OPTIONS: { value: CategoryIconKey; label: string; Icon: LucideIcon }[] = [
-  { value: 'ShoppingCart', label: 'Shopping Cart', Icon: ShoppingCart },
-  { value: 'Utensils', label: 'Food & Dining', Icon: Utensils },
-  { value: 'Wallet', label: 'Wallet', Icon: Wallet },
-  { value: 'BriefcaseBusiness', label: 'Business', Icon: BriefcaseBusiness },
-  { value: 'Home', label: 'Home', Icon: Home },
-  { value: 'CarFront', label: 'Transport', Icon: CarFront },
-  { value: 'HeartPulse', label: 'Health', Icon: HeartPulse },
-  { value: 'GraduationCap', label: 'Education', Icon: GraduationCap },
-  { value: 'Plane', label: 'Travel', Icon: Plane },
-  { value: 'Gamepad2', label: 'Entertainment', Icon: Gamepad2 },
-  { value: 'Gift', label: 'Gift', Icon: Gift },
-  { value: 'Baby', label: 'Family', Icon: Baby },
-  { value: 'Other', label: 'Other', Icon: CircleHelp },
+const ICON_OPTIONS: {
+  value: CategoryIconKey;
+  label: string;
+  Icon: LucideIcon;
+}[] = [
+  { value: "ShoppingCart", label: "Shopping Cart", Icon: ShoppingCart },
+  { value: "Utensils", label: "Food & Dining", Icon: Utensils },
+  { value: "Wallet", label: "Wallet", Icon: Wallet },
+  { value: "BriefcaseBusiness", label: "Business", Icon: BriefcaseBusiness },
+  { value: "Home", label: "Home", Icon: Home },
+  { value: "CarFront", label: "Transport", Icon: CarFront },
+  { value: "HeartPulse", label: "Health", Icon: HeartPulse },
+  { value: "GraduationCap", label: "Education", Icon: GraduationCap },
+  { value: "Plane", label: "Travel", Icon: Plane },
+  { value: "Gamepad2", label: "Entertainment", Icon: Gamepad2 },
+  { value: "Gift", label: "Gift", Icon: Gift },
+  { value: "Baby", label: "Family", Icon: Baby },
+  { value: "Other", label: "Other", Icon: CircleHelp },
 ];
 
 const INITIAL_FORM = {
-  name: '',
-  icon: 'ShoppingCart' as CategoryIconKey,
-  color: '#0ea5e9',
-  type: 'expense' as CategoryType,
+  name: "",
+  icon: "ShoppingCart" as CategoryIconKey,
+  color: "#0ea5e9",
+  type: "expense" as CategoryType,
 };
 
 function CategoryIcon({
   iconName,
-  className = 'h-5 w-5',
+  className = "h-5 w-5",
 }: {
   iconName: string;
   className?: string;
@@ -77,14 +87,14 @@ function CategoryIcon({
     return <Icon className={className} />;
   }
 
-  return <span className="text-lg leading-none">{iconName || '❔'}</span>;
+  return <span className="text-lg leading-none">{iconName || "❔"}</span>;
 }
 
 export default function CategoriesPage() {
   const { categories, addCategory, deleteCategory, currentUser } = useApp();
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
 
   const filteredCategories = useMemo(() => {
@@ -100,20 +110,26 @@ export default function CategoriesPage() {
     });
   }, [categories, query]);
 
-  const expenseCategories = filteredCategories.filter((cat) => cat.type === 'expense');
-  const incomeCategories = filteredCategories.filter((cat) => cat.type === 'income');
+  const expenseCategories = filteredCategories.filter(
+    (cat) => cat.type === "expense",
+  );
+  const incomeCategories = filteredCategories.filter(
+    (cat) => cat.type === "income",
+  );
 
   const handleAddCategory = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const name = form.name.trim();
     if (!name) {
-      toast.error('Category name is required.');
+      toast.error("Category name is required.");
       return;
     }
 
     const duplicated = categories.some(
-      (cat) => cat.type === form.type && cat.name.trim().toLowerCase() === name.toLowerCase()
+      (cat) =>
+        cat.type === form.type &&
+        cat.name.trim().toLowerCase() === name.toLowerCase(),
     );
 
     if (duplicated) {
@@ -128,10 +144,10 @@ export default function CategoriesPage() {
         icon: form.icon,
         color: form.color,
         type: form.type,
-        userId: currentUser?.id || '',
+        userId: currentUser?.id || "",
       });
 
-      toast.success('Category created successfully.');
+      toast.success("Category created successfully.");
       setForm(INITIAL_FORM);
       setShowAddForm(false);
     } catch (error) {
@@ -141,14 +157,17 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleDeleteCategory = async (categoryId: string, categoryName: string) => {
+  const handleDeleteCategory = async (
+    categoryId: string,
+    categoryName: string,
+  ) => {
     if (!window.confirm(`Delete category "${categoryName}"?`)) {
       return;
     }
 
     try {
       await deleteCategory(categoryId);
-      toast.success('Category deleted successfully.');
+      toast.success("Category deleted successfully.");
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
@@ -162,7 +181,9 @@ export default function CategoriesPage() {
         </h4>
 
         {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No categories in this group.</p>
+          <p className="text-sm text-muted-foreground">
+            No categories in this group.
+          </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {items.map((cat) => (
@@ -226,20 +247,24 @@ export default function CategoriesPage() {
         </div>
 
         <Button onClick={() => setShowAddForm((prev) => !prev)}>
-          {showAddForm ? 'Cancel' : '+ Add Category'}
+          {showAddForm ? "Cancel" : "+ Add Category"}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Search Categories</CardTitle>
-          <CardDescription>Find categories by name, type, or icon</CardDescription>
+          <CardDescription>
+            Find categories by name, type, or icon
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Input
             placeholder="Search by category name..."
             value={query}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setQuery(e.target.value)
+            }
           />
         </CardContent>
       </Card>
@@ -248,7 +273,9 @@ export default function CategoriesPage() {
         <Card>
           <CardHeader>
             <CardTitle>Create Category</CardTitle>
-            <CardDescription>Choose an icon and a color for the category</CardDescription>
+            <CardDescription>
+              Choose an icon and a color for the category
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleAddCategory} className="space-y-4">
@@ -270,7 +297,10 @@ export default function CategoriesPage() {
                   <select
                     value={form.icon}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      setForm((prev) => ({ ...prev, icon: e.target.value as CategoryIconKey }))
+                      setForm((prev) => ({
+                        ...prev,
+                        icon: e.target.value as CategoryIconKey,
+                      }))
                     }
                     className="mt-2 w-full rounded-lg border bg-background px-3 py-2"
                   >
@@ -293,8 +323,12 @@ export default function CategoriesPage() {
                       <SelectedIcon className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium">{selectedIcon?.label || 'Preview'}</p>
-                      <p className="text-xs text-muted-foreground">Icon preview</p>
+                      <p className="text-sm font-medium">
+                        {selectedIcon?.label || "Preview"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Icon preview
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -324,7 +358,10 @@ export default function CategoriesPage() {
                   <select
                     value={form.type}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      setForm((prev) => ({ ...prev, type: e.target.value as CategoryType }))
+                      setForm((prev) => ({
+                        ...prev,
+                        type: e.target.value as CategoryType,
+                      }))
                     }
                     className="mt-2 w-full rounded-lg border bg-background px-3 py-2"
                   >
@@ -334,8 +371,12 @@ export default function CategoriesPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : 'Save Category'}
+              <Button
+                type="submit"
+                className="w-full md:w-auto"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Saving..." : "Save Category"}
               </Button>
             </form>
           </CardContent>
@@ -345,11 +386,13 @@ export default function CategoriesPage() {
       <Card>
         <CardHeader>
           <CardTitle>All Categories</CardTitle>
-          <CardDescription>{filteredCategories.length} categories found</CardDescription>
+          <CardDescription>
+            {filteredCategories.length} categories found
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {renderCategoryGroup('Expense Categories', expenseCategories)}
-          {renderCategoryGroup('Income Categories', incomeCategories)}
+          {renderCategoryGroup("Expense Categories", expenseCategories)}
+          {renderCategoryGroup("Income Categories", incomeCategories)}
         </CardContent>
       </Card>
     </div>

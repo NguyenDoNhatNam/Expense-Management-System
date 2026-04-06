@@ -19,6 +19,28 @@ import {
   listAccountsApi,
   updateAccountApi,
 } from './api/accounts';
+import {
+  listSavingGoalsApi,
+  createSavingGoalApi,
+  updateSavingGoalApi,
+  deleteSavingGoalApi,
+  BackendSavingGoal,
+} from './api/savinggoals';
+import {
+  BackendDebt,
+  DebtListResponse,
+  CreateDebtResponse,
+  listDebtsApi,
+  createDebtApi,
+} from './api/debts';
+import {
+  listBudgetsApi,
+  createBudgetApi,
+  updateBudgetApi,
+  deleteBudgetApi,
+  BackendBudget,
+  CreateBudgetPayload,
+} from './api/budgets';   // ← đường dẫn đúng của bạn
 interface AppContextType {
   // Auth
   currentUser: Types.User | null;
@@ -105,7 +127,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const syncCategoriesFromBackend = useCallback(
     async (userId: string) => {
       const response = await listCategoriesApi();
-      const mappedCategories = response.data.map((item) => mapBackendCategoryToCategory(item, userId));
+      const mappedCategories = response.data.items.map((item) => mapBackendCategoryToCategory(item, userId));
       setCategories(mappedCategories);
     },
     [mapBackendCategoryToCategory]
@@ -156,6 +178,87 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     },
     [mapBackendAccountToWallet]
   );
+
+  const syncSavingGoals = async (userId: string) => {
+  const res = await listSavingGoalsApi();
+
+  const mapped = res.data.map((item: any) => ({
+    id: item.goal_id,
+    userId,
+    walletId: currentWallet?.id || '',
+    name: item.goal_name,
+    targetAmount: Number(item.target_amount),
+    currentAmount: Number(item.current_amount),
+    deadline: new Date(item.target_date),
+    priority: item.priority,
+    description: item.description || '',
+    currency: 'VND',
+    createdAt: new Date(item.created_at),
+    updatedAt: new Date(item.updated_at),
+  }));
+
+  setSavingsGoals(mapped);
+};
+const mapBackendDebtToDebt = useCallback(
+  (backendDebt: BackendDebt, userId: string): Types.Debt => ({
+    id: backendDebt.debt_id,
+    userId,
+    debt_type: backendDebt.debt_type,
+    person_name: backendDebt.person_name,
+    amount: Number(backendDebt.amount),
+    remaining_amount: Number(backendDebt.remaining_amount),
+    interest_rate: Number(backendDebt.interest_rate),
+    start_date: new Date(backendDebt.start_date),
+    due_date: new Date(backendDebt.due_date),
+    description: backendDebt.description || '',
+    status: backendDebt.status,
+    createdAt: new Date(backendDebt.created_at),
+    updatedAt: new Date(backendDebt.updated_at),
+    currency: 'VND',
+  }),
+  []
+);
+
+const syncDebtsFromBackend = useCallback(async (userId: string) => {
+  const response: DebtListResponse = await listDebtsApi();
+  const mapped = response.data.map((item: BackendDebt) =>
+    mapBackendDebtToDebt(item, userId)
+  );
+  setDebts(mapped);
+}, [mapBackendDebtToDebt]);
+
+const mapBackendBudgetToBudget = useCallback(
+  (backendBudget: BackendBudget, userId: string): Types.Budget => {
+    const now = new Date();
+    return {
+      id: backendBudget.budget_id,
+      userId,
+      categoryId: backendBudget.category_id,
+      limit: Number(backendBudget.amount),           // ← page dùng limit
+      spent: Number(
+        (backendBudget as any).spent_amount ?? 
+        backendBudget.spent ?? 
+        0
+      ),
+      period: backendBudget.period,
+      alertThreshold: backendBudget.alert_threshold, // ← camelCase cho page
+      startDate: new Date(backendBudget.start_date),
+      endDate: new Date(backendBudget.end_date),
+      createdAt: now,
+      updatedAt: now,
+      // các field khác nếu Types.Budget yêu cầu
+    };
+  },
+  []
+);
+
+const syncBudgetsFromBackend = useCallback(async (userId: string) => {
+  const response = await listBudgetsApi();
+  const mappedBudgets = response.data.map((item: BackendBudget) =>
+    mapBackendBudgetToBudget(item, userId)
+  );
+  setBudgets(mappedBudgets);
+}, [mapBackendBudgetToBudget]);
   // Load data from localStorage on mount
   useEffect(() => {
     const savedUser = localStorage.getItem('expenseapp_user') || sessionStorage.getItem('expenseapp_user');
@@ -194,10 +297,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     Promise.all([
       syncCategoriesFromBackend(currentUser.id),
       syncWalletsFromBackend(currentUser.id),
+      syncDebtsFromBackend(currentUser.id),
+      syncSavingGoals(currentUser.id),
+      syncBudgetsFromBackend(currentUser.id),
     ]).catch((error) => {
       console.error('[sync] Failed to sync initial user data:', getApiErrorMessage(error));
     });
-  }, [currentUser, syncCategoriesFromBackend, syncWalletsFromBackend]);
+  }, [currentUser, syncCategoriesFromBackend, syncWalletsFromBackend, syncDebtsFromBackend, syncSavingGoals, syncBudgetsFromBackend]);
 
   // Persist data to localStorage
   useEffect(() => {
@@ -255,7 +361,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }
 
   setCurrentUser(user);
-  await Promise.all([syncCategoriesFromBackend(user.id), syncWalletsFromBackend(user.id)]);
+  await Promise.all([syncCategoriesFromBackend(user.id), syncWalletsFromBackend(user.id), syncSavingGoals(user.id), syncBudgetsFromBackend(user.id), syncDebtsFromBackend(user.id)]);
 
   return res;
 };
@@ -280,7 +386,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     void account;
     void apiCategories;
 
-    await Promise.all([syncWalletsFromBackend(user.id), syncCategoriesFromBackend(user.id)]);
+    await Promise.all([syncWalletsFromBackend(user.id), syncCategoriesFromBackend(user.id), syncSavingGoals(user.id), syncDebtsFromBackend(user.id), syncBudgetsFromBackend(user.id),]);
   };
 
   const logout = () => {
@@ -483,61 +589,103 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Budget functions
-  const addBudget = (budget: Omit<Types.Budget, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newBudget: Types.Budget = {
-      ...budget,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setBudgets([...budgets, newBudget]);
-  };
+const addBudget = async (payload: CreateBudgetPayload) => {
+  if (!currentUser) throw new Error('Bạn cần đăng nhập để tạo ngân sách.');
+  await createBudgetApi(payload);
+  await syncBudgetsFromBackend(currentUser.id);
+};
 
-  const updateBudget = (id: string, data: Partial<Types.Budget>) => {
-    setBudgets(budgets.map(b => b.id === id ? { ...b, ...data, updatedAt: new Date() } : b));
-  };
+const updateBudget = async (id: string, data: Partial<CreateBudgetPayload>) => {
+  if (!currentUser) throw new Error('Bạn cần đăng nhập để cập nhật ngân sách.');
+  await updateBudgetApi(id, data);
+  await syncBudgetsFromBackend(currentUser.id);
+};
 
-  const deleteBudget = (id: string) => {
-    setBudgets(budgets.filter(b => b.id !== id));
-  };
+const deleteBudget = async (id: string) => {
+  if (!currentUser) {
+    setBudgets((prev) => prev.filter((b) => b.id !== id));
+    return;
+  }
+  await deleteBudgetApi(id);
+  await syncBudgetsFromBackend(currentUser.id);
+};
 
   // Savings Goal functions
-  const addSavingsGoal = (goal: Omit<Types.SavingsGoal, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newGoal: Types.SavingsGoal = {
-      ...goal,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setSavingsGoals([...savingsGoals, newGoal]);
-  };
+  const addSavingsGoal = async (goal: any) => {
+  if (!currentUser) throw new Error('Not authenticated');
 
-  const updateSavingsGoal = (id: string, data: Partial<Types.SavingsGoal>) => {
-    setSavingsGoals(savingsGoals.map(g => g.id === id ? { ...g, ...data, updatedAt: new Date() } : g));
-  };
+  await createSavingGoalApi({
+    goal_name: goal.name,
+    target_amount: goal.targetAmount,
+    target_date: goal.deadline.toISOString().split('T')[0],
+    description: goal.description,
+    priority: goal.priority,
+  });
 
-  const deleteSavingsGoal = (id: string) => {
-    setSavingsGoals(savingsGoals.filter(g => g.id !== id));
-  };
+  await syncSavingGoals(currentUser.id);
+};
+
+  const updateSavingsGoal = async (id: string, data: any) => {
+  if (!currentUser) throw new Error('Not authenticated');
+
+  await updateSavingGoalApi(id, {
+    goal_name: data.name,
+    target_amount: data.targetAmount,
+    current_amount: data.currentAmount,
+    target_date: data.deadline
+      ? new Date(data.deadline).toISOString().split('T')[0]
+      : undefined,
+    description: data.description,
+    priority: data.priority,
+  });
+
+  await syncSavingGoals(currentUser.id);
+};
+
+  const deleteSavingsGoal = async (id: string) => {
+  if (!currentUser) throw new Error('Not authenticated');
+
+  await deleteSavingGoalApi(id);
+  await syncSavingGoals(currentUser.id);
+};
 
   // Debt functions
-  const addDebt = (debt: Omit<Types.Debt, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newDebt: Types.Debt = {
-      ...debt,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setDebts([...debts, newDebt]);
+  const addDebt = async (debt: Omit<Types.Debt, 'id' | 'createdAt' | 'updatedAt'>) => {
+  if (!currentUser) throw new Error('Bạn cần đăng nhập để tạo nợ.');
+
+  const payload: CreateDebtPayload = {
+    debt_type: debt.debt_type,
+    person_name: debt.person_name,
+    amount: debt.amount,
+    interest_rate: debt.interest_rate || 0,
+    start_date: debt.start_date.toISOString().split('T')[0],
+    due_date: debt.due_date.toISOString().split('T')[0],
+    description: debt.description || '',
   };
+
+  await createDebtApi(payload);
+  await syncDebtsFromBackend(currentUser.id);
+};
 
   const updateDebt = (id: string, data: Partial<Types.Debt>) => {
     setDebts(debts.map(d => d.id === id ? { ...d, ...data, updatedAt: new Date() } : d));
   };
 
-  const deleteDebt = (id: string) => {
-    setDebts(debts.filter(d => d.id !== id));
-  };
+  const deleteDebt = async (id: string) => {
+  if (!currentUser) {
+    // fallback xóa local nếu chưa login
+    setDebts(debts.filter((d) => d.id !== id));
+    return;
+  }
+
+  try {
+    await deleteDebtApi(id);
+    await syncDebtsFromBackend(currentUser.id);   // ← đồng bộ lại từ server
+  } catch (error: any) {
+    console.error('Delete debt error:', error);
+    alert(error.response?.data?.message || 'Không thể xóa khoản nợ');
+  }
+};
 
   // Statistics functions
   const getTotalIncome = (period?: 'week' | 'month' | 'year') => {
