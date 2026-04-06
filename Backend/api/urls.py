@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from api.views import (
     budget_view, authentication_view, transaction_view, recepit_view, 
     categories_view, report_view, recurring_view, saving_goal_view, 
-    debt_view, transfer_view, account_view, data_management_view
+    debt_view, transfer_view, account_view, data_management_view,
+    activity_log_view
 )
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
@@ -20,10 +21,12 @@ user.register(r'debts', debt_view.DebtViewSet, basename='debts')
 user.register(r'transfers', transfer_view.TransferViewSet, basename='transfers')
 user.register(r'accounts', account_view.AccountViewSet, basename='accounts')
 
-# Data Management (Export/Import/Backup)
 user.register(r'exports', data_management_view.ExportViewSet, basename='exports')
 user.register(r'imports', data_management_view.ImportViewSet, basename='imports')
 user.register(r'backups', data_management_view.BackupViewSet, basename='backups')
+
+# Admin Activity Log
+user.register(r'activity-logs', activity_log_view.ActivityLogViewSet, basename='activity-logs')
 
 urlpatterns = [
     path('' , include(user.urls)) , 
