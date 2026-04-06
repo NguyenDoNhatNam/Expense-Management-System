@@ -13,6 +13,11 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 from datetime import timedelta 
 import os
+import certifi
+
+os.environ['SSL_CERT_FILE'] = certifi.where()
+os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -32,7 +37,6 @@ ALLOWED_HOSTS = []
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -42,9 +46,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'api' ,
-    'corsheaders' ,
+    'api',
+    'corsheaders',
     'drf_spectacular',
+    'django_celery_results',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -63,7 +69,7 @@ ROOT_URLCONF = 'expense.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -85,36 +91,43 @@ REST_FRAMEWORK = {
         'api.authentication.CustomTokenAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '10/minute',
+        'resend_otp': '5/hour',  
+    }
 
 }
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'mssql',
-#         'NAME': 'ExpenseManagementDB',
-#         'USER' : 'sa',
-#         'PASSWORD' : 'Thang@123', 
-#         'HOST' : '127.0.0.1',
-#         'PORT' : '1433',
-#         'OPTIONS': {
-#             'driver': 'ODBC Driver 17 for SQL Server',
-#         },
-#     }
-# }
-
 DATABASES = {
-  "default": {
-    "NAME": "ExpenseManagementDB",
-    "ENGINE": "mssql",#    
-    "HOST": "localhost",  # hoặc localhost + port
-    "OPTIONS": {
-      "driver": "ODBC Driver 17 for SQL Server",
-      "trusted_connection": "yes",
-    },
-  }
- }
+    'default': {
+        'ENGINE': 'mssql',
+        'NAME': 'ExpenseManagementDB',
+        'USER' : 'sa',
+        'PASSWORD' : 'Thang@123', 
+        'HOST' : '127.0.0.1',
+        'PORT' : '1433',
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server',
+        },
+    }
+}
+
+# DATABASES = {
+#   "default": {
+#     "NAME": "ExpenseManagementDB",
+#     "ENGINE": "mssql",#    
+#     "HOST": "localhost",  # hoặc localhost + port
+#     "OPTIONS": {
+#       "driver": "ODBC Driver 17 for SQL Server",
+#       "trusted_connection": "yes",
+#     },
+#   }
+#  }
 
 
 
@@ -189,3 +202,140 @@ CACHES = {
         }
     }
 }
+
+
+DEBUG = True 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_HOST_USER = 'ndnnam25@gmail.com'
+EMAIL_HOST_PASSWORD = 'yfnr wfvh vzgz ztwi'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
+# ==================== CELERY CONFIGURATION ====================
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+# Celery Beat Schedule - Scheduled Tasks
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    # Xử lý giao dịch định kỳ - 00:00 hàng ngày
+    'process-recurring-transactions': {
+        'task': 'api.tasks.process_recurring_transactions',
+        'schedule': crontab(hour=0, minute=0),
+    },
+    # Nhắc nhở nợ - 08:00 hàng ngày
+    'process-debt-reminders': {
+        'task': 'api.tasks.process_debt_reminders',
+        'schedule': crontab(hour=8, minute=0),
+    },
+    # Daily backup - 02:00 hàng ngày
+    'daily-backup-all-users': {
+        'task': 'api.tasks.daily_backup_all_users',
+        'schedule': crontab(hour=2, minute=0),
+    },
+    # Cleanup old exports - 03:00 hàng ngày
+    'cleanup-old-exports': {
+        'task': 'api.tasks.cleanup_old_exports',
+        'schedule': crontab(hour=3, minute=0),
+    },
+    # Cleanup old backups - 04:00 hàng tuần (Chủ Nhật)
+    'cleanup-old-backups': {
+        'task': 'api.tasks.cleanup_old_backups',
+        'schedule': crontab(hour=4, minute=0, day_of_week=0),
+    },
+}
+
+FRONTEND_URL = 'http://localhost:3000'
+
+# ==================== EXPORT/IMPORT/BACKUP CONFIGURATION ====================
+
+# App Version
+APP_VERSION = '1.0.0'
+
+# Backup Encryption Key (Override in production!)
+# Generate với: python -c "import secrets; print(secrets.token_hex(32))"
+BACKUP_ENCRYPTION_KEY = os.environ.get('BACKUP_ENCRYPTION_KEY', 'change-this-in-production-use-env-var')
+
+# AWS S3 Configuration (Optional - for cloud backup)
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID', '')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', '')
+AWS_BACKUP_BUCKET = os.environ.get('AWS_BACKUP_BUCKET', '')
+AWS_REGION = os.environ.get('AWS_REGION', 'ap-southeast-1')
+
+# Export Configuration
+EXPORT_MAX_SYNC_ROWS = 1000  # Vượt quá sẽ chuyển sang async
+EXPORT_FILE_EXPIRY_HOURS = 24
+
+# Backup Configuration  
+BACKUP_LOCAL_RETENTION_DAYS = 7
+BACKUP_S3_RETENTION_DAYS = 30
+
+# ==================== LOGGING CONFIGURATION ====================
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name} {module}:{lineno} - {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'simple': {
+            'format': '[{levelname}] {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'app.log',
+            'maxBytes': 10 * 1024 * 1024,  # 10MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'celery_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'celery.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'api': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'celery': {
+            'handlers': ['console', 'celery_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
+# Create logs directory if not exists
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)

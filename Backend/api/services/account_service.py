@@ -1,5 +1,6 @@
 from django.db import transaction as db_transaction
-from django.db.models import Sum
+from django.db.models import Sum, Count, Q, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from uuid import uuid4
 from decimal import Decimal
@@ -12,7 +13,19 @@ class AccountService:
         Lấy danh sách tài khoản và tính tổng tài sản (Net Worth).
         Chỉ tính các tài khoản có is_include_in_total = True
         """
-        accounts = Accounts.objects.filter(user=user).order_by('-created_at')
+        # Được sử dụng để hiện thị transaction count, total_income, total_expense trên mỗi account
+        accounts = Accounts.objects.filter(user=user).annotate(
+            transaction_count=Count('transactions', filter=Q(transactions__is_deleted=False)),
+            total_income=Coalesce(
+                Sum('transactions__amount', filter=Q(transactions__transaction_type='income', transactions__is_deleted=False)),
+                Value(Decimal('0.00'))
+            ),
+            total_expense=Coalesce(
+                Sum('transactions__amount', filter=Q(transactions__transaction_type='expense', transactions__is_deleted=False)),
+                Value(Decimal('0.00'))
+            )
+        ).order_by('-created_at')
+
         net_worth = accounts.filter(is_include_in_total=True).aggregate(
             total=Sum('balance')
         )['total'] or Decimal('0.00')

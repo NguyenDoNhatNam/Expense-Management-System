@@ -97,6 +97,20 @@ class Debts(models.Model):
         db_table = 'debts'
 
 
+class EmailVerificationTokens(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey('Users', models.DO_NOTHING)
+    token = models.CharField(unique=True, max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    token_type = models.CharField(max_length=20, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    is_used = models.BooleanField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'email_verification_tokens'
+
+
 class Notification(models.Model):
     notification_id = models.CharField(primary_key=True, max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
     user = models.ForeignKey('Users', models.DO_NOTHING)
@@ -110,6 +124,20 @@ class Notification(models.Model):
     class Meta:
         managed = False
         db_table = 'notification'
+
+
+class OtpCodes(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey('Users', models.DO_NOTHING)
+    code = models.CharField(max_length=6, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    otp_type = models.CharField(max_length=20, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    is_used = models.BooleanField(blank=True, null=True)
+    created_at = models.DateTimeField(blank=True, null=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'otp_codes'
 
 
 class Permissions(models.Model):

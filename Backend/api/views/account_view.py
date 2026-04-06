@@ -6,7 +6,8 @@ from api.permissions.permission import DynamicPermission
 from api.models import Accounts
 from api.services.account_service import AccountService
 from api.serializers.account_serializer import AccountListSerializer, CreateAccountSerializer, UpdateAccountSerializer
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
+from api.pagination import CustomPagination
 
 class AccountViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
@@ -20,6 +21,13 @@ class AccountViewSet(viewsets.ViewSet):
     }
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(name='p', description='Trang hiện tại (mặc định 1)', required=False, type=int),
+            OpenApiParameter(name='ipp', description='Số lượng bản ghi mỗi trang', required=False, type=int),
+            OpenApiParameter(name='search', description='Từ khóa tìm kiếm theo tên tài khoản', required=False, type=str),
+            OpenApiParameter(name='account_type', description='Loại tài khoản (cash, bank, credit_card, e_wallet, investment)', required=False, type=str),
+            OpenApiParameter(name='is_include_in_total', description='Tính vào tổng tài sản (true/false)', required=False, type=bool),
+        ],
         responses={
             200: OpenApiResponse(description="Lấy danh sách tài khoản thành công")
         }
@@ -27,15 +35,26 @@ class AccountViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='list')
     def list_accounts(self, request):
         accounts, net_worth = AccountService.get_accounts_summary(request.user)
-        serializer = AccountListSerializer(accounts, many=True)
-        return Response({
-            'success': True,
-            'message': 'Lấy danh sách tài khoản thành công',
-            'data': {
-                'net_worth': str(net_worth),
-                'accounts': serializer.data
-            }
-        }, status=status.HTTP_200_OK)
+        
+        search_query = request.query_params.get('search', '').strip()
+        account_type = request.query_params.get('account_type', '').strip()
+        is_include = request.query_params.get('is_include_in_total', None)
+
+        if search_query:
+            accounts = accounts.filter(account_name__icontains=search_query)
+        if account_type:
+            accounts = accounts.filter(account_type=account_type)
+        if is_include is not None:
+            is_include_bool = str(is_include).lower() == 'true'
+            accounts = accounts.filter(is_include_in_total=is_include_bool)
+
+        paginator = CustomPagination()
+        paginated_queryset = paginator.paginate_queryset(accounts, request)
+        serializer = AccountListSerializer(paginated_queryset, many=True)
+        
+        response = paginator.get_paginated_response(serializer.data)
+        response.data['data']['net_worth'] = str(net_worth)
+        return response
 
     @extend_schema(
         request=CreateAccountSerializer,
