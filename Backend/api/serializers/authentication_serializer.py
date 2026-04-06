@@ -113,6 +113,7 @@ class UserRegistrationSerializer(serializers.Serializer):
                 icon = category['icon'],
                 color = category['color'] , 
                 created_at = timezone.now(),
+                is_deleted = False , 
                 is_default = True 
             )
             categories.append(category)
@@ -158,4 +159,43 @@ class UserLoginSerializer(serializers.Serializer):
             raise serializers.ValidationError('Account is not active, please contact support')
         
         data['user'] = user
+        return data
+
+class VerifyOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=6, min_length=6)
+
+
+class ResendOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    # otp_type: 'activation' hoặc 'reset_password'
+    otp_type = serializers.ChoiceField(choices=['activation', 'reset_password'], default='activation')
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    # Hỗ trợ nhận cả OTP (nhập số) hoặc Link (bấm vào email)
+    method = serializers.ChoiceField(choices=['otp', 'link'], default='otp')
+
+
+class ResetPasswordOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=6, min_length=6)
+    new_password = serializers.CharField(min_length=8)
+    confirm_password = serializers.CharField(min_length=8)
+    
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError("Mật khẩu xác nhận không khớp.")
+        return data
+
+
+class ResetPasswordLinkSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    new_password = serializers.CharField(min_length=8)
+    confirm_password = serializers.CharField(min_length=8)
+    
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError("Mật khẩu xác nhận không khớp.")
         return data

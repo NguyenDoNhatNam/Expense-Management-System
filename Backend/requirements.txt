@@ -22,3 +22,21 @@ rpds-py==0.30.0
 six==1.17.0
 sqlparse==0.5.5
 uritemplate==4.2.0
+
+# Celery - Async task queue
+celery==5.5.0
+django-celery-beat==2.7.0
+django-celery-results==2.5.1
+
+# Export/Import dependencies
+pandas==2.2.3
+openpyxl==3.1.5
+weasyprint==62.3
+
+# Backup & Encryption
+cryptography==43.0.3
+boto3==1.35.0  # S3 support (optional)
+
+# Certifi for SSL
+certifi
+

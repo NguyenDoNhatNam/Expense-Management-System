@@ -1,7 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from api.views import budget_view , authentication_view , transaction_view , recepit_view , categories_view, report_view , recurring_view, saving_goal_view, debt_view, transfer_view , account_view
+from api.views import (
+    budget_view, authentication_view, transaction_view, recepit_view, 
+    categories_view, report_view, recurring_view, saving_goal_view, 
+    debt_view, transfer_view, account_view, data_management_view
+)
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+
 user = DefaultRouter()
 user.register(r'auth', authentication_view.UserViewSet, basename='auth')
 user.register(r'transactions', transaction_view.TransactionViewset, basename='transactions')
@@ -14,6 +19,11 @@ user.register(r'savings', saving_goal_view.SavingGoalViewSet, basename='savings'
 user.register(r'debts', debt_view.DebtViewSet, basename='debts')
 user.register(r'transfers', transfer_view.TransferViewSet, basename='transfers')
 user.register(r'accounts', account_view.AccountViewSet, basename='accounts')
+
+# Data Management (Export/Import/Backup)
+user.register(r'exports', data_management_view.ExportViewSet, basename='exports')
+user.register(r'imports', data_management_view.ImportViewSet, basename='imports')
+user.register(r'backups', data_management_view.BackupViewSet, basename='backups')
 
 urlpatterns = [
     path('' , include(user.urls)) , 
