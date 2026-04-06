@@ -240,3 +240,62 @@ CREATE TABLE email_verification_tokens (
 -- Index để query nhanh
 CREATE INDEX idx_otp_user_type ON otp_codes(user_id, otp_type, is_used);
 CREATE INDEX idx_email_token_user ON email_verification_tokens(user_id, token_type, is_used);
+
+GO
+-- =============================================
+-- BẢNG ACTIVITY_LOGS - Theo dõi hoạt động người dùng
+-- =============================================
+CREATE TABLE activity_logs (
+    activity_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(50) NULL,
+    
+    -- Action info
+    action VARCHAR(100) NOT NULL,           -- LOGIN_SUCCESS, CREATE_TRANSACTION, VIEW_BUDGET, etc.
+    level VARCHAR(20) DEFAULT 'INFO',       -- INFO, ACTION, WARNING, ERROR
+    details NVARCHAR(MAX) NULL,             -- Chi tiết hành động
+    
+    -- Entity tracking (để theo dõi thay đổi trên entity nào)
+    entity_type VARCHAR(50) NULL,           -- transaction, account, budget, etc.
+    entity_id VARCHAR(50) NULL,             -- ID của entity bị ảnh hưởng
+    old_values NVARCHAR(MAX) NULL,          -- JSON chứa giá trị cũ
+    new_values NVARCHAR(MAX) NULL,          -- JSON chứa giá trị mới
+    
+    -- Request context
+    ip_address VARCHAR(50) NULL,
+    user_agent VARCHAR(500) NULL,
+    device VARCHAR(100) NULL,               -- Desktop, Mobile, Tablet
+    browser VARCHAR(100) NULL,              -- Chrome 128, Firefox 120, etc.
+    os VARCHAR(100) NULL,                   -- Windows 11, macOS, iOS, etc.
+    current_page VARCHAR(255) NULL,         -- URL/path đang truy cập
+    
+    -- Status
+    status VARCHAR(20) DEFAULT 'success',   -- success, failed
+    error_message NVARCHAR(MAX) NULL,
+    
+    -- Timestamp
+    created_at DATETIME DEFAULT GETDATE(),
+    
+    CONSTRAINT pk_activity_logs PRIMARY KEY (activity_id),
+    CONSTRAINT fk_activity_logs_user FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+GO
+-- Index để query nhanh theo user và thời gian
+CREATE INDEX idx_activity_user ON activity_logs(user_id, created_at DESC);
+CREATE INDEX idx_activity_level ON activity_logs(level, created_at DESC);
+CREATE INDEX idx_activity_action ON activity_logs(action, created_at DESC);
+CREATE INDEX idx_activity_created ON activity_logs(created_at DESC);
+
+GO
+-- Thêm permission cho activity logs
+INSERT INTO permissions (permission_id, permission_name, description) VALUES
+('33', 'view_activity_logs', 'Xem nhật ký hoạt động người dùng'),
+('34', 'export_activity_logs', 'Xuất nhật ký hoạt động');
+
+GO
+-- Gán quyền cho admin và super_admin
+INSERT INTO role_permissions (role_id, permission_id) VALUES
+('2', '33'),  -- admin có thể xem activity logs
+('2', '34'),  -- admin có thể export activity logs
+('3', '33'),  -- super_admin có thể xem activity logs
+('3', '34');  -- super_admin có thể export activity logs

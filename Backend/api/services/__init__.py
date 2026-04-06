@@ -12,6 +12,7 @@ from api.services.upload_service import UploadService
 from api.services.export_service import ExportService
 from api.services.import_service import ImportService
 from api.services.backup_service import BackupService, BackupEncryption, S3Storage, RestoreService
+from api.services.activity_log_service import ActivityLogService
 
 __all__ = [
     'AccountService',
@@ -30,4 +31,5 @@ __all__ = [
     'BackupEncryption',
     'S3Storage',
     'RestoreService',
+    'ActivityLogService',
 ]
