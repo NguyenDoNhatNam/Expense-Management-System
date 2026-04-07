@@ -2,12 +2,15 @@
 
 import React, { useState } from "react";
 import { useApp } from "@/lib/AppContext";
+import { useNotification } from "@/lib/notification";
+import { getApiErrorMessage } from "@/lib/api/auth";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
 
 export default function DebtsPage() {
   const { debts, addDebt, deleteDebt, currentWallet, currentUser } = useApp();
+  const { showNotification } = useNotification();
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -35,7 +38,12 @@ export default function DebtsPage() {
       !formData.start_date ||
       !formData.due_date
     ) {
-      alert("Please fill in all required fields");
+      showNotification("Please fill in all required fields", "warning");
+      return;
+    }
+
+    if (new Date(formData.due_date) <= new Date(formData.start_date)) {
+      showNotification("Due date must be after start date", "warning");
       return;
     }
 
@@ -44,10 +52,12 @@ export default function DebtsPage() {
         debt_type: formData.debt_type,
         person_name: formData.person_name,
         amount: parseFloat(formData.amount),
+        remaining_amount: parseFloat(formData.amount),
         interest_rate: parseFloat(formData.interest_rate) || 0,
         start_date: new Date(formData.start_date),
         due_date: new Date(formData.due_date),
         description: formData.description,
+        status: 'active',
         currency: currentWallet?.currency || "VND",
         userId: currentUser?.id || "",
       });
@@ -62,12 +72,10 @@ export default function DebtsPage() {
         description: "",
       });
       setShowForm(false);
-      alert("Debt added successfully!");
+      showNotification("Debt added successfully!", "success");
     } catch (error: any) {
       console.error(error);
-      alert(
-        error.response?.data?.message || error.message || "Unable to add debt",
-      );
+      showNotification(getApiErrorMessage(error), "error");
     }
   };
 

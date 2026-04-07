@@ -14,12 +14,16 @@ from pathlib import Path
 from datetime import timedelta 
 import os
 import certifi
+from dotenv import load_dotenv
 
 os.environ['SSL_CERT_FILE'] = certifi.where()
 os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -28,14 +32,18 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-u+*c!au-rr=0x^z_6czyb+nr@uz7yab@!+cd29%@s%oo$4p(%*'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-u+*c!au-rr=0x^z_6czyb+nr@uz7yab@!+cd29%@s%oo$4p(%*')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',')
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = os.environ.get(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:3000,http://127.0.0.1:3000'
+).split(',')
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'True').lower() in ('true', '1', 'yes')
 
 # Application definition
 
@@ -106,13 +114,13 @@ REST_FRAMEWORK = {
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
-        'NAME': 'ExpenseManagementDB',
-        'USER' : 'sa',
-        'PASSWORD' : 'Thang@123', 
-        'HOST' : '127.0.0.1',
-        'PORT' : '1433',
+        'NAME': os.environ.get('DB_NAME', 'ExpenseManagementDB'),
+        'USER': os.environ.get('DB_USER', 'sa'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'Thang@123'),
+        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+        'PORT': os.environ.get('DB_PORT', '1433'),
         'OPTIONS': {
-            'driver': 'ODBC Driver 17 for SQL Server',
+            'driver': os.environ.get('DB_DRIVER', 'ODBC Driver 17 for SQL Server'),
         },
     }
 }
@@ -189,10 +197,12 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379')
+
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'LOCATION': f'{REDIS_URL}/1',
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
             'CONNECTION_POOL_KWARGS': {
@@ -203,20 +213,18 @@ CACHES = {
     }
 }
 
-
-DEBUG = True 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_HOST_USER = 'ndnnam25@gmail.com'
-EMAIL_HOST_PASSWORD = 'yfnr wfvh vzgz ztwi'
-EMAIL_PORT = 587
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'ndnnam25@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'yfnr wfvh vzgz ztwi')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
 # ==================== CELERY CONFIGURATION ====================
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_BROKER_URL = f'{REDIS_URL}/0'
+CELERY_RESULT_BACKEND = f'{REDIS_URL}/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -254,7 +262,7 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-FRONTEND_URL = 'http://localhost:3000'
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
 
 # ==================== EXPORT/IMPORT/BACKUP CONFIGURATION ====================
 

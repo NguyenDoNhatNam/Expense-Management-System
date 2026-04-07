@@ -10,7 +10,7 @@ export interface BackendCategory {
 	color: string | null;
 	is_default: boolean;
 	parent_category_id: string | null;
-	expense_count: number;
+	transaction_count: number;
 	total_amount: string;
 }
 

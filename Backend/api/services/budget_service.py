@@ -2,7 +2,7 @@ from django.db import transaction as db_transaction
 from django.utils import timezone
 from uuid import uuid4
 from api.models import Budgets, Transactions
-from django.db.models import OuterRef, Subquery, Sum, DecimalField, F, FloatField, ExpressionWrapper
+from django.db.models import OuterRef, Subquery, Sum, DecimalField, F, FloatField, ExpressionWrapper, Case, When, Value
 from django.db.models.functions import Coalesce
 import logging
 
@@ -29,8 +29,12 @@ class BudgetService:
                 0.0, output_field=DecimalField()
             )
         ).annotate(
-            percentage_calc=ExpressionWrapper(
-                (F('spent_amount') * 100.0) / F('amount'),
+            percentage_calc=Case(
+                When(amount__gt=0, then=ExpressionWrapper(
+                    (F('spent_amount') * 100.0) / F('amount'),
+                    output_field=FloatField()
+                )),
+                default=Value(0.0),
                 output_field=FloatField()
             )
         ).order_by('-start_date')

@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { useApp } from "@/lib/AppContext";
+import { useNotification } from "@/lib/notification";
+import { getApiErrorMessage } from "@/lib/api/auth";
 import { Button } from "../ui/button";
 import {
   Card,
@@ -21,6 +23,7 @@ export default function SavingsPage() {
     deleteSavingsGoal,
     currentWallet,
   } = useApp();
+  const { showNotification } = useNotification();
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -40,7 +43,7 @@ export default function SavingsPage() {
     e.preventDefault();
 
     if (!formData.name || !formData.targetAmount || !formData.deadline) {
-      alert("Please fill all required fields");
+      showNotification("Please fill all required fields", "warning");
       return;
     }
 
@@ -67,9 +70,10 @@ export default function SavingsPage() {
       });
 
       setShowForm(false);
+      showNotification("Savings goal created!", "success");
     } catch (err) {
       console.error(err);
-      alert("Create goal failed");
+      showNotification(getApiErrorMessage(err), "error");
     }
   };
 

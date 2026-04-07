@@ -9,14 +9,23 @@ export interface User {
   createdAt: Date;
 }
 
+export type WalletType = 'cash' | 'bank' | 'credit_card' | 'e_wallet' | 'investment';
+
 export interface Wallet {
   id: string;
   userId: string;
   name: string;
+  type: WalletType;
   currency: string;
   balance: number;
   description?: string;
   isDefault: boolean;
+  bankName?: string;
+  accountNumber?: string;
+  isIncludeInTotal: boolean;
+  transactionCount: number;
+  totalIncome: number;
+  totalExpense: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -57,7 +66,7 @@ export interface Budget {
   limit: number;
   spent: number;
   currency: string;
-  period: 'weekly' | 'monthly' | 'yearly';
+  period: 'daily' | 'weekly' | 'monthly' | 'yearly';
   alertThreshold: number;
   startDate: Date;
   endDate?: Date;
@@ -83,13 +92,16 @@ export interface SavingsGoal {
 export interface Debt {
   id: string;
   userId: string;
-  name: string;
+  debt_type: 'owe' | 'lend' | 'borrow';
+  person_name: string;
   amount: number;
+  remaining_amount: number;
+  interest_rate: number;
+  start_date: Date;
+  due_date: Date;
+  description?: string;
+  status: string;
   currency: string;
-  interestRate: number;
-  creditorName: string;
-  dueDate: Date;
-  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
