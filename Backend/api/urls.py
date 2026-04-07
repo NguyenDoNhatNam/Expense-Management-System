@@ -4,7 +4,7 @@ from api.views import (
     budget_view, authentication_view, transaction_view, recepit_view, 
     categories_view, report_view, recurring_view, saving_goal_view, 
     debt_view, transfer_view, account_view, data_management_view,
-    activity_log_view
+    activity_log_view, admin_users_view
 )
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
@@ -27,6 +27,9 @@ user.register(r'backups', data_management_view.BackupViewSet, basename='backups'
 
 # Admin Activity Log
 user.register(r'activity-logs', activity_log_view.ActivityLogViewSet, basename='activity-logs')
+
+# Admin Users Management
+user.register(r'users', admin_users_view.AdminUsersViewSet, basename='users')
 
 urlpatterns = [
     path('' , include(user.urls)) , 

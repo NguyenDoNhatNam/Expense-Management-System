@@ -20,6 +20,7 @@ import {
   deleteTransactionApi,
   listTransactionsApi,
 } from "@/lib/api/transactions";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Transaction = BackendTransaction;
 
@@ -53,6 +54,12 @@ export default function TransactionsPage() {
   // ===== SORT =====
   const [sortBy, setSortBy] = useState("newest");
 
+  // ===== PAGINATION =====
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const itemsPerPage = 10;
+
   // ===== FORM =====
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -61,28 +68,32 @@ export default function TransactionsPage() {
 
   // ===== FETCH =====
   const fetchTransactions = useCallback(async () => {
-    if (!currentWallet) return;
-
     setIsLoading(true);
 
     try {
       const result = await listTransactionsApi({
-        account: currentWallet.id,
         keyword: searchText || undefined,
         transaction_type:
           filterType === "all" ? undefined : filterType,
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined,
+        start_date: dateFrom || undefined,
+        end_date: dateTo || undefined,
         min_amount: minAmount || undefined,
         max_amount: maxAmount || undefined,
-        categories: selectedCategories.length
-          ? selectedCategories
+        category_ids: selectedCategories.length
+          ? selectedCategories.join(',')
           : undefined,
-        sort: sortBy,
+        sort_by: sortBy,
+        p: currentPage,
+        ipp: itemsPerPage,
       });
 
       if (result.success) {
-        setTransactions(result.data || []);
+        setTransactions(result.data?.transactions || []);
+        const pagination = result.data?.pagination;
+        if (pagination) {
+          setTotalPages(pagination.total_pages);
+          setTotalItems(pagination.total_items);
+        }
       } else {
         throw new Error(result.message);
       }
@@ -92,7 +103,6 @@ export default function TransactionsPage() {
       setIsLoading(false);
     }
   }, [
-    currentWallet,
     searchText,
     filterType,
     dateFrom,
@@ -101,6 +111,7 @@ export default function TransactionsPage() {
     maxAmount,
     selectedCategories,
     sortBy,
+    currentPage,
     showNotification,
   ]);
 
@@ -109,6 +120,11 @@ export default function TransactionsPage() {
     const timeout = setTimeout(fetchTransactions, 300);
     return () => clearTimeout(timeout);
   }, [fetchTransactions]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, filterType, dateFrom, dateTo, minAmount, maxAmount, selectedCategories, sortBy]);
 
   // ===== ACTIONS =====
   const deleteTransaction = async (id: string) => {
@@ -206,7 +222,7 @@ export default function TransactionsPage() {
           <CardDescription>
             {isLoading
               ? "Loading..."
-              : `${transactions.length} results`}
+              : `${totalItems} results`}
           </CardDescription>
         </CardHeader>
 
@@ -276,6 +292,67 @@ export default function TransactionsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* PAGINATION */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t pt-4 mt-4">
+              <p className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages} ({totalItems} total)
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((page) =>
+                    page === 1 ||
+                    page === totalPages ||
+                    Math.abs(page - currentPage) <= 1
+                  )
+                  .reduce<(number | "ellipsis")[]>((acc, page, idx, arr) => {
+                    if (idx > 0 && page - (arr[idx - 1] as number) > 1) {
+                      acc.push("ellipsis");
+                    }
+                    acc.push(page);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === "ellipsis" ? (
+                      <span key={`e-${idx}`} className="px-1 text-muted-foreground">
+                        ...
+                      </span>
+                    ) : (
+                      <Button
+                        key={item}
+                        variant={currentPage === item ? "default" : "outline"}
+                        size="sm"
+                        className="min-w-9"
+                        onClick={() => setCurrentPage(item)}
+                      >
+                        {item}
+                      </Button>
+                    ),
+                  )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

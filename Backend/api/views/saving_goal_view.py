@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from api.permissions.permission import DynamicPermission
 from api.models import SavingsGoals
 from api.services.saving_goal_service import SavingGoalService
+from api.services.activity_log_service import ActivityLogService
 from api.serializers.saving_goal_serializer import SavingGoalListSerializer, CreateSavingGoalSerializer, UpdateSavingGoalSerializer
 from drf_spectacular.utils import extend_schema
 
@@ -32,6 +33,15 @@ class SavingGoalViewSet(viewsets.ViewSet):
         serializer = CreateSavingGoalSerializer(data=request.data)
         if serializer.is_valid():
             goal = SavingGoalService.create_goal(serializer.validated_data, request.user)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='CREATE_SAVING_GOAL',
+                details=f'Created saving goal ID: {goal.goal_id}',
+                level='ACTION'
+            )
+            
             return Response({'success': True, 'data': {'goal_id': goal.goal_id}}, status=status.HTTP_201_CREATED)
         return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -43,6 +53,15 @@ class SavingGoalViewSet(viewsets.ViewSet):
             serializer = UpdateSavingGoalSerializer(data=request.data)
             if serializer.is_valid():
                 SavingGoalService.update_goal(goal, serializer.validated_data)
+                
+                # Log activity
+                ActivityLogService.log(
+                    request,
+                    action='UPDATE_SAVING_GOAL',
+                    details=f'Updated saving goal ID: {goal_id}',
+                    level='ACTION'
+                )
+                
                 return Response({'success': True, 'message': 'Cập nhật thành công'})
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         except SavingsGoals.DoesNotExist:

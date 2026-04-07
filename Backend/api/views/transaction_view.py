@@ -1,4 +1,5 @@
 from api.services.transaction_service import TransactionService
+from api.services.activity_log_service import ActivityLogService
 from api.serializers.transaction_serializer import (
     CreateTransactionSerializer,
     UpdateTransactionSerializer,
@@ -14,8 +15,8 @@ from django.db.models import Q
 import logging
 from api.permissions.permission import PermissionMixin , DynamicPermission ,HasPermission
 logger = logging.getLogger(__name__)
-from drf_spectacular.utils import extend_schema
-from drf_spectacular.utils import OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
+from api.pagination import CustomPagination
 
 class TransactionViewset(viewsets.ViewSet):
     permission_classes = [IsAuthenticated , DynamicPermission] 
@@ -30,8 +31,21 @@ class TransactionViewset(viewsets.ViewSet):
     
     # ===================== LIST =====================
     @extend_schema(
+        parameters=[
+            OpenApiParameter(name='keyword', description='Tìm kiếm theo mô tả hoặc ghi chú', required=False, type=str),
+            OpenApiParameter(name='transaction_type', description='Loại giao dịch (income, expense, transfer)', required=False, type=str),
+            OpenApiParameter(name='start_date', description='Từ ngày (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='end_date', description='Đến ngày (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='category_ids', description='ID danh mục (ngăn cách bởi dấu phẩy)', required=False, type=str),
+            OpenApiParameter(name='account_ids', description='ID tài khoản (ngăn cách bởi dấu phẩy)', required=False, type=str),
+            OpenApiParameter(name='min_amount', description='Số tiền tối thiểu', required=False, type=float),
+            OpenApiParameter(name='max_amount', description='Số tiền tối đa', required=False, type=float),
+            OpenApiParameter(name='sort_by', description='Sắp xếp (newest, oldest, amount_desc, amount_asc)', required=False, type=str),
+            OpenApiParameter(name='p', description='Trang hiện tại (mặc định 1)', required=False, type=int),
+            OpenApiParameter(name='ipp', description='Số item trên trang (mặc định 10)', required=False, type=int),
+        ],
         responses=TransactionListSerializer(many=True),
-        description="Lấy danh sách giao dịch của người dùng với các bộ lọc tùy chọn."
+        description="Lấy danh sách giao dịch với bộ lọc nâng cao, phân trang và sắp xếp."
     )
     @action(detail=False, methods=['get'], url_path='list')
     def list_transactions(self, request, *args, **kwargs):
@@ -39,26 +53,88 @@ class TransactionViewset(viewsets.ViewSet):
         GET /api/transactions/list/
         """
         user = request.user
-        queryset = Transactions.objects.filter(user=user, is_deleted=False).order_by('-transaction_date')
-        account_id = request.query_params.get('account_id')
+        queryset = Transactions.objects.filter(user=user, is_deleted=False)
+
+        # 1. Lọc theo Keyword (Mô tả, ghi chú)
+        keyword = request.query_params.get('keyword')
+        if keyword:
+            queryset = queryset.filter(Q(description__icontains=keyword) | Q(note__icontains=keyword))
+
+        # 2. Lọc theo Loại giao dịch (Tabs)
+        trans_type = request.query_params.get('transaction_type')
+        if trans_type and trans_type in ['income', 'expense', 'transfer']:
+            queryset = queryset.filter(transaction_type=trans_type)
+
+        # 3. Lọc theo khoảng thời gian (Date Range)
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
-        trans_type = request.query_params.get('transaction_type')
-        keyword = request.query_params.get('keyword')
-
-        if account_id:
-            queryset = queryset.filter(account__account_id=account_id)
         if start_date:
             queryset = queryset.filter(transaction_date__date__gte=start_date)
         if end_date:
             queryset = queryset.filter(transaction_date__date__lte=end_date)
-        if trans_type and trans_type in ['income', 'expense']:
-            queryset = queryset.filter(transaction_type=trans_type)
-        if keyword:
-            queryset = queryset.filter(Q(description__icontains=keyword) | Q(note__icontains=keyword))
 
-        serializer = TransactionListSerializer(queryset, many=True)
-        return Response({'success': True, 'message': 'Lấy danh sách giao dịch thành công.', 'data': serializer.data,}, status=status.HTTP_200_OK)
+        # 4. Lọc theo Account (Multi-select)
+        account_ids = request.query_params.get('account_ids')
+        if account_ids:
+            acc_list = [x.strip() for x in account_ids.split(',') if x.strip()]
+            if acc_list:
+                queryset = queryset.filter(account__account_id__in=acc_list)
+
+        # 5. Lọc theo Category (Multi-select)
+        category_ids = request.query_params.get('category_ids')
+        if category_ids:
+            cat_list = [x.strip() for x in category_ids.split(',') if x.strip()]
+            if cat_list:
+                queryset = queryset.filter(category__category_id__in=cat_list)
+
+        # 6. Lọc theo khoảng số tiền (Range Slider)
+        min_amount = request.query_params.get('min_amount')
+        max_amount = request.query_params.get('max_amount')
+        if min_amount is not None:
+            try:
+                queryset = queryset.filter(amount__gte=float(min_amount))
+            except ValueError:
+                pass
+        if max_amount is not None:
+            try:
+                queryset = queryset.filter(amount__lte=float(max_amount))
+            except ValueError:
+                pass
+
+        # 7. Sắp xếp (Sorting)
+        sort_by = request.query_params.get('sort_by', 'newest')
+        if sort_by == 'newest':
+            queryset = queryset.order_by('-transaction_date')
+        elif sort_by == 'oldest':
+            queryset = queryset.order_by('transaction_date')
+        elif sort_by == 'amount_desc':
+            queryset = queryset.order_by('-amount')
+        elif sort_by == 'amount_asc':
+            queryset = queryset.order_by('amount')
+        else:
+            queryset = queryset.order_by('-transaction_date')
+
+        # 8. Phân trang (Pagination)
+        paginator = CustomPagination()
+        paginated_queryset = paginator.paginate_queryset(queryset, request)
+        serializer = TransactionListSerializer(paginated_queryset, many=True)
+
+        return Response({
+            'success': True, 
+            'message': 'Lấy danh sách giao dịch thành công.', 
+            'data': {
+                'transactions': serializer.data,
+                'pagination': {
+                    'total_items': paginator.page.paginator.count,
+                    'total_pages': paginator.page.paginator.num_pages,
+                    'current_page': paginator.page.number,
+                    'items_per_page': paginator.get_page_size(request),
+                    'has_next': paginator.page.has_next(),
+                    'has_previous': paginator.page.has_previous(),
+                }
+            }
+        }, status=status.HTTP_200_OK)
+
     # ===================== CREATE =====================
     @extend_schema(
         request=CreateTransactionSerializer,
@@ -88,6 +164,15 @@ class TransactionViewset(viewsets.ViewSet):
             result = TransactionService.create_transaction(
                 serializer.validated_data, request.user
             )
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='CREATE_TRANSACTION',
+                details=f"Created transaction: {result.get('transaction_type', '')} - {result.get('amount', 0)}",
+                level='ACTION'
+            )
+            
             return Response(
                 {
                     'success': True,
@@ -157,6 +242,15 @@ class TransactionViewset(viewsets.ViewSet):
                 validated_data=serializer.validated_data,
                 user=request.user,
             )
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='UPDATE_TRANSACTION',
+                details=f'Updated transaction ID: {transaction_id}',
+                level='ACTION'
+            )
+            
             return Response(
                 {
                     'success': True,
@@ -230,6 +324,15 @@ class TransactionViewset(viewsets.ViewSet):
                 user=request.user,
                 hard_delete=hard_delete,
             )
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='DELETE_TRANSACTION',
+                details=f"Deleted transaction ID: {transaction_id} (hard_delete={hard_delete})",
+                level='ACTION'
+            )
+            
             return Response(
                 {
                     'success': True,
@@ -281,6 +384,15 @@ class TransactionViewset(viewsets.ViewSet):
                 transaction_id=transaction_id,
                 user=request.user,
             )
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='RESTORE_TRANSACTION',
+                details=f'Restored transaction ID: {transaction_id}',
+                level='ACTION'
+            )
+            
             return Response(
                 {
                     'success': True,

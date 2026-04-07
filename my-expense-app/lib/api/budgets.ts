@@ -4,20 +4,35 @@ export type BudgetPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export interface BackendBudget {
   budget_id: string;
-  category_id: string;
   budget_name: string;
   amount: string;
   period: BudgetPeriod;
   start_date: string;
   end_date: string;
   alert_threshold: number;
-  spent: number;
+  is_active: boolean;
+  category_id: string;
+  category_name: string;
+  spent_amount: string;
+  percentage: number;
+}
+
+export interface BudgetPagination {
+  total_items: number;
+  total_pages: number;
+  current_page: number;
+  items_per_page: number;
+  has_next: boolean;
+  has_previous: boolean;
 }
 
 export interface BudgetListResponse {
   success: boolean;
   message: string;
-  data: BackendBudget[];
+  data: {
+    items: BackendBudget[];
+    pagination: BudgetPagination;
+  };
 }
 
 export interface CreateBudgetPayload {
@@ -46,8 +61,14 @@ export interface DeleteBudgetResponse {
 
 // ================= API =================
 
-export const listBudgetsApi = async (): Promise<BudgetListResponse> => {
-  const response = await api.get<BudgetListResponse>('/budgets/list/');
+export const listBudgetsApi = async (params?: {
+  p?: number;
+  ipp?: number;
+  search?: string;
+  period?: string;
+  is_active?: string;
+}): Promise<BudgetListResponse> => {
+  const response = await api.get<BudgetListResponse>('/budgets/list/', { params });
   return response.data;
 };
 

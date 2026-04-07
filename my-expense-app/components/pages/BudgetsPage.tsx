@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/lib/AppContext";
 import { CategoryIcon } from "../ui/categoryicon";
 import { Button } from "../ui/button";
@@ -14,6 +14,14 @@ import {
 import { Input } from "../ui/input";
 import { getApiErrorMessage } from "@/lib/api/auth";
 import { useNotification } from "@/lib/notification";
+import {
+  BackendBudget,
+  listBudgetsApi,
+  createBudgetApi,
+  updateBudgetApi,
+  deleteBudgetApi,
+} from "@/lib/api/budgets";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type TabType = "all" | "active" | "ended" | "over";
 type PeriodType = "monthly" | "quarterly" | "yearly";
@@ -57,11 +65,7 @@ const getPeriodEndDate = (startDate: string, period: PeriodType) => {
 
 export default function BudgetsPage() {
   const {
-    budgets,
     categories,
-    addBudget,
-    updateBudget,
-    deleteBudget,
     currentWallet,
   } = useApp();
 
@@ -82,6 +86,47 @@ export default function BudgetsPage() {
 
   const [formData, setFormData] = useState<BudgetFormState>(INITIAL_FORM);
 
+  // ===== PAGINATION & DATA =====
+  const [budgets, setBudgets] = useState<BackendBudget[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const itemsPerPage = 10;
+
+  const fetchBudgets = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await listBudgetsApi({
+        p: currentPage,
+        ipp: itemsPerPage,
+        search: search || undefined,
+      });
+      if (result.success) {
+        setBudgets(result.data?.items || []);
+        const pagination = result.data?.pagination;
+        if (pagination) {
+          setTotalPages(pagination.total_pages);
+          setTotalItems(pagination.total_items);
+        }
+      }
+    } catch (err) {
+      showNotification(getApiErrorMessage(err), "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage, search, showNotification]);
+
+  useEffect(() => {
+    const timeout = setTimeout(fetchBudgets, 300);
+    return () => clearTimeout(timeout);
+  }, [fetchBudgets]);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   const expenseCategories = useMemo(
     () => categories.filter((c) => c.type === "expense"),
     [categories],
@@ -96,48 +141,35 @@ export default function BudgetsPage() {
   }, [expenseCategories, categorySearch]);
 
   const normalizedBudgets = useMemo(() => {
-    return budgets.map((b: any) => {
-      const limit = Number(b.limit ?? b.amount ?? 0);
-      const spent = Number(b.spent ?? 0);
-      const percentage = limit > 0 ? (spent / limit) * 100 : 0;
-
-      const now = new Date();
-      const endDate = b.end_date ? new Date(b.end_date) : null;
-
-      const isActive =
-        b.is_active !== undefined ? Boolean(b.is_active) : endDate ? endDate >= now : true;
+    return budgets.map((b) => {
+      const limit = Number(b.amount || 0);
+      const spent = Number(b.spent_amount || 0);
+      const percentage = b.percentage ?? (limit > 0 ? (spent / limit) * 100 : 0);
+      const isOver = percentage >= 100;
 
       return {
         ...b,
-        category: categories.find(
-          (c) => c.id === b.categoryId || c.id === b.category_id,
-        ),
+        category: categories.find((c) => c.id === b.category_id),
         limit,
         spent,
         percentage,
-        isOver: percentage >= 100,
-        isActive,
+        isOver,
+        isActive: b.is_active,
       };
     });
   }, [budgets, categories]);
 
   const filteredBudgets = useMemo(() => {
-    return normalizedBudgets.filter((b: any) => {
+    return normalizedBudgets.filter((b) => {
       if (tab === "active" && !b.isActive) return false;
       if (tab === "ended" && b.isActive) return false;
       if (tab === "over" && !b.isOver) return false;
 
-      const name = String(
-        b.budget_name ?? b.name ?? b.category?.name ?? "",
-      ).toLowerCase();
-      if (search.trim() && !name.includes(search.trim().toLowerCase())) return false;
-
       if (selectedCategories.length > 0) {
-        const categoryId = b.categoryId || b.category_id;
-        if (!selectedCategories.includes(categoryId)) return false;
+        if (!selectedCategories.includes(b.category_id)) return false;
       }
 
-      if (selectedPeriods.length > 0 && !selectedPeriods.includes(b.period)) {
+      if (selectedPeriods.length > 0 && !selectedPeriods.includes(b.period as PeriodType)) {
         return false;
       }
 
@@ -147,7 +179,7 @@ export default function BudgetsPage() {
 
       return true;
     });
-  }, [normalizedBudgets, tab, search, selectedCategories, selectedPeriods, onlyActive, usageRange]);
+  }, [normalizedBudgets, tab, selectedCategories, selectedPeriods, onlyActive, usageRange]);
 
   const getProgressColor = (percent: number) => {
     if (percent >= 100) return "bg-destructive";
@@ -191,7 +223,7 @@ export default function BudgetsPage() {
     setIsSubmitting(true);
 
     try {
-      const payload: any = {
+      const payload = {
         category_id: formData.categoryId,
         budget_name: formData.budgetName.trim() || category.name,
         amount: String(amount),
@@ -202,14 +234,15 @@ export default function BudgetsPage() {
       };
 
       if (editingId) {
-        await updateBudget(editingId, payload);
+        await updateBudgetApi(editingId, payload);
         showNotification("Budget updated successfully.", "success");
       } else {
-        await addBudget(payload);
+        await createBudgetApi(payload);
         showNotification("Budget created successfully.", "success");
       }
 
       resetForm();
+      fetchBudgets();
     } catch (error: unknown) {
       showNotification(getApiErrorMessage(error), "error");
     } finally {
@@ -217,12 +250,12 @@ export default function BudgetsPage() {
     }
   };
 
-  const handleEditBudget = (budget: any) => {
-    setEditingId(budget.id);
+  const handleEditBudget = (budget: BackendBudget) => {
+    setEditingId(budget.budget_id);
     setFormData({
-      categoryId: budget.categoryId || budget.category_id || "",
-      budgetName: budget.budget_name || budget.name || "",
-      limit: String(budget.limit ?? budget.amount ?? ""),
+      categoryId: budget.category_id || "",
+      budgetName: budget.budget_name || "",
+      limit: String(budget.amount || ""),
       period: (budget.period || "monthly") as PeriodType,
       alertThreshold: String(budget.alert_threshold ?? 80),
       startDate: budget.start_date || new Date().toISOString().split("T")[0],
@@ -600,10 +633,16 @@ export default function BudgetsPage() {
         )}
 
         <div className="grid gap-4">
-          {filteredBudgets.length > 0 ? (
-            filteredBudgets.map((budget: any) => (
+          {isLoading ? (
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-muted-foreground">Loading...</p>
+              </CardContent>
+            </Card>
+          ) : filteredBudgets.length > 0 ? (
+            filteredBudgets.map((budget) => (
               <Card
-                key={budget.id}
+                key={budget.budget_id}
                 className={
                   budget.isOver
                     ? "border-destructive"
@@ -646,7 +685,16 @@ export default function BudgetsPage() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => deleteBudget(budget.id)}
+                        onClick={async () => {
+                          if (!window.confirm("Delete this budget?")) return;
+                          try {
+                            await deleteBudgetApi(budget.budget_id);
+                            showNotification("Budget deleted.", "success");
+                            fetchBudgets();
+                          } catch (err) {
+                            showNotification(getApiErrorMessage(err), "error");
+                          }
+                        }}
                       >
                         Delete
                       </Button>
@@ -710,6 +758,67 @@ export default function BudgetsPage() {
             </Card>
           )}
         </div>
+
+        {/* PAGINATION */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t pt-4">
+            <p className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages} ({totalItems} total)
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((page) =>
+                  page === 1 ||
+                  page === totalPages ||
+                  Math.abs(page - currentPage) <= 1
+                )
+                .reduce<(number | "ellipsis")[]>((acc, page, idx, arr) => {
+                  if (idx > 0 && page - (arr[idx - 1] as number) > 1) {
+                    acc.push("ellipsis");
+                  }
+                  acc.push(page);
+                  return acc;
+                }, [])
+                .map((item, idx) =>
+                  item === "ellipsis" ? (
+                    <span key={`e-${idx}`} className="px-1 text-muted-foreground">
+                      ...
+                    </span>
+                  ) : (
+                    <Button
+                      key={item}
+                      variant={currentPage === item ? "default" : "outline"}
+                      size="sm"
+                      className="min-w-9"
+                      onClick={() => setCurrentPage(item)}
+                    >
+                      {item}
+                    </Button>
+                  ),
+                )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

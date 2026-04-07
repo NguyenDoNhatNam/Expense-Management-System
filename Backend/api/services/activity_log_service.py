@@ -224,21 +224,7 @@ class ActivityLogService:
     @classmethod
     def get_logs(cls, filters: dict = None, page: int = 1, page_size: int = 50) -> dict:
         """
-        Lấy danh sách activity logs với filter và phân trang.
-        
-        Args:
-            filters: Dict chứa các điều kiện filter
-                - user_id: Filter theo user
-                - level: INFO, ACTION, WARNING, ERROR
-                - action: Filter theo action type
-                - search: Tìm kiếm trong user name, email, action, details
-                - start_date: Từ ngày
-                - end_date: Đến ngày
-            page: Số trang
-            page_size: Số items mỗi trang
-        
-        Returns:
-            Dict với logs, total, pages
+        Truy vấn logs với filter và phân trang.
         """
         queryset = ActivityLogs.objects.select_related('user').all()
         
@@ -297,14 +283,6 @@ class ActivityLogService:
     def get_stats(cls, start_date=None, end_date=None) -> dict:
         """
         Lấy thống kê hoạt động.
-        
-        Returns:
-            Dict với các thống kê:
-            - active_users: Số user đang active (có hoạt động trong 5 phút gần nhất)
-            - actions_today: Tổng số actions trong ngày
-            - warnings: Số warnings trong ngày
-            - errors: Số errors trong ngày
-            - top_users: Top 5 users hoạt động nhiều nhất
         """
         today = timezone.now().date()
         five_minutes_ago = timezone.now() - timezone.timedelta(minutes=5)

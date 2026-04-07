@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from api.permissions.permission import DynamicPermission
 from api.services.report_service import ReportService
+from api.services.activity_log_service import ActivityLogService
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 import logging
 
@@ -33,6 +34,15 @@ class ReportViewSet(viewsets.ViewSet):
 
         try:
             data = ReportService.get_dashboard_report(request.user, start_date, end_date, keyword)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='VIEW_DASHBOARD',
+                details=f'Viewed dashboard report',
+                level='INFO'
+            )
+            
             return Response({
                 'success': True, 'message': 'Lấy báo cáo thành công', 'data': data
             }, status=status.HTTP_200_OK)

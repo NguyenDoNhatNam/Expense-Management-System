@@ -7,6 +7,7 @@ from dateutil.relativedelta import relativedelta
 class TransactionListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.category_name', read_only=True)
     category_icon = serializers.CharField(source='category.icon', read_only=True)
+    category_color = serializers.CharField(source='category.color', read_only=True)
     account_name = serializers.CharField(source='account.account_name', read_only=True)
     account_id = serializers.CharField(source='account.account_id', read_only=True)
     category_id = serializers.CharField(source='category.category_id', read_only=True)
@@ -23,6 +24,7 @@ class TransactionListSerializer(serializers.ModelSerializer):
             'category_id',
             'category_name',
             'category_icon',
+            'category_color',
             'account_id',
             'account_name',
             'is_recurring',

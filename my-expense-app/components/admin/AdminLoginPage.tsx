@@ -1,22 +1,51 @@
 "use client"
 
 import React, { useState } from "react"
-import { User, Lock, Eye, EyeOff, Loader2 } from "lucide-react"
+import { User, Lock, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { loginApi, getApiErrorMessage, UserRole } from "@/lib/api/auth"
 
 export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
+    setError(null)
+
+    try {
+      const response = await loginApi({ email, password, remember_me: true })
+      const { user, access_token, refresh_token } = response.data
+      
+      // Check if user has admin role
+      const adminRoles: UserRole[] = ['admin', 'super_admin']
+      if (!adminRoles.includes(user.role)) {
+        setError("Bạn không có quyền truy cập trang quản trị. Vui lòng liên hệ quản trị viên.")
+        setIsLoading(false)
+        return
+      }
+
+      // Store tokens in localStorage
+      localStorage.setItem('access_token', access_token)
+      localStorage.setItem('refresh_token', refresh_token)
+      localStorage.setItem('admin_user', JSON.stringify(user))
+
+      // Set cookie for middleware authentication (expires in 7 days)
+      const maxAge = 7 * 24 * 60 * 60 // 7 days in seconds
+      document.cookie = `admin_user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=${maxAge}; SameSite=Lax`
+
+      // Redirect to admin dashboard
       router.push("/admin")
-    }, 1500)
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -74,6 +103,14 @@ export default function AdminLoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+
             {/* Username / Email */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700 block" htmlFor="email">
@@ -87,6 +124,8 @@ export default function AdminLoginPage() {
                   id="email"
                   type="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900"
                   placeholder="admin@expensemate.com"
                 />
@@ -108,6 +147,8 @@ export default function AdminLoginPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="block w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900"
                   placeholder="••••••••"
                 />

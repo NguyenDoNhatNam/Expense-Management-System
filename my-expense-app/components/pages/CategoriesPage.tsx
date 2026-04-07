@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Baby,
@@ -16,10 +16,21 @@ import {
   Wallet,
   CarFront,
   Gift,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  ArrowRightLeft,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import { useApp } from "@/lib/AppContext";
 import { getApiErrorMessage } from "@/lib/api/auth";
+import {
+  BackendCategory,
+  listCategoriesApi,
+  deleteCategoryApi,
+  createCategoryApi,
+} from "@/lib/api/categories";
 import { Button } from "../ui/button";
 import {
   Card,
@@ -29,6 +40,14 @@ import {
   CardTitle,
 } from "../ui/card";
 import { Input } from "../ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 
 type CategoryType = "income" | "expense";
 
@@ -91,30 +110,67 @@ function CategoryIcon({
 }
 
 export default function CategoriesPage() {
-  const { categories, addCategory, deleteCategory, currentUser } = useApp();
+  const { currentUser } = useApp();
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [query, setQuery] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
 
-  const filteredCategories = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return categories;
+  // ===== PAGINATION & DATA =====
+  const [categories, setCategories] = useState<BackendCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all");
+  const itemsPerPage = 10;
 
-    return categories.filter((cat) => {
-      return (
-        cat.name.toLowerCase().includes(normalized) ||
-        cat.type.toLowerCase().includes(normalized) ||
-        cat.icon.toLowerCase().includes(normalized)
-      );
-    });
-  }, [categories, query]);
+  // ===== DELETE DIALOG =====
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<BackendCategory | null>(null);
+  const [deleteAction, setDeleteAction] = useState<"delete_all" | "migrate">("delete_all");
+  const [migrateTargetId, setMigrateTargetId] = useState<string>("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const expenseCategories = filteredCategories.filter(
-    (cat) => cat.type === "expense",
+  const fetchCategories = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await listCategoriesApi({
+        p: currentPage,
+        ipp: itemsPerPage,
+        search: query || undefined,
+        category_type: filterType === "all" ? undefined : filterType,
+      });
+      if (result.success) {
+        setCategories(result.data?.items || []);
+        const pagination = result.data?.pagination;
+        if (pagination) {
+          setTotalPages(pagination.total_pages);
+          setTotalItems(pagination.total_items);
+        }
+      }
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentPage, query, filterType]);
+
+  useEffect(() => {
+    const timeout = setTimeout(fetchCategories, 300);
+    return () => clearTimeout(timeout);
+  }, [fetchCategories]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, filterType]);
+
+  const expenseCategories = categories.filter(
+    (cat) => cat.category_type === "expense",
   );
-  const incomeCategories = filteredCategories.filter(
-    (cat) => cat.type === "income",
+  const incomeCategories = categories.filter(
+    (cat) => cat.category_type === "income",
   );
 
   const handleAddCategory = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -126,30 +182,19 @@ export default function CategoriesPage() {
       return;
     }
 
-    const duplicated = categories.some(
-      (cat) =>
-        cat.type === form.type &&
-        cat.name.trim().toLowerCase() === name.toLowerCase(),
-    );
-
-    if (duplicated) {
-      toast.error(`A ${form.type} category named "${name}" already exists.`);
-      return;
-    }
-
     setIsSubmitting(true);
     try {
-      await addCategory({
-        name,
+      await createCategoryApi({
+        category_name: name,
         icon: form.icon,
         color: form.color,
-        type: form.type,
-        userId: currentUser?.id || "",
+        category_type: form.type,
       });
 
       toast.success("Category created successfully.");
       setForm(INITIAL_FORM);
       setShowAddForm(false);
+      fetchCategories();
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     } finally {
@@ -160,20 +205,73 @@ export default function CategoriesPage() {
   const handleDeleteCategory = async (
     categoryId: string,
     categoryName: string,
+    transactionCount: number,
   ) => {
+    if (transactionCount > 0) {
+      // Category has transactions → open dialog for user to choose action
+      const cat = categories.find((c) => c.category_id === categoryId);
+      if (!cat) return;
+      setDeleteTarget(cat);
+      setDeleteAction("delete_all");
+      setMigrateTargetId("");
+      setDeleteDialogOpen(true);
+      return;
+    }
+
+    // No transactions → simple confirm
     if (!window.confirm(`Delete category "${categoryName}"?`)) {
       return;
     }
 
     try {
-      await deleteCategory(categoryId);
+      await deleteCategoryApi(categoryId);
       toast.success("Category deleted successfully.");
+      fetchCategories();
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
   };
 
-  const renderCategoryGroup = (title: string, items: typeof categories) => {
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+
+    if (deleteAction === "migrate" && !migrateTargetId) {
+      toast.error("Please select a target category to migrate transactions.");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteCategoryApi(deleteTarget.category_id, {
+        action: deleteAction,
+        ...(deleteAction === "migrate" ? { target_category_id: migrateTargetId } : {}),
+      });
+      toast.success(
+        deleteAction === "delete_all"
+          ? "Category and all its transactions deleted."
+          : "Transactions migrated and category deleted."
+      );
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
+      fetchCategories();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Categories available as migration targets (same type, excluding the one being deleted)
+  const migrationTargets = useMemo(() => {
+    if (!deleteTarget) return [];
+    return categories.filter(
+      (c) =>
+        c.category_id !== deleteTarget.category_id &&
+        c.category_type === deleteTarget.category_type
+    );
+  }, [categories, deleteTarget]);
+
+  const renderCategoryGroup = (title: string, items: BackendCategory[]) => {
     return (
       <div>
         <h4 className="mb-3 font-semibold">
@@ -188,43 +286,45 @@ export default function CategoriesPage() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {items.map((cat) => (
               <div
-                key={cat.id}
+                key={cat.category_id}
                 className="flex items-center justify-between gap-3 rounded-xl border p-3 shadow-sm"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div
                     className="flex h-11 w-11 items-center justify-center rounded-full border"
                     style={{
-                      backgroundColor: `${cat.color}20`,
-                      borderColor: cat.color,
-                      color: cat.color,
+                      backgroundColor: `${cat.color || "#0ea5e9"}20`,
+                      borderColor: cat.color || "#0ea5e9",
+                      color: cat.color || "#0ea5e9",
                     }}
                   >
-                    <CategoryIcon iconName={cat.icon} className="h-5 w-5" />
+                    <CategoryIcon iconName={cat.icon || "Other"} className="h-5 w-5" />
                   </div>
 
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{cat.name}</p>
+                    <p className="truncate text-sm font-medium">{cat.category_name}</p>
                     <div className="mt-1 flex items-center gap-2">
                       <span
                         className="inline-block h-3 w-3 rounded-full border"
-                        style={{ backgroundColor: cat.color }}
+                        style={{ backgroundColor: cat.color || "#0ea5e9" }}
                       />
                       <p className="text-xs text-muted-foreground">
-                        {cat.type} • {cat.color.toUpperCase()}
+                        {cat.category_type} • {(cat.color || "#0ea5e9").toUpperCase()}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  Delete
-                </Button>
+                {!cat.is_default && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteCategory(cat.category_id, cat.category_name, cat.transaction_count)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    Delete
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -258,7 +358,7 @@ export default function CategoriesPage() {
             Find categories by name, type, or icon
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Input
             placeholder="Search by category name..."
             value={query}
@@ -266,6 +366,18 @@ export default function CategoriesPage() {
               setQuery(e.target.value)
             }
           />
+          <div className="flex gap-2">
+            {(["all", "expense", "income"] as const).map((type) => (
+              <Button
+                key={type}
+                variant={filterType === type ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterType(type)}
+              >
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </Button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
@@ -387,14 +499,201 @@ export default function CategoriesPage() {
         <CardHeader>
           <CardTitle>All Categories</CardTitle>
           <CardDescription>
-            {filteredCategories.length} categories found
+            {isLoading
+              ? "Loading..."
+              : `${totalItems} categories found`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {renderCategoryGroup("Expense Categories", expenseCategories)}
-          {renderCategoryGroup("Income Categories", incomeCategories)}
+          {isLoading ? (
+            <p className="py-10 text-center text-muted-foreground">Loading...</p>
+          ) : categories.length === 0 ? (
+            <p className="py-10 text-center text-muted-foreground">No categories found</p>
+          ) : (
+            <>
+              {filterType !== "income" && renderCategoryGroup("Expense Categories", expenseCategories)}
+              {filterType !== "expense" && renderCategoryGroup("Income Categories", incomeCategories)}
+            </>
+          )}
+
+          {/* PAGINATION */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t pt-4">
+              <p className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages} ({totalItems} total)
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((page) => {
+                    // Show first, last, current, and neighbors
+                    return (
+                      page === 1 ||
+                      page === totalPages ||
+                      Math.abs(page - currentPage) <= 1
+                    );
+                  })
+                  .reduce<(number | "ellipsis")[]>((acc, page, idx, arr) => {
+                    if (idx > 0 && page - (arr[idx - 1] as number) > 1) {
+                      acc.push("ellipsis");
+                    }
+                    acc.push(page);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === "ellipsis" ? (
+                      <span key={`e-${idx}`} className="px-1 text-muted-foreground">
+                        ...
+                      </span>
+                    ) : (
+                      <Button
+                        key={item}
+                        variant={currentPage === item ? "default" : "outline"}
+                        size="sm"
+                        className="min-w-[36px]"
+                        onClick={() => setCurrentPage(item)}
+                      >
+                        {item}
+                      </Button>
+                    ),
+                  )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* ===== DELETE CATEGORY DIALOG ===== */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+        if (!isDeleting) {
+          setDeleteDialogOpen(open);
+          if (!open) setDeleteTarget(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Category
+            </DialogTitle>
+            <DialogDescription>
+              <strong>&quot;{deleteTarget?.category_name}&quot;</strong> has{" "}
+              <strong>{deleteTarget?.transaction_count}</strong> transaction(s).
+              Choose how to handle them before deleting.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {/* Option 1: Delete all transactions */}
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+                deleteAction === "delete_all"
+                  ? "border-destructive bg-destructive/5"
+                  : "hover:bg-muted/50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="deleteAction"
+                value="delete_all"
+                checked={deleteAction === "delete_all"}
+                onChange={() => setDeleteAction("delete_all")}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 font-medium">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                  Delete all transactions
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Permanently remove all transactions in this category. Account balances will be reverted accordingly.
+                </p>
+              </div>
+            </label>
+
+            {/* Option 2: Migrate transactions */}
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+                deleteAction === "migrate"
+                  ? "border-primary bg-primary/5"
+                  : "hover:bg-muted/50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="deleteAction"
+                value="migrate"
+                checked={deleteAction === "migrate"}
+                onChange={() => setDeleteAction("migrate")}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 font-medium">
+                  <ArrowRightLeft className="h-4 w-4 text-primary" />
+                  Move to another category
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Transfer all transactions to a different category. No data will be lost.
+                </p>
+
+                {deleteAction === "migrate" && (
+                  <select
+                    value={migrateTargetId}
+                    onChange={(e) => setMigrateTargetId(e.target.value)}
+                    className="mt-3 w-full rounded-lg border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">-- Select target category --</option>
+                    {migrationTargets.map((cat) => (
+                      <option key={cat.category_id} value={cat.category_id}>
+                        {cat.category_name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </label>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setDeleteTarget(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting || (deleteAction === "migrate" && !migrateTargetId)}
+            >
+              {isDeleting ? "Deleting..." : "Confirm Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

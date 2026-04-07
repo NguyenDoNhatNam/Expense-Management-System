@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from api.permissions.permission import DynamicPermission
 from api.models import Budgets
 from api.services.budget_service import BudgetService
+from api.services.activity_log_service import ActivityLogService
 from api.serializers.budget_serializer import (
     BudgetListSerializer, CreateBudgetSerializer, UpdateBudgetSerializer
 )
@@ -93,10 +94,19 @@ class BudgetViewSet(viewsets.ViewSet):
     def create_budget(self, request):
         serializer = CreateBudgetSerializer(data=request.data, context={'user': request.user})
         if not serializer.is_valid():
-            return Response({'success': False, 'message': 'Lỗi dữ liệu', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'success': False, 'message': f'Lỗi dữ liệu {serializer.errors}', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             budget = BudgetService.create_budget(serializer.validated_data, request.user)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='CREATE_BUDGET',
+                details=f'Created budget ID: {budget.budget_id}',
+                level='ACTION'
+            )
+            
             return Response({'success': True, 'message': 'Tạo thành công', 'data': {'budget_id': budget.budget_id}}, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({'success': False, 'message': 'Lỗi server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -122,6 +132,15 @@ class BudgetViewSet(viewsets.ViewSet):
 
         try:
             updated_budget = BudgetService.update_budget(budget, serializer.validated_data)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='UPDATE_BUDGET',
+                details=f'Updated budget ID: {updated_budget.budget_id}',
+                level='ACTION'
+            )
+            
             return Response({'success': True, 'message': 'Cập nhật thành công', 'data': {'budget_id': updated_budget.budget_id}}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'success': False, 'message': 'Lỗi server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -138,6 +157,15 @@ class BudgetViewSet(viewsets.ViewSet):
         try:
             budget = Budgets.objects.get(budget_id=budget_id, user=request.user, is_active=True)
             BudgetService.delete_budget(budget)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='DELETE_BUDGET',
+                details=f'Deleted budget ID: {budget_id}',
+                level='ACTION'
+            )
+            
             return Response({'success': True, 'message': 'Xóa thành công'}, status=status.HTTP_200_OK)
         except Budgets.DoesNotExist:
             return Response({'success': False, 'message': 'Ngân sách không tồn tại'}, status=status.HTTP_404_NOT_FOUND)

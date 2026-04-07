@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from api.permissions.permission import DynamicPermission
 from api.services.transfer_service import TransferService
+from api.services.activity_log_service import ActivityLogService
 from api.serializers.transfer_serializer import TransferListSerializer, CreateTransferSerializer
 from drf_spectacular.utils import extend_schema
 
@@ -30,6 +31,15 @@ class TransferViewSet(viewsets.ViewSet):
         if serializer.is_valid():
             try:
                 transfer = TransferService.create_transfer(serializer.validated_data, request.user)
+                
+                # Log activity
+                ActivityLogService.log(
+                    request,
+                    action='CREATE_TRANSFER',
+                    details=f'Created transfer ID: {transfer.transfer_id}',
+                    level='ACTION'
+                )
+                
                 return Response({
                     'success': True, 
                     'message': 'Chuyển khoản thành công',
@@ -43,6 +53,15 @@ class TransferViewSet(viewsets.ViewSet):
     def delete_transfer(self, request, transfer_id=None):
         try:
             TransferService.delete_transfer(transfer_id, request.user)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='DELETE_TRANSFER',
+                details=f'Deleted transfer ID: {transfer_id}',
+                level='ACTION'
+            )
+            
             return Response({'success': True, 'message': 'Đã xóa và hoàn nguyên số dư thành công'})
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

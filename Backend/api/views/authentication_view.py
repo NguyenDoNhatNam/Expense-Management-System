@@ -17,6 +17,7 @@ from drf_spectacular.utils import OpenApiResponse
 from django.db import transaction as db_transaction
 from api.services.otp_service import OTPService
 from api.services.email_token_service import EmailTokenService
+from api.services.activity_log_service import ActivityLogService
 from rest_framework.throttling import AnonRateThrottle
 from django.contrib.auth.hashers import make_password
 from api.tasks import send_verification_link_email
@@ -41,6 +42,16 @@ class UserViewSet(viewsets.ViewSet):
             user.save(update_fields=['is_active'])
             
             OTPService.send_activation_otp(user)
+
+            # Log user registration
+            ActivityLogService.log_simple(
+                user=user,
+                action='REGISTER',
+                details=f'User {user.email} registered successfully',
+                level=ActivityLogService.LEVEL_INFO,
+                ip_address=ActivityLogService._get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
 
             user_data = UserSerializer(user).data
             return Response({
@@ -91,25 +102,46 @@ class UserViewSet(viewsets.ViewSet):
                 'data': {
                     'user': UserSerializer(user).data,
                     'access_token': tokens['access'],
-                    # Không trả refresh trong JSON (an toàn hơn khi dùng cookie)
+                    'refresh_token': tokens['refresh'],  # Always include refresh token
                 },
                 'message': 'Đăng nhập thành công'
             }
 
+            # Log successful login
+            ActivityLogService.log_simple(
+                user=user,
+                action=ActivityLogService.LOGIN_SUCCESS,
+                details=f'User {user.email} logged in successfully',
+                level=ActivityLogService.LEVEL_INFO,
+                ip_address=ActivityLogService._get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+
             response = Response(response_data, status=status.HTTP_200_OK)
 
+            # Set refresh token as httpOnly cookie (more secure, browser handles it)
             if remember_me:
-            
                 refresh = RefreshToken(tokens['refresh'])
                 refresh.set_exp(lifetime=settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME_REMEMBER_ME', timedelta(days=90)))
-
+                
                 response.set_cookie(
                     key='refresh_token',
                     value=str(refresh),
                     httponly=True,
                     secure=not settings.DEBUG,  
                     samesite='Lax',
-                    max_age=90 * 24 * 3600,  
+                    max_age=90 * 24 * 3600,  # 90 days
+                    path='/',
+                )
+            else:
+                # For non-remember_me, set a shorter-lived cookie
+                response.set_cookie(
+                    key='refresh_token',
+                    value=tokens['refresh'],
+                    httponly=True,
+                    secure=not settings.DEBUG,
+                    samesite='Lax',
+                    max_age=7 * 24 * 3600,  # 7 days (matches REFRESH_TOKEN_LIFETIME)
                     path='/',
                 )
 
@@ -203,6 +235,17 @@ class UserViewSet(viewsets.ViewSet):
                     if OTPService.verify_otp(user, code, 'activation'):
                         user.is_active = True
                         user.save(update_fields=['is_active'])
+                        
+                        # Log account activation
+                        ActivityLogService.log_simple(
+                            user=user,
+                            action='ACCOUNT_ACTIVATED',
+                            details=f'User {user.email} activated their account',
+                            level=ActivityLogService.LEVEL_INFO,
+                            ip_address=ActivityLogService._get_client_ip(request),
+                            user_agent=request.META.get('HTTP_USER_AGENT', '')
+                        )
+                        
                         return Response({'success': True, 'message': 'Kích hoạt tài khoản thành công. Bạn có thể đăng nhập ngay bây giờ.'}, status=status.HTTP_200_OK)
                     else:
                         return Response({'success': False, 'message': 'Mã OTP không hợp lệ hoặc đã hết hạn.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -306,4 +349,47 @@ class UserViewSet(viewsets.ViewSet):
                 else:
                     return Response({'success': False, 'message': 'Token không hợp lệ hoặc đã hết hạn.'}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Logout successful")}
+    )
+    @action(detail=False, methods=['post'], url_path='logout', permission_classes=[IsAuthenticated])
+    def user_logout(self, request, *args, **kwargs):
+        """Logout user and invalidate refresh token."""
+        try:
+            # Get user before invalidating
+            user = request.user
+            
+            # Log logout activity
+            ActivityLogService.log(
+                request,
+                action=ActivityLogService.LOGOUT,
+                details=f'User {user.email} logged out'
+            )
+            
+            # Invalidate refresh token from cookie
+            refresh_token = request.COOKIES.get('refresh_token')
+            if refresh_token:
+                try:
+                    refresh = RefreshToken(refresh_token)
+                    jti = refresh.get('jti')
+                    exp_time = refresh.payload.get('exp')
+                    current_time = timezone.now().timestamp()
+                    left_time = max(int(exp_time - current_time), 0)
+                    cache.set(f"blacklist_{jti}", True, timeout=left_time)
+                except Exception:
+                    pass
+            
+            response = Response({
+                'success': True,
+                'message': 'Đăng xuất thành công'
+            }, status=status.HTTP_200_OK)
+            response.delete_cookie('refresh_token')
+            return response
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': f'Đăng xuất thất bại: {str(e)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
             

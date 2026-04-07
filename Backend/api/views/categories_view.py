@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from api.permissions.permission import DynamicPermission
 from api.models import Categories
 from api.services.category_service import CategoryService
+from api.services.activity_log_service import ActivityLogService
 from api.serializers.categories_serializers import (
     CategoryListSerializer,
     CreateCategorySerializer,
@@ -137,6 +138,14 @@ class CategoryViewSet(viewsets.ViewSet):
                 request.user
             )
             
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='CREATE_CATEGORY',
+                details=f'Created category: {new_category.category_name}',
+                level='ACTION'
+            )
+            
             return Response({
                 'success': True,
                 'message': 'Tạo danh mục thành công',
@@ -187,6 +196,15 @@ class CategoryViewSet(viewsets.ViewSet):
                 serializer.validated_data, 
                 request.user
             )
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='UPDATE_CATEGORY',
+                details=f'Updated category: {updated_cat.category_name}',
+                level='ACTION'
+            )
+            
             return Response({
                 'success': True,
                 'message': 'Cập nhật danh mục thành công',
@@ -230,7 +248,17 @@ class CategoryViewSet(viewsets.ViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            category_name = category.category_name
             result = CategoryService.delete_category(category, serializer.validated_data, request.user)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='DELETE_CATEGORY',
+                details=f'Deleted category: {category_name}',
+                level='ACTION'
+            )
+            
             return Response({'success': True, 'message': 'Xóa danh mục thành công', 'data': result}, status=status.HTTP_200_OK)
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

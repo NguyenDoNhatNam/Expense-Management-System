@@ -5,10 +5,17 @@ import re
 from django.contrib.auth.hashers import make_password , check_password
 from django.utils import timezone
 class UserSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+    
     class Meta: 
         model = Users
-        fields = ['user_id' ,'email' , 'full_name','phone' ,'avatar_url' ,'default_currency', 'created_at' , 'is_active']
-        read_only_fields = ['user_id' , 'created_at']
+        fields = ['user_id' ,'email' , 'full_name','phone' ,'avatar_url' ,'default_currency', 'created_at' , 'is_active', 'role']
+        read_only_fields = ['user_id' , 'created_at', 'role']
+    
+    def get_role(self, obj):
+        if obj.role:
+            return obj.role.role_name
+        return 'user'
 
 class AccountSerializer(serializers.ModelSerializer):
     class Meta:

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from api.services.upload_service import UploadService
+from api.services.activity_log_service import ActivityLogService
 from api.permissions.permission import HasPermission
 
 class ReceiptUploadView(viewsets.ViewSet):
@@ -38,6 +39,15 @@ class ReceiptUploadView(viewsets.ViewSet):
 
         try:
             file_url = UploadService.upload_receipt_image(file, request.user)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='UPLOAD_RECEIPT',
+                details=f'Uploaded receipt image',
+                level='ACTION'
+            )
+            
             return Response(
                 {
                     'success': True,

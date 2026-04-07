@@ -1,11 +1,5 @@
 """
-Backup Service - Xử lý sao lưu dữ liệu người dùng
-Features:
-- Export JSON toàn bộ dữ liệu user
-- Mã hóa AES-256
-- Upload S3 (optional)
-- Cronjob daily backup
-- User download backup
+Xử lý sao lưu dữ liệu người dùng và các tác vụ liên quan đến backup.
 """
 import os
 import io
@@ -361,15 +355,7 @@ class BackupService:
     def create_backup(cls, user, encrypt: bool = True, upload_s3: bool = True) -> Dict[str, Any]:
         """
         Tạo backup đầy đủ cho user.
-        
-        Returns: {
-            'success': bool,
-            'backup_id': str,
-            'local_path': str,
-            's3_key': str (nếu upload),
-            'size': int,
-            'encrypted': bool,
-        }
+
         """
         result = {
             'success': False,
@@ -582,19 +568,8 @@ class RestoreService:
     def restore_from_backup(cls, user, backup_filename: str, strategy: str = 'merge', 
                            restore_options: dict = None, source: str = 'local') -> dict:
         """
-        
-        Args:
-            user: User object
-            backup_filename: Tên file backup
-            strategy: 'merge' (giữ data cũ, thêm mới) hoặc 'replace' (xóa hết, thay thế)
-            restore_options: Dict chọn loại data restore {'accounts': True, 'transactions': True, ...}
-            source: 'local' hoặc 's3'
-        
-        Returns:
-            dict với kết quả restore
+        Restore dữ liệu cho user từ backup file.
         """
-        from django.db import transaction as db_transaction
-        from api.models import Accounts, Transactions, Budgets, Categories, Debts, SavingsGoals
         
         if strategy not in cls.RESTORE_STRATEGIES:
             raise ValueError(f"Strategy phải là: {cls.RESTORE_STRATEGIES}")

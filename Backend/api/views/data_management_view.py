@@ -20,6 +20,7 @@ from api.models import Transactions, Accounts, Budgets, Debts, SavingsGoals
 from api.services.export_service import ExportService
 from api.services.import_service import ImportService
 from api.services.backup_service import BackupService
+from api.services.activity_log_service import ActivityLogService
 from api.tasks import async_export_data, create_user_backup, send_export_ready_email
 from api.permissions.permission import DynamicPermission
 
@@ -108,6 +109,14 @@ class ExportViewSet(viewsets.ViewSet):
                 filepath = ExportService.export_to_pdf('transactions', queryset, user)
             
             download_url = ExportService.get_export_file_url(filepath)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='EXPORT_TRANSACTIONS',
+                details=f'Exported {row_count} transactions to {export_format}',
+                level='ACTION'
+            )
             
             return Response({
                 'success': True,
@@ -257,6 +266,15 @@ class ImportViewSet(viewsets.ViewSet):
         # Import
         result = ImportService.import_transactions_from_csv(file, user)
         
+        # Log activity
+        if result['success']:
+            ActivityLogService.log(
+                request,
+                action='IMPORT_TRANSACTIONS',
+                details=f"Imported {result['imported']}/{result['total_rows']} transactions",
+                level='ACTION'
+            )
+        
         response_status = status.HTTP_200_OK if result['success'] else status.HTTP_400_BAD_REQUEST
         
         return Response({
@@ -373,6 +391,14 @@ class BackupViewSet(viewsets.ViewSet):
             result = BackupService.create_backup(user, encrypt=encrypt, upload_s3=upload_s3)
             
             if result['success']:
+                # Log activity
+                ActivityLogService.log(
+                    request,
+                    action='CREATE_BACKUP',
+                    details=f"Created backup: {result['backup_id']}",
+                    level='ACTION'
+                )
+                
                 return Response({
                     'success': True,
                     'message': 'Backup đã được tạo thành công',
@@ -561,6 +587,14 @@ class BackupViewSet(viewsets.ViewSet):
             )
             
             if result['success']:
+                # Log activity
+                ActivityLogService.log(
+                    request,
+                    action='RESTORE_BACKUP',
+                    details=f"Restored backup: {filename} (strategy={strategy})",
+                    level='ACTION'
+                )
+                
                 return Response({
                     'success': True,
                     'message': 'Khôi phục dữ liệu thành công',

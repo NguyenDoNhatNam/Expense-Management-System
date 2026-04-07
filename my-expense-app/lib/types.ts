@@ -1,11 +1,14 @@
 'use client';
 
+export type UserRole = 'user' | 'admin' | 'super_admin';
+
 export interface User {
   id: string;
   email: string;
   password?: string;
   fullName: string;
   avatar?: string;
+  role?: UserRole;
   createdAt: Date;
 }
 

@@ -10,7 +10,7 @@ export interface BackendCategory {
 	color: string | null;
 	is_default: boolean;
 	parent_category_id: string | null;
-	expense_count: number;
+	transaction_count: number;
 	total_amount: string;
 }
 
@@ -63,8 +63,13 @@ export interface DeleteCategoryResponse {
 	};
 }
 
-export const listCategoriesApi = async (): Promise<CategoryListResponse> => {
-	const response = await api.get<CategoryListResponse>('/categories/list/');
+export const listCategoriesApi = async (params?: {
+	p?: number;
+	ipp?: number;
+	search?: string;
+	category_type?: string;
+}): Promise<CategoryListResponse> => {
+	const response = await api.get<CategoryListResponse>('/categories/list/', { params });
 	return response.data;
 };
 

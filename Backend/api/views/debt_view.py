@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from api.permissions.permission import DynamicPermission
 from api.models import Debts
 from api.services.debt_service import DebtService
+from api.services.activity_log_service import ActivityLogService
 from api.serializers.debt_serializer import DebtListSerializer, CreateDebtSerializer, CreateDebtPaymentSerializer
 from drf_spectacular.utils import extend_schema ,OpenApiResponse
 
@@ -36,6 +37,15 @@ class DebtViewSet(viewsets.ViewSet):
         serializer = CreateDebtSerializer(data=request.data)
         if serializer.is_valid():
             debt = DebtService.create_debt(serializer.validated_data, request.user)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='CREATE_DEBT',
+                details=f'Created debt ID: {debt.debt_id}',
+                level='ACTION'
+            )
+            
             return Response({'success': True, 'data': {'debt_id': debt.debt_id}}, status=status.HTTP_201_CREATED)
         return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -47,6 +57,15 @@ class DebtViewSet(viewsets.ViewSet):
             
             if serializer.is_valid():
                 DebtService.add_payment(debt, serializer.validated_data)
+                
+                # Log activity
+                ActivityLogService.log(
+                    request,
+                    action='PAY_DEBT',
+                    details=f'Payment for debt ID: {debt_id}',
+                    level='ACTION'
+                )
+                
                 return Response({'success': True, 'message': 'Thanh toán thành công'})
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         except Debts.DoesNotExist:

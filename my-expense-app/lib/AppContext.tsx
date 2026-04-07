@@ -1,8 +1,14 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import * as Types from './types';
-import { getApiErrorMessage, loginApi, signupApi } from './api/auth';
+import { getApiErrorMessage, loginApi, logoutApi, signupApi, refreshTokenApi } from './api/auth';
+import { 
+  isTokenExpired, 
+  getStoredAccessToken, 
+  clearTokens, 
+  storeTokens 
+} from './api/token';
 import {
   BackendCategory,
   createCategoryApi,
@@ -45,9 +51,11 @@ interface AppContextType {
   // Auth
   currentUser: Types.User | null;
   isAuthenticated: boolean;
+  isAuthChecking: boolean;
+  isAdmin: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<any>;
   register: (email: string, password: string, fullName: string, phone: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void> | void;
 
   // Wallets
   wallets: Types.Wallet[];
@@ -107,6 +115,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [savingsGoals, setSavingsGoals] = useState<Types.SavingsGoal[]>([]);
   const [debts, setDebts] = useState<Types.Debt[]>([]);
 
+  // Ref to track sync state and prevent duplicate syncs
+  const syncStateRef = useRef<{ 
+    isSyncing: boolean; 
+    lastSyncedUserId: string | null;
+    abortController: AbortController | null;
+  }>({ 
+    isSyncing: false, 
+    lastSyncedUserId: null,
+    abortController: null 
+  });
+
   const mapBackendCategoryToCategory = useCallback(
     (backendCategory: BackendCategory, userId: string): Types.Category => {
       const now = new Date();
@@ -126,8 +145,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const syncCategoriesFromBackend = useCallback(
     async (userId: string) => {
-      const response = await listCategoriesApi();
-      const mappedCategories = response.data.items.map((item) => mapBackendCategoryToCategory(item, userId));
+      const response = await listCategoriesApi({ ipp: 100 });
+      // Defensive: ensure data.items exists and is an array
+      const categoriesData = response.data?.items || [];
+      const mappedCategories = categoriesData.map((item) => mapBackendCategoryToCategory(item, userId));
       setCategories(mappedCategories);
     },
     [mapBackendCategoryToCategory]
@@ -156,7 +177,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const syncWalletsFromBackend = useCallback(
     async (userId: string) => {
       const response = await listAccountsApi();
-      const mappedWallets = response.data.accounts.map((account, index) =>
+      // Defensive: ensure data.accounts exists and is an array
+      const accountsData = response.data?.accounts || [];
+      const mappedWallets = accountsData.map((account, index) =>
         mapBackendAccountToWallet(account, userId, index === 0)
       );
 
@@ -181,8 +204,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const syncSavingGoals = async (userId: string) => {
   const res = await listSavingGoalsApi();
-
-  const mapped = res.data.map((item: any) => ({
+  
+  // Defensive: ensure data is an array
+  const goalsData = Array.isArray(res.data) ? res.data : [];
+  const mapped = goalsData.map((item: any) => ({
     id: item.goal_id,
     userId,
     walletId: currentWallet?.id || '',
@@ -221,7 +246,9 @@ const mapBackendDebtToDebt = useCallback(
 
 const syncDebtsFromBackend = useCallback(async (userId: string) => {
   const response: DebtListResponse = await listDebtsApi();
-  const mapped = response.data.map((item: BackendDebt) =>
+  // Defensive: ensure data is an array
+  const debtsData = Array.isArray(response.data) ? response.data : [];
+  const mapped = debtsData.map((item: BackendDebt) =>
     mapBackendDebtToDebt(item, userId)
   );
   setDebts(mapped);
@@ -254,39 +281,113 @@ const mapBackendBudgetToBudget = useCallback(
 
 const syncBudgetsFromBackend = useCallback(async (userId: string) => {
   const response = await listBudgetsApi();
-  const mappedBudgets = response.data.map((item: BackendBudget) =>
+  const budgetsData = response.data.items || [];
+  const mappedBudgets = budgetsData.map((item: BackendBudget) =>
     mapBackendBudgetToBudget(item, userId)
   );
   setBudgets(mappedBudgets);
 }, [mapBackendBudgetToBudget]);
-  // Load data from localStorage on mount
-  useEffect(() => {
-    const savedUser = localStorage.getItem('expenseapp_user') || sessionStorage.getItem('expenseapp_user');
-    const savedWallets = localStorage.getItem('expenseapp_wallets');
-    const savedCategories = localStorage.getItem('expenseapp_categories');
-    const savedTransactions = localStorage.getItem('expenseapp_transactions');
-    const savedBudgets = localStorage.getItem('expenseapp_budgets');
-    const savedGoals = localStorage.getItem('expenseapp_goals');
-    const savedDebts = localStorage.getItem('expenseapp_debts');
 
-    if (savedUser) {
-      const user = JSON.parse(savedUser);
-      setCurrentUser(user);
-    }
-    if (savedWallets) {
-      const w = JSON.parse(savedWallets);
-      setWallets(w);
-      if (w.length > 0) setCurrentWallet(w.find((x: any) => x.isDefault) || w[0]);
-    }
-    if (savedCategories) setCategories(JSON.parse(savedCategories));
-    if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
-    if (savedBudgets) setBudgets(JSON.parse(savedBudgets));
-    if (savedGoals) setSavingsGoals(JSON.parse(savedGoals));
-    if (savedDebts) setDebts(JSON.parse(savedDebts));
+  // State to track if initial auth check is done
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  // Load data from localStorage on mount with token validation
+  useEffect(() => {
+    const initializeAuth = async () => {
+      const savedUser = localStorage.getItem('expenseapp_user') || sessionStorage.getItem('expenseapp_user');
+      const accessToken = getStoredAccessToken();
+
+      // If no saved user or no token, clear everything and return
+      if (!savedUser || !accessToken) {
+        clearTokens();
+        localStorage.removeItem('expenseapp_user');
+        sessionStorage.removeItem('expenseapp_user');
+        setIsAuthChecking(false);
+        return;
+      }
+
+      // Check if token is expired
+      if (isTokenExpired(accessToken, 0)) {
+        console.log('[auth] Access token expired, attempting refresh...');
+        
+        try {
+          // Try to refresh the token
+          const refreshResult = await refreshTokenApi();
+          
+          if (refreshResult.success && refreshResult.data?.access_token) {
+            console.log('[auth] Token refreshed successfully');
+            const storage = localStorage.getItem('access_token') ? localStorage : sessionStorage;
+            storage.setItem('access_token', refreshResult.data.access_token);
+            if (refreshResult.data.refresh_token) {
+              storage.setItem('refresh_token', refreshResult.data.refresh_token);
+            }
+            
+            // Continue with loading user
+            const user = JSON.parse(savedUser);
+            setCurrentUser(user);
+          } else {
+            console.log('[auth] Token refresh failed, logging out');
+            // Refresh failed, clear everything
+            clearTokens();
+            localStorage.removeItem('expenseapp_user');
+            sessionStorage.removeItem('expenseapp_user');
+            localStorage.removeItem('expenseapp_wallets');
+            localStorage.removeItem('expenseapp_categories');
+            localStorage.removeItem('expenseapp_transactions');
+            localStorage.removeItem('expenseapp_budgets');
+            localStorage.removeItem('expenseapp_goals');
+            localStorage.removeItem('expenseapp_debts');
+            setIsAuthChecking(false);
+            return;
+          }
+        } catch (error) {
+          console.error('[auth] Token refresh error:', error);
+          // On error, clear everything
+          clearTokens();
+          localStorage.removeItem('expenseapp_user');
+          sessionStorage.removeItem('expenseapp_user');
+          setIsAuthChecking(false);
+          return;
+        }
+      } else {
+        // Token is still valid, load user
+        console.log('[auth] Token is valid, loading user');
+        const user = JSON.parse(savedUser);
+        setCurrentUser(user);
+      }
+
+      // Load cached data
+      const savedWallets = localStorage.getItem('expenseapp_wallets');
+      const savedCategories = localStorage.getItem('expenseapp_categories');
+      const savedTransactions = localStorage.getItem('expenseapp_transactions');
+      const savedBudgets = localStorage.getItem('expenseapp_budgets');
+      const savedGoals = localStorage.getItem('expenseapp_goals');
+      const savedDebts = localStorage.getItem('expenseapp_debts');
+
+      if (savedWallets) {
+        const w = JSON.parse(savedWallets);
+        setWallets(w);
+        if (w.length > 0) setCurrentWallet(w.find((x: any) => x.isDefault) || w[0]);
+      }
+      if (savedCategories) setCategories(JSON.parse(savedCategories));
+      if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+      if (savedBudgets) setBudgets(JSON.parse(savedBudgets));
+      if (savedGoals) setSavingsGoals(JSON.parse(savedGoals));
+      if (savedDebts) setDebts(JSON.parse(savedDebts));
+
+      setIsAuthChecking(false);
+    };
+
+    initializeAuth();
   }, []);
 
+  // Sync user data from backend - with deduplication to prevent multiple simultaneous syncs
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      // Reset sync state when user logs out
+      syncStateRef.current.lastSyncedUserId = null;
+      return;
+    }
 
     const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
     if (!token) {
@@ -294,15 +395,38 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
       return;
     }
 
+    // Prevent duplicate syncs: skip if already syncing or already synced for this user
+    if (syncStateRef.current.isSyncing) {
+      console.log('[sync] Skipping - sync already in progress');
+      return;
+    }
+    
+    if (syncStateRef.current.lastSyncedUserId === currentUser.id) {
+      console.log('[sync] Skipping - already synced for this user');
+      return;
+    }
+
+    // Mark sync as in progress
+    syncStateRef.current.isSyncing = true;
+    console.log('[sync] Starting initial data sync for user:', currentUser.id);
+
     Promise.all([
       syncCategoriesFromBackend(currentUser.id),
       syncWalletsFromBackend(currentUser.id),
       syncDebtsFromBackend(currentUser.id),
       syncSavingGoals(currentUser.id),
       syncBudgetsFromBackend(currentUser.id),
-    ]).catch((error) => {
-      console.error('[sync] Failed to sync initial user data:', getApiErrorMessage(error));
-    });
+    ])
+      .then(() => {
+        console.log('[sync] Initial data sync completed successfully');
+        syncStateRef.current.lastSyncedUserId = currentUser.id;
+      })
+      .catch((error) => {
+        console.error('[sync] Failed to sync initial user data:', getApiErrorMessage(error));
+      })
+      .finally(() => {
+        syncStateRef.current.isSyncing = false;
+      });
   }, [currentUser, syncCategoriesFromBackend, syncWalletsFromBackend, syncDebtsFromBackend, syncSavingGoals, syncBudgetsFromBackend]);
 
   // Persist data to localStorage
@@ -351,6 +475,7 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
     id: apiUser.user_id,
     email: apiUser.email,
     fullName: apiUser.full_name,
+    role: apiUser.role,
     createdAt: new Date(apiUser.created_at),
   };
 
@@ -360,8 +485,16 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
     sessionStorage.setItem('expenseapp_user', JSON.stringify(user));
   }
 
+  // Mark sync as in progress to prevent duplicate sync from useEffect
+  syncStateRef.current.isSyncing = true;
   setCurrentUser(user);
-  await Promise.all([syncCategoriesFromBackend(user.id), syncWalletsFromBackend(user.id), syncSavingGoals(user.id), syncBudgetsFromBackend(user.id), syncDebtsFromBackend(user.id)]);
+  
+  try {
+    await Promise.all([syncCategoriesFromBackend(user.id), syncWalletsFromBackend(user.id), syncSavingGoals(user.id), syncBudgetsFromBackend(user.id), syncDebtsFromBackend(user.id)]);
+    syncStateRef.current.lastSyncedUserId = user.id;
+  } finally {
+    syncStateRef.current.isSyncing = false;
+  }
 
   return res;
 };
@@ -378,18 +511,38 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
       id: apiUser.user_id,
       email: apiUser.email,
       fullName: apiUser.full_name,
+      role: apiUser.role,
       createdAt: new Date(apiUser.created_at),
     };
-    setCurrentUser(user);
 
     // Keep values to avoid unused variables from backend response while syncing from API.
     void account;
     void apiCategories;
 
-    await Promise.all([syncWalletsFromBackend(user.id), syncCategoriesFromBackend(user.id), syncSavingGoals(user.id), syncDebtsFromBackend(user.id), syncBudgetsFromBackend(user.id),]);
+    // Mark sync as in progress to prevent duplicate sync from useEffect
+    syncStateRef.current.isSyncing = true;
+    setCurrentUser(user);
+
+    try {
+      await Promise.all([syncWalletsFromBackend(user.id), syncCategoriesFromBackend(user.id), syncSavingGoals(user.id), syncDebtsFromBackend(user.id), syncBudgetsFromBackend(user.id),]);
+      syncStateRef.current.lastSyncedUserId = user.id;
+    } finally {
+      syncStateRef.current.isSyncing = false;
+    }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Call backend logout API to log the activity
+    try {
+      await logoutApi();
+    } catch {
+      // Continue with local logout even if API fails
+    }
+    
+    // Reset sync state
+    syncStateRef.current.isSyncing = false;
+    syncStateRef.current.lastSyncedUserId = null;
+    
     setCurrentUser(null);
     setWallets([]);
     setCurrentWallet(null);
@@ -752,7 +905,9 @@ const deleteBudget = async (id: string) => {
     <AppContext.Provider
       value={{
         currentUser,
-        isAuthenticated: !!currentUser,
+        isAuthenticated: !!currentUser && !isAuthChecking,
+        isAuthChecking,
+        isAdmin: currentUser?.role === 'admin' || currentUser?.role === 'super_admin',
         login,
         register,
         logout,

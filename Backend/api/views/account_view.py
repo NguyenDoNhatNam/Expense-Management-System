@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from api.permissions.permission import DynamicPermission
 from api.models import Accounts
 from api.services.account_service import AccountService
+from api.services.activity_log_service import ActivityLogService
 from api.serializers.account_serializer import AccountListSerializer, CreateAccountSerializer, UpdateAccountSerializer
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 from api.pagination import CustomPagination
@@ -74,6 +75,15 @@ class AccountViewSet(viewsets.ViewSet):
 
         try:
             account = AccountService.create_account(serializer.validated_data, request.user)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='CREATE_ACCOUNT',
+                details=f'Created account: {account.account_name}',
+                level='ACTION'
+            )
+            
             return Response({
                 'success': True,
                 'message': 'Tạo tài khoản thành công',
@@ -96,6 +106,15 @@ class AccountViewSet(viewsets.ViewSet):
 
         try:
             updated_account = AccountService.update_account(account, serializer.validated_data, request.user)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='UPDATE_ACCOUNT',
+                details=f'Updated account: {updated_account.account_name}',
+                level='ACTION'
+            )
+            
             return Response({'success': True, 'message': 'Cập nhật tài khoản thành công', 'data': {'account_id': updated_account.account_id}}, status=status.HTTP_200_OK)
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -104,7 +123,17 @@ class AccountViewSet(viewsets.ViewSet):
     def delete_account(self, request, account_id=None):
         try:
             account = Accounts.objects.get(account_id=account_id, user=request.user)
+            account_name = account.account_name
             AccountService.delete_account(account, request.user)
+            
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='DELETE_ACCOUNT',
+                details=f'Deleted account: {account_name}',
+                level='ACTION'
+            )
+            
             return Response({'success': True, 'message': 'Xóa tài khoản thành công'}, status=status.HTTP_200_OK)
         except Accounts.DoesNotExist:
             return Response({'success': False, 'message': 'Tài khoản không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
