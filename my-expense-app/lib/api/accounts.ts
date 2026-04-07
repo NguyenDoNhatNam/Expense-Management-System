@@ -14,6 +14,9 @@ export interface BackendAccount {
   is_include_in_total: boolean;
   created_at?: string | null;
   updated_at?: string | null;
+  transaction_count?: number;
+  total_income?: string | number;
+  total_expense?: string | number;
 }
 
 export interface AccountListResponse {
@@ -21,7 +24,7 @@ export interface AccountListResponse {
   message: string;
   data: {
     net_worth: string;
-    accounts: BackendAccount[];
+    items: BackendAccount[];
   };
 }
 

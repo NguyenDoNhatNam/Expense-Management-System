@@ -15,6 +15,7 @@ class DebtViewSet(viewsets.ViewSet):
         'list_debts': 'view_own_expense', 
         'create_debt': 'create_expense',
         'pay_debt': 'edit_own_expense',
+        'delete_debt': 'delete_own_expense',
     }
 
     @extend_schema(
@@ -53,3 +54,17 @@ class DebtViewSet(viewsets.ViewSet):
             return Response({'success': False, 'message': 'Không tìm thấy khoản nợ'}, status=status.HTTP_404_NOT_FOUND)
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(description="Xóa khoản nợ thành công")
+        }
+    )
+    @action(detail=False, methods=['delete'], url_path='delete/(?P<debt_id>[^/.]+)')
+    def delete_debt(self, request, debt_id=None):
+        try:
+            debt = Debts.objects.get(debt_id=debt_id, user=request.user)
+            debt.delete()
+            return Response({'success': True, 'message': 'Xóa khoản nợ thành công'}, status=status.HTTP_200_OK)
+        except Debts.DoesNotExist:
+            return Response({'success': False, 'message': 'Không tìm thấy khoản nợ'}, status=status.HTTP_404_NOT_FOUND)

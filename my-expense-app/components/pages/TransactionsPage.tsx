@@ -30,11 +30,14 @@ const formatAmount = (value: number | string) => {
 };
 
 export default function TransactionsPage() {
-  const { currentWallet, categories } = useApp();
+  const { currentWallet, categories, wallets } = useApp();
   const { showNotification } = useNotification();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ===== WALLET FILTER =====
+  const [selectedWalletId, setSelectedWalletId] = useState<string>("all");
 
   // ===== BASIC FILTER =====
   const [searchText, setSearchText] = useState("");
@@ -61,24 +64,22 @@ export default function TransactionsPage() {
 
   // ===== FETCH =====
   const fetchTransactions = useCallback(async () => {
-    if (!currentWallet) return;
-
     setIsLoading(true);
 
     try {
       const result = await listTransactionsApi({
-        account: currentWallet.id,
+        account_id: selectedWalletId === "all" ? undefined : selectedWalletId,
         keyword: searchText || undefined,
         transaction_type:
           filterType === "all" ? undefined : filterType,
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined,
+        start_date: dateFrom || undefined,
+        end_date: dateTo || undefined,
         min_amount: minAmount || undefined,
         max_amount: maxAmount || undefined,
-        categories: selectedCategories.length
-          ? selectedCategories
+        category_ids: selectedCategories.length > 0
+          ? selectedCategories.join(',')
           : undefined,
-        sort: sortBy,
+        sort_by: sortBy || undefined,
       });
 
       if (result.success) {
@@ -92,7 +93,7 @@ export default function TransactionsPage() {
       setIsLoading(false);
     }
   }, [
-    currentWallet,
+    selectedWalletId,
     searchText,
     filterType,
     dateFrom,
@@ -153,16 +154,38 @@ export default function TransactionsPage() {
       />
 
       {/* TABS */}
-      <div className="flex gap-2">
-        {["all", "income", "expense", "transfer"].map((type) => (
-          <Button
-            key={type}
-            variant={filterType === type ? "default" : "outline"}
-            onClick={() => setFilterType(type as any)}
-          >
-            {type}
-          </Button>
-        ))}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex gap-2">
+          {["all", "income", "expense", "transfer"].map((type) => (
+            <Button
+              key={type}
+              variant={filterType === type ? "default" : "outline"}
+              onClick={() => setFilterType(type as any)}
+              size="sm"
+            >
+              {type === "all"
+                ? "Tất cả"
+                : type === "income"
+                  ? "Thu nhập"
+                  : type === "expense"
+                    ? "Chi tiêu"
+                    : "Chuyển khoản"}
+            </Button>
+          ))}
+        </div>
+
+        <select
+          className="border px-3 py-1.5 rounded-lg text-sm ml-auto"
+          value={selectedWalletId}
+          onChange={(e) => setSelectedWalletId(e.target.value)}
+        >
+          <option value="all">Tất cả ví</option>
+          {wallets.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* SORT + ADVANCED */}
@@ -233,8 +256,14 @@ export default function TransactionsPage() {
                       <p className="font-semibold">
                         {tx.category_name}
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        {tx.description}
+                      {tx.description && (
+                        <p className="text-sm text-muted-foreground">
+                          {tx.description}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {tx.account_name && <span>{tx.account_name} · </span>}
+                        {new Date(tx.transaction_date).toLocaleDateString("vi-VN")}
                       </p>
                     </div>
                   </div>

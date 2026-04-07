@@ -127,8 +127,9 @@ class CategoryService:
                         except Exception as e:
                             raise ValueError(f"Lỗi khi xóa giao dịch {trans.transaction_id}: {str(e)}")
 
-            # 3. Xóa danh mục
-            category_obj.delete()
+            # 3. Soft delete danh mục (tránh FK constraint với transaction đã soft delete)
+            category_obj.is_deleted = True
+            category_obj.save()
 
         return {
             "success": True,

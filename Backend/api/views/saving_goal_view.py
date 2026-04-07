@@ -47,3 +47,13 @@ class SavingGoalViewSet(viewsets.ViewSet):
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         except SavingsGoals.DoesNotExist:
             return Response({'success': False, 'message': 'Không tìm thấy'}, status=status.HTTP_404_NOT_FOUND)
+
+    @extend_schema(responses={200: None})
+    @action(detail=False, methods=['delete'], url_path='delete/(?P<goal_id>[^/.]+)')
+    def delete_goal(self, request, goal_id=None):
+        try:
+            goal = SavingsGoals.objects.get(goal_id=goal_id, user=request.user)
+            goal.delete()
+            return Response({'success': True, 'message': 'Xóa mục tiêu thành công'}, status=status.HTTP_200_OK)
+        except SavingsGoals.DoesNotExist:
+            return Response({'success': False, 'message': 'Không tìm thấy mục tiêu'}, status=status.HTTP_404_NOT_FOUND)

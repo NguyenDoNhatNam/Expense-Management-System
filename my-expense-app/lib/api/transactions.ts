@@ -10,6 +10,7 @@ export interface BackendTransaction {
   category_id: string;
   category_name: string;
   category_icon: string;
+  category_color: string;
   account_id: string;
   account_name: string;
   is_recurring: boolean;
@@ -20,9 +21,9 @@ export interface BackendTransaction {
 export interface TransactionListResponse {
   success: boolean;
   message: string;
-  data: 
-     BackendTransaction[];           
-  };
+  data: BackendTransaction[];
+}
+
 export interface CreateTransactionPayload {
   account_id: string;
   category_id: string;
@@ -45,12 +46,16 @@ export interface MutationTransactionResponse {
   data?: Record<string, unknown>;
 }
 
-export const listTransactionsApi = async (params: {
-  account?: string;
-  transaction_type?: 'income' | 'expense';
+export const listTransactionsApi = async (params?: {
+  account_id?: string;
+  transaction_type?: 'income' | 'expense' | 'transfer';
   keyword?: string;
   start_date?: string;
   end_date?: string;
+  min_amount?: string;
+  max_amount?: string;
+  category_ids?: string;
+  sort_by?: string;
 }): Promise<TransactionListResponse> => {
   const response = await api.get<TransactionListResponse>('/transactions/list/', { params });
   return response.data;

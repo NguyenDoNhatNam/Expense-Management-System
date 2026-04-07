@@ -45,6 +45,10 @@ class TransactionViewset(viewsets.ViewSet):
         end_date = request.query_params.get('end_date')
         trans_type = request.query_params.get('transaction_type')
         keyword = request.query_params.get('keyword')
+        min_amount = request.query_params.get('min_amount')
+        max_amount = request.query_params.get('max_amount')
+        category_ids = request.query_params.get('category_ids')
+        sort_by = request.query_params.get('sort_by')
 
         if account_id:
             queryset = queryset.filter(account__account_id=account_id)
@@ -56,6 +60,23 @@ class TransactionViewset(viewsets.ViewSet):
             queryset = queryset.filter(transaction_type=trans_type)
         if keyword:
             queryset = queryset.filter(Q(description__icontains=keyword) | Q(note__icontains=keyword))
+        if min_amount:
+            queryset = queryset.filter(amount__gte=min_amount)
+        if max_amount:
+            queryset = queryset.filter(amount__lte=max_amount)
+        if category_ids:
+            ids = [cid.strip() for cid in category_ids.split(',') if cid.strip()]
+            if ids:
+                queryset = queryset.filter(category__category_id__in=ids)
+
+        sort_mapping = {
+            'newest': '-transaction_date',
+            'oldest': 'transaction_date',
+            'amount_desc': '-amount',
+            'amount_asc': 'amount',
+        }
+        if sort_by and sort_by in sort_mapping:
+            queryset = queryset.order_by(sort_mapping[sort_by])
 
         serializer = TransactionListSerializer(queryset, many=True)
         return Response({'success': True, 'message': 'Lấy danh sách giao dịch thành công.', 'data': serializer.data,}, status=status.HTTP_200_OK)
@@ -70,9 +91,6 @@ class TransactionViewset(viewsets.ViewSet):
     )
     @action(detail=False, methods=['post'], url_path='create')
     def create_transaction(self, request, *args, **kwargs):
-        # print("=== DEBUG: ĐÃ VÀO create_transaction ===")
-        # print("User từ request:", request.user)
-        # print("Token header:", request.headers.get('Authorization'))
         serializer = CreateTransactionSerializer(
             data=request.data,
             context={'user': request.user}

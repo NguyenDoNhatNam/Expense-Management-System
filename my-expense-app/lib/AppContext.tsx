@@ -29,9 +29,10 @@ import {
 import {
   BackendDebt,
   DebtListResponse,
-  CreateDebtResponse,
+  CreateDebtPayload,
   listDebtsApi,
   createDebtApi,
+  deleteDebtApi,
 } from './api/debts';
 import {
   listBudgetsApi,
@@ -53,7 +54,7 @@ interface AppContextType {
   wallets: Types.Wallet[];
   currentWallet: Types.Wallet | null;
   setCurrentWallet: (wallet: Types.Wallet) => void;
-  addWallet: (wallet: Omit<Types.Wallet, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addWallet: (wallet: Omit<Types.Wallet, 'id' | 'createdAt' | 'updatedAt' | 'transactionCount' | 'totalIncome' | 'totalExpense'>) => Promise<void>;
   updateWallet: (id: string, data: Partial<Types.Wallet>) => Promise<void>;
   deleteWallet: (id: string) => Promise<void>;
 
@@ -72,9 +73,9 @@ interface AppContextType {
 
   // Budgets
   budgets: Types.Budget[];
-  addBudget: (budget: Omit<Types.Budget, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateBudget: (id: string, data: Partial<Types.Budget>) => void;
-  deleteBudget: (id: string) => void;
+  addBudget: (budget: CreateBudgetPayload) => Promise<void>;
+  updateBudget: (id: string, data: Partial<CreateBudgetPayload>) => Promise<void>;
+  deleteBudget: (id: string) => Promise<void>;
 
   // Savings Goals
   savingsGoals: Types.SavingsGoal[];
@@ -142,10 +143,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         id: backendAccount.account_id,
         userId,
         name: backendAccount.account_name,
+        type: backendAccount.account_type,
         currency: backendAccount.currency,
         balance: Number(backendAccount.balance || 0),
         description: backendAccount.description || undefined,
         isDefault,
+        bankName: backendAccount.bank_name || undefined,
+        accountNumber: backendAccount.account_number || undefined,
+        isIncludeInTotal: backendAccount.is_include_in_total ?? true,
+        transactionCount: backendAccount.transaction_count ?? 0,
+        totalIncome: Number(backendAccount.total_income || 0),
+        totalExpense: Number(backendAccount.total_expense || 0),
         createdAt,
         updatedAt,
       };
@@ -156,7 +164,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const syncWalletsFromBackend = useCallback(
     async (userId: string) => {
       const response = await listAccountsApi();
-      const mappedWallets = response.data.accounts.map((account, index) =>
+      const mappedWallets = response.data.items.map((account, index) =>
         mapBackendAccountToWallet(account, userId, index === 0)
       );
 
@@ -179,26 +187,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     [mapBackendAccountToWallet]
   );
 
-  const syncSavingGoals = async (userId: string) => {
-  const res = await listSavingGoalsApi();
+  const syncSavingGoals = useCallback(async (userId: string) => {
+    const res = await listSavingGoalsApi();
 
-  const mapped = res.data.map((item: any) => ({
-    id: item.goal_id,
-    userId,
-    walletId: currentWallet?.id || '',
-    name: item.goal_name,
-    targetAmount: Number(item.target_amount),
-    currentAmount: Number(item.current_amount),
-    deadline: new Date(item.target_date),
-    priority: item.priority,
-    description: item.description || '',
-    currency: 'VND',
-    createdAt: new Date(item.created_at),
-    updatedAt: new Date(item.updated_at),
-  }));
+    const mapped = res.data.map((item: any) => ({
+      id: item.goal_id,
+      userId,
+      walletId: item.account_id || '',
+      name: item.goal_name,
+      targetAmount: Number(item.target_amount),
+      currentAmount: Number(item.current_amount),
+      deadline: new Date(item.target_date),
+      priority: item.priority,
+      description: item.description || '',
+      currency: 'VND',
+      createdAt: new Date(item.created_at),
+      updatedAt: new Date(item.updated_at),
+    }));
 
-  setSavingsGoals(mapped);
-};
+    setSavingsGoals(mapped);
+  }, []);
 const mapBackendDebtToDebt = useCallback(
   (backendDebt: BackendDebt, userId: string): Types.Debt => ({
     id: backendDebt.debt_id,
@@ -234,19 +242,19 @@ const mapBackendBudgetToBudget = useCallback(
       id: backendBudget.budget_id,
       userId,
       categoryId: backendBudget.category_id,
-      limit: Number(backendBudget.amount),           // ← page dùng limit
+      limit: Number(backendBudget.amount || 0),
       spent: Number(
         (backendBudget as any).spent_amount ?? 
         backendBudget.spent ?? 
         0
       ),
+      currency: 'VND',
       period: backendBudget.period,
-      alertThreshold: backendBudget.alert_threshold, // ← camelCase cho page
+      alertThreshold: backendBudget.alert_threshold,
       startDate: new Date(backendBudget.start_date),
       endDate: new Date(backendBudget.end_date),
       createdAt: now,
       updatedAt: now,
-      // các field khác nếu Types.Budget yêu cầu
     };
   },
   []
@@ -368,7 +376,6 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
 
   const register = async (email: string, password: string, fullName: string, phone: string) => {
     const res = await signupApi({ email, password, full_name: fullName, phone });
-    console.log('Signup response:', res);
     const { user: apiUser, access_token, refresh_token, account, categories: apiCategories } = res.data;
 
     localStorage.setItem('access_token', access_token);
@@ -413,18 +420,20 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
   };
 
   // Wallet functions
-  const addWallet = async (wallet: Omit<Types.Wallet, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addWallet = async (wallet: Omit<Types.Wallet, 'id' | 'createdAt' | 'updatedAt' | 'transactionCount' | 'totalIncome' | 'totalExpense'>) => {
     if (!currentUser) {
       throw new Error('Bạn cần đăng nhập để tạo ví.');
     }
 
     const payload: CreateAccountPayload = {
       account_name: wallet.name,
-      account_type: 'cash',
+      account_type: wallet.type || 'cash',
       currency: wallet.currency,
       initial_balance: wallet.balance,
-      is_include_in_total: true,
+      is_include_in_total: wallet.isIncludeInTotal ?? true,
       description: wallet.description,
+      bank_name: wallet.bankName,
+      account_number: wallet.accountNumber,
     };
 
     await createAccountApi(payload);
@@ -439,8 +448,12 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
     const payload: UpdateAccountPayload = {};
 
     if (data.name !== undefined) payload.account_name = data.name;
+    if (data.type !== undefined) payload.account_type = data.type;
     if (data.currency !== undefined) payload.currency = data.currency;
     if (data.description !== undefined) payload.description = data.description;
+    if (data.isIncludeInTotal !== undefined) payload.is_include_in_total = data.isIncludeInTotal;
+    if (data.bankName !== undefined) payload.bank_name = data.bankName;
+    if (data.accountNumber !== undefined) payload.account_number = data.accountNumber;
 
     if (Object.keys(payload).length === 0) {
       return;
@@ -526,21 +539,18 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
       );
     }
 
-    // Update budget spent
-    const budgetIdx = budgets.findIndex(b => b.categoryId === transaction.categoryId);
-    if (budgetIdx >= 0 && transaction.type === 'expense') {
-      updateBudget(budgets[budgetIdx].id, { spent: budgets[budgetIdx].spent + transaction.amount });
-    }
+    // Update budget spent - budget spent is calculated automatically by the backend
+    // so we just re-sync budgets after a local transaction change
   };
 
   const updateTransaction = (id: string, data: Partial<Types.Transaction>) => {
     const oldTx = transactions.find(t => t.id === id);
-    if (oldTx && data.amount && oldTx.amount !== data.amount) {
+    if (oldTx && data.amount && oldTx.amount !== data.amount && currentWallet) {
       const diff = data.amount - oldTx.amount;
       const walletId = data.walletId || oldTx.walletId;
       const newBalance = oldTx.type === 'income'
-        ? currentWallet!.balance + diff
-        : currentWallet!.balance - diff;
+        ? currentWallet.balance + diff
+        : currentWallet.balance - diff;
       setWallets((prevWallets) =>
         prevWallets.map((wallet) =>
           wallet.id === walletId ? { ...wallet, balance: newBalance, updatedAt: new Date() } : wallet
@@ -557,10 +567,10 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
 
   const deleteTransaction = (id: string) => {
     const tx = transactions.find(t => t.id === id);
-    if (tx) {
+    if (tx && currentWallet) {
       const newBalance = tx.type === 'income'
-        ? currentWallet!.balance - tx.amount
-        : currentWallet!.balance + tx.amount;
+        ? currentWallet.balance - tx.amount
+        : currentWallet.balance + tx.amount;
       setWallets((prevWallets) =>
         prevWallets.map((wallet) =>
           wallet.id === tx.walletId ? { ...wallet, balance: newBalance, updatedAt: new Date() } : wallet
@@ -654,7 +664,7 @@ const deleteBudget = async (id: string) => {
   if (!currentUser) throw new Error('Bạn cần đăng nhập để tạo nợ.');
 
   const payload: CreateDebtPayload = {
-    debt_type: debt.debt_type,
+    debt_type: debt.debt_type === 'owe' ? 'borrow' : debt.debt_type,
     person_name: debt.person_name,
     amount: debt.amount,
     interest_rate: debt.interest_rate || 0,
