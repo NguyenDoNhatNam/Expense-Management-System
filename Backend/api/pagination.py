@@ -2,18 +2,18 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 class CustomPagination(PageNumberPagination):
-    # Tuỳ chỉnh lại tham số trên URL theo ý bạn
+    # Customize URL parameters
     page_query_param = 'p'
     page_size_query_param = 'ipp'
     
-    # Cấu hình mặc định
+    # Default configuration
     page_size = 10
     max_page_size = 100
 
     def get_paginated_response(self, data):
         return Response({
             'success': True,
-            'message': 'Lấy danh sách thành công',
+            'message': 'List retrieved successfully',
             'data': {
                 'items': data,
                 'pagination': {

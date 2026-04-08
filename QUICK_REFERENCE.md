@@ -193,7 +193,7 @@ try {
 // Backend returns:
 {
   success: false,
-  message: 'Số dư tài khoản không đủ',
+  message: 'Insufficient account balance',
   errors: { ... }
 }
 ```

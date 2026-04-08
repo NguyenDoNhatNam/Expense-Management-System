@@ -10,10 +10,10 @@ class AccountService:
     @staticmethod
     def get_accounts_summary(user):
         """
-        Lấy danh sách tài khoản và tính tổng tài sản (Net Worth).
-        Chỉ tính các tài khoản có is_include_in_total = True
+        Get list of accounts and calculate Net Worth.
+        Only includes accounts with is_include_in_total = True
         """
-        # Được sử dụng để hiện thị transaction count, total_income, total_expense trên mỗi account
+        # Used to display transaction count, total_income, total_expense for each account
         accounts = Accounts.objects.filter(user=user).annotate(
             transaction_count=Count('transactions', filter=Q(transactions__is_deleted=False)),
             total_income=Coalesce(
@@ -54,11 +54,11 @@ class AccountService:
                 updated_at=timezone.now()
             )
 
-            # Tạo giao dịch khởi tạo nếu số dư ban đầu > 0
+            # Create initial transaction if initial balance > 0
             if initial_balance > 0:
                 init_category, _ = Categories.objects.get_or_create(
                     user=user,
-                    category_name='Khởi tạo số dư',
+                    category_name='Initial Balance',
                     category_type='income',
                     defaults={
                         'category_id': f'CAT-{str(uuid4())[:15]}',
@@ -77,8 +77,8 @@ class AccountService:
                     amount=initial_balance,
                     transaction_type='income',
                     transaction_date=timezone.now(),
-                    description=f'Khởi tạo số dư ban đầu',
-                    note='Giao dịch tự động khi tạo tài khoản',
+                    description=f'Initial balance setup',
+                    note='Automatic transaction when creating account',
                     is_recurring=False,
                     is_deleted=False,
                     created_at=timezone.now(),
@@ -90,13 +90,13 @@ class AccountService:
     @staticmethod
     def update_account(account_obj, validated_data, user):
         with db_transaction.atomic():
-            # Không cho phép đổi loại tiền tệ nếu đã có giao dịch
+            # Do not allow changing currency if transactions exist
             if 'currency' in validated_data and validated_data['currency'] != account_obj.currency:
                 has_transactions = Transactions.objects.filter(account=account_obj, is_deleted=False).exists()
                 if has_transactions:
-                    raise ValueError("Không thể thay đổi loại tiền tệ khi tài khoản đã có giao dịch")
+                    raise ValueError("Cannot change currency when the account already has transactions")
                 
-            # Cập nhật các trường
+            # Update fields
             for field, value in validated_data.items():
                 setattr(account_obj, field, value)
                 
@@ -109,9 +109,9 @@ class AccountService:
     def delete_account(account_obj, user):
         with db_transaction.atomic():
             if account_obj.balance != 0:
-                raise ValueError("Số dư tài khoản phải bằng 0 mới có thể xóa. Vui lòng chuyển hết tiền trước khi xóa.")
+                raise ValueError("Account balance must be 0 to delete. Please transfer all funds before deleting.")
             
             if Transactions.objects.filter(account=account_obj, is_deleted=False).exists():
-                raise ValueError("Tài khoản đang có giao dịch. Vui lòng xóa hoặc chuyển giao dịch sang tài khoản khác trước khi xóa.")
+                raise ValueError("Account has existing transactions. Please delete or transfer transactions to another account before deleting.")
 
             account_obj.delete()

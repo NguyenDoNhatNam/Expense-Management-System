@@ -44,7 +44,7 @@ class TransactionService:
                 updated_at=now,
             )
 
-            # Cập nhật balance
+            # Update balance
             account_locked = Accounts.objects.select_for_update().get(
                 account_id=account.account_id
             )
@@ -52,14 +52,14 @@ class TransactionService:
             if transaction_type == 'expense':
                 new_balance = account_locked.balance - amount
                 if new_balance < 0:
-                    raise ValueError('Số dư tài khoản của bạn không đủ để thực hiện giao dịch')
+                    raise ValueError('Your account balance is insufficient to perform this transaction')
                 account_locked.balance = new_balance
             elif transaction_type == 'income':
                 account_locked.balance = account_locked.balance + amount
             elif transaction_type == 'transfer':
                 new_balance = account_locked.balance - amount
                 if new_balance < 0:
-                    raise ValueError('Số dư tài khoản của bạn không đủ để thực hiện chuyển khoản')
+                    raise ValueError('Your account balance is insufficient to perform the transfer')
                 account_locked.balance = new_balance
 
             account_locked.updated_at = now
@@ -84,10 +84,10 @@ class TransactionService:
     @staticmethod
     def update_transaction(transaction_id, validated_data, user):
         """
-        Sửa giao dịch:
-        1. Lấy giao dịch cũ
-        2. Hoàn nguyên balance cũ
-        3. Áp dụng balance mới
+        Update transaction:
+        1. Get old transaction
+        2. Reverse old balance
+        3. Apply new balance
         4. Update record
         5. Re-calculate budget
         """
@@ -95,7 +95,7 @@ class TransactionService:
         budget_warnings = []
 
         with db_transaction.atomic():
-            # 1. Lấy giao dịch cũ (lock row)
+            # 1. Get old transaction (lock row)
             try:
                 old_transaction = Transactions.objects.select_for_update().get(
                     transaction_id=transaction_id,
@@ -103,20 +103,20 @@ class TransactionService:
                     is_deleted=False,
                 )
             except Transactions.DoesNotExist:
-                raise ValueError('Giao dịch không tồn tại hoặc đã bị xóa')
+                raise ValueError('Transaction does not exist or has been deleted')
 
             old_type = old_transaction.transaction_type
             old_amount = old_transaction.amount
             old_account = old_transaction.account
             old_category = old_transaction.category
 
-            # Giá trị mới (lấy từ validated_data hoặc giữ nguyên cũ)
+            # New values (from validated_data or keep old values)
             new_account = validated_data.get('account', old_account)
             new_category = validated_data.get('category', old_category)
             new_type = validated_data.get('transaction_type', old_type)
             new_amount = validated_data.get('amount', old_amount)
 
-            # 2. Hoàn nguyên balance tài khoản CŨ
+            # 2. Reverse OLD account balance
             old_account_locked = Accounts.objects.select_for_update().get(
                 account_id=old_account.account_id
             )
@@ -131,12 +131,12 @@ class TransactionService:
             old_account_locked.updated_at = now
             old_account_locked.save()
 
-            # 3. Áp dụng balance cho tài khoản MỚI
+            # 3. Apply balance for NEW account
             if new_account.account_id == old_account.account_id:
-                # Cùng tài khoản → dùng lại object đã cập nhật
+                # Same account -> reuse the updated object
                 new_account_locked = old_account_locked
             else:
-                # Khác tài khoản → lock tài khoản mới
+                # Different account -> lock the new account
                 new_account_locked = Accounts.objects.select_for_update().get(
                     account_id=new_account.account_id
                 )
@@ -145,8 +145,8 @@ class TransactionService:
                 new_balance = new_account_locked.balance - new_amount
                 if new_balance < 0:
                     raise ValueError(
-                        f'Số dư tài khoản không đủ. '
-                        f'Hiện tại: {new_account_locked.balance}, cần: {new_amount}'
+                        f'Insufficient account balance. '
+                        f'Current: {new_account_locked.balance}, required: {new_amount}'
                     )
                 new_account_locked.balance = new_balance
             elif new_type == 'income':
@@ -155,8 +155,8 @@ class TransactionService:
                 new_balance = new_account_locked.balance - new_amount
                 if new_balance < 0:
                     raise ValueError(
-                        f'Số dư tài khoản không đủ để chuyển khoản. '
-                        f'Hiện tại: {new_account_locked.balance}, cần: {new_amount}'
+                        f'Insufficient account balance for transfer. '
+                        f'Current: {new_account_locked.balance}, required: {new_amount}'
                     )
                 new_account_locked.balance = new_balance
 
@@ -188,7 +188,7 @@ class TransactionService:
             old_transaction.updated_at = now
             old_transaction.save()
 
-            # 5. Re-calculate budget cho cả category cũ và mới
+            # 5. Re-calculate budget for both old and new categories
             if old_type == 'expense':
                 TransactionService._recalculate_budget(user, old_category)
             if new_type == 'expense':
@@ -209,15 +209,15 @@ class TransactionService:
     @staticmethod
     def delete_transaction(transaction_id, user, hard_delete=False):
         """
-        Xóa giao dịch:
-        - Soft delete (mặc định): set is_deleted=True, giữ lịch sử
-        - Hard delete: xóa hoàn toàn khỏi DB
-        Cả 2 đều hoàn nguyên balance và re-calculate budget
+        Delete transaction:
+        - Soft delete (default): set is_deleted=True, keep history
+        - Hard delete: permanently remove from DB
+        Both reverse balance and re-calculate budget
         """
         now = timezone.now()
 
         with db_transaction.atomic():
-            # 1. Lấy giao dịch
+            # 1. Get transaction
             try:
                 transaction_obj = Transactions.objects.select_for_update().get(
                     transaction_id=transaction_id,
@@ -225,42 +225,42 @@ class TransactionService:
                     is_deleted=False,
                 )
             except Transactions.DoesNotExist:
-                raise ValueError('Giao dịch không tồn tại hoặc đã bị xóa')
+                raise ValueError('Transaction does not exist or has been deleted')
 
-            # 2. Kiểm tra giới hạn 30 ngày
+            # 2. Check 30-day limit
             days_diff = (now - transaction_obj.transaction_date).days
             if days_diff > 30:
                 raise ValueError(
-                    f'Chỉ được phép xóa giao dịch trong vòng 30 ngày gần nhất. '
-                    f'Giao dịch này đã được tạo cách đây {days_diff} ngày.'
+                    f'Only transactions within the last 30 days can be deleted. '
+                    f'This transaction was created {days_diff} days ago.'
                 )
 
             old_type = transaction_obj.transaction_type
             old_amount = transaction_obj.amount
             old_category = transaction_obj.category
 
-            # 3. Hoàn nguyên balance
+            # 3. Reverse balance
             account_locked = Accounts.objects.select_for_update().get(
                 account_id=transaction_obj.account_id
             )
 
             if old_type == 'expense':
-                account_locked.balance += old_amount  # Hoàn tiền
+                account_locked.balance += old_amount  # Refund
             elif old_type == 'income':
                 new_balance = account_locked.balance - old_amount
                 if new_balance < 0:
                     raise ValueError(
-                        f'Không thể xóa giao dịch thu nhập này vì sẽ làm số dư âm. '
-                        f'Số dư hiện tại: {account_locked.balance}, hoàn nguyên: {old_amount}'
+                        f'Cannot delete this income transaction as it would result in negative balance. '
+                        f'Current balance: {account_locked.balance}, reversal amount: {old_amount}'
                     )
                 account_locked.balance = new_balance
             elif old_type == 'transfer':
-                account_locked.balance += old_amount  # Hoàn tiền chuyển
+                account_locked.balance += old_amount  # Refund transfer
 
             account_locked.updated_at = now
             account_locked.save()
 
-            # 4. Soft delete hoặc Hard delete
+            # 4. Soft delete or Hard delete
             if hard_delete:
                 transaction_obj.delete()
             else:
@@ -313,7 +313,7 @@ class TransactionService:
                 percentage_spent = (total_spent / budget.amount) * 100
 
                 if percentage_spent >= 100:
-                    message = f'Đã VƯỢT ngân sách "{budget.budget_name}": {total_spent}/{budget.amount} ({percentage_spent:.1f}%)'
+                    message = f'EXCEEDED budget "{budget.budget_name}": {total_spent}/{budget.amount} ({percentage_spent:.1f}%)'
                     warnings.append({
                         'budget_id': budget.budget_id,
                         'budget_name': budget.budget_name,
@@ -324,14 +324,14 @@ class TransactionService:
                         'message': message,
                     })
                     
-                    # Ghi Notification tránh spam (chỉ 1 thông báo chưa đọc cùng loại 1 ngày)
+                    # Write Notification to avoid spam (only 1 unread notification of same type per day)
                     if not Notification.objects.filter(user=user, notification_type='budget_danger', related_id=budget.budget_id, is_read=False, created_at__date=now.date()).exists():
                         Notification.objects.create(
                             notification_id=f'NOT-{str(uuid4())[:15]}', user=user, notification_type='budget_danger',
-                            title='Vượt Ngân Sách!', message=message, is_read=False, related_id=budget.budget_id, created_at=now
+                            title='Budget Exceeded!', message=message, is_read=False, related_id=budget.budget_id, created_at=now
                         )
                 elif percentage_spent >= budget.alert_threshold:
-                    message = f'Cảnh báo ngân sách "{budget.budget_name}": Đã chi {percentage_spent:.1f}% ({total_spent}/{budget.amount})'
+                    message = f'Budget warning "{budget.budget_name}": Spent {percentage_spent:.1f}% ({total_spent}/{budget.amount})'
                     warnings.append({
                         'budget_id': budget.budget_id,
                         'budget_name': budget.budget_name,
@@ -344,7 +344,7 @@ class TransactionService:
                     if not Notification.objects.filter(user=user, notification_type='budget_warning', related_id=budget.budget_id, is_read=False, created_at__date=now.date()).exists():
                         Notification.objects.create(
                             notification_id=f'NOT-{str(uuid4())[:15]}', user=user, notification_type='budget_warning',
-                            title='Sắp Vượt Ngân Sách', message=message, is_read=False, related_id=budget.budget_id, created_at=now
+                            title='Approaching Budget Limit', message=message, is_read=False, related_id=budget.budget_id, created_at=now
                         )
 
         return warnings
@@ -356,8 +356,8 @@ class TransactionService:
     @staticmethod
     def _recalculate_budget(user, category):
         """
-        Re-calculate lại tổng spent cho tất cả budget liên quan
-        khi sửa/xóa giao dịch.
+        Re-calculate total spent for all related budgets
+        when editing/deleting transactions.
         """
         now = timezone.now()
 
@@ -381,7 +381,7 @@ class TransactionService:
 
             total_spent = total_spent_result['total'] or Decimal('0')
 
-            # Log để debug nếu cần
+            # Log for debugging if needed
             logger.info(
                 f'Budget "{budget.budget_name}" recalculated: '
                 f'spent={total_spent}/{budget.amount}'
@@ -422,7 +422,7 @@ class TransactionService:
      # ===================== RESTORE =====================
     @staticmethod
     def restore_transaction(transaction_id, user):
-        """Khôi phục giao dịch đã soft delete → áp dụng lại balance"""
+        """Restore soft-deleted transaction → re-apply balance"""
         now = timezone.now()
 
         with db_transaction.atomic():
@@ -433,9 +433,9 @@ class TransactionService:
                     is_deleted=True,
                 )
             except Transactions.DoesNotExist:
-                raise ValueError('Không tìm thấy giao dịch đã xóa')
+                raise ValueError('Deleted transaction not found')
 
-            # Áp dụng lại balance
+            # Re-apply balance
             account_locked = Accounts.objects.select_for_update().get(
                 account_id=transaction_obj.account_id
             )
@@ -444,8 +444,8 @@ class TransactionService:
                 new_balance = account_locked.balance - transaction_obj.amount
                 if new_balance < 0:
                     raise ValueError(
-                        f'Không thể khôi phục: số dư không đủ. '
-                        f'Hiện tại: {account_locked.balance}, cần trừ: {transaction_obj.amount}'
+                        f'Cannot restore: insufficient balance. '
+                        f'Current: {account_locked.balance}, need to deduct: {transaction_obj.amount}'
                     )
                 account_locked.balance = new_balance
             elif transaction_obj.transaction_type == 'income':
@@ -453,13 +453,13 @@ class TransactionService:
             elif transaction_obj.transaction_type == 'transfer':
                 new_balance = account_locked.balance - transaction_obj.amount
                 if new_balance < 0:
-                    raise ValueError('Không thể khôi phục: số dư không đủ')
+                    raise ValueError('Cannot restore: insufficient balance')
                 account_locked.balance = new_balance
 
             account_locked.updated_at = now
             account_locked.save()
 
-            # Bỏ soft delete
+            # Remove soft delete
             transaction_obj.is_deleted = False
             transaction_obj.deleted_at = None
             transaction_obj.updated_at = now

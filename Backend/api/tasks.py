@@ -1,8 +1,8 @@
 """
-Celery Tasks - Xử lý các tác vụ bất đồng bộ
-Bao gồm:
+Celery Tasks - Async task processing
+Includes:
 - Email (OTP, verification)
-- Export async (CSV, Excel, PDF cho dữ liệu lớn)
+- Async export (CSV, Excel, PDF for large datasets)
 - Backup (daily backup, cleanup)
 - Scheduled jobs (recurring transactions, debt reminders)
 """
@@ -22,16 +22,16 @@ logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, max_retries=3)
 def send_otp_email(self, user_email, user_name, otp_code, otp_type):
-    """Gửi mã OTP qua email"""
+    """Send OTP code via email"""
     try:
         subject_map = {
-            'activation': 'Mã xác thực tài khoản',
-            'reset_password': 'Mã đặt lại mật khẩu',
-            'login': 'Mã đăng nhập',
+            'activation': 'Account Verification Code',
+            'reset_password': 'Password Reset Code',
+            'login': 'Login Code',
         }
         logger.info(f"[EMAIL] Preparing OTP email to {user_email} for {otp_type}")
         
-        subject = subject_map.get(otp_type, 'Mã xác thực')
+        subject = subject_map.get(otp_type, 'Verification Code')
         
         html_content = render_to_string('emails/otp_email.html', {
             'user_name': user_name,
@@ -41,12 +41,12 @@ def send_otp_email(self, user_email, user_name, otp_code, otp_type):
         })
         
         text_content = f"""
-        Xin chào {user_name},
+        Hello {user_name},
         
-        Mã xác thực của bạn là: {otp_code}
+        Your verification code is: {otp_code}
         
-        Mã này có hiệu lực trong 10 phút.
-        Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email.
+        This code is valid for 10 minutes.
+        If you did not request this code, please ignore this email.
         """
         
         email = EmailMultiAlternatives(
@@ -66,10 +66,44 @@ def send_otp_email(self, user_email, user_name, otp_code, otp_type):
         self.retry(exc=e, countdown=60)
 
 
+@shared_task(bind=True, max_retries=3)
+def send_otp_sms(self, phone_number, otp_code, otp_type):
+    """Send OTP code via SMS (Twilio)"""
+    try:
+        account_sid = settings.TWILIO_ACCOUNT_SID
+        auth_token = settings.TWILIO_AUTH_TOKEN
+        from_number = settings.TWILIO_PHONE_NUMBER
+
+        if not all([account_sid, auth_token, from_number]):
+            logger.error("[SMS] Twilio credentials not configured")
+            return {'status': 'error', 'message': 'Twilio not configured'}
+
+        from twilio.rest import Client
+        client = Client(account_sid, auth_token)
+
+        type_map = {
+            'activation': 'account activation',
+            'reset_password': 'password reset',
+        }
+        purpose = type_map.get(otp_type, 'verification')
+
+        message = client.messages.create(
+            body=f'[ExpenseMate] Your OTP code for {purpose} is: {otp_code}. Valid for 10 minutes.',
+            from_=from_number,
+            to=phone_number,
+        )
+
+        logger.info(f"[SMS] OTP sent to {phone_number}, SID: {message.sid}")
+        return {'status': 'success', 'phone': phone_number, 'sid': message.sid}
+
+    except Exception as e:
+        logger.error(f"[SMS] Failed to send OTP to {phone_number}: {str(e)}")
+        self.retry(exc=e, countdown=60)
+
 
 @shared_task(bind=True, max_retries=3)
 def send_verification_link_email(self, user_email, user_name, token, token_type):
-    """Gửi link xác thực qua email"""
+    """Send verification link via email"""
     try:
         base_url = settings.FRONTEND_URL
         
@@ -79,8 +113,8 @@ def send_verification_link_email(self, user_email, user_name, token, token_type)
         }
         
         subject_map = {
-            'activation': 'Kích hoạt tài khoản của bạn',
-            'reset_password': 'Đặt lại mật khẩu',
+            'activation': 'Activate Your Account',
+            'reset_password': 'Reset Password',
         }
         
         verification_url = url_map.get(token_type)
@@ -94,12 +128,12 @@ def send_verification_link_email(self, user_email, user_name, token, token_type)
         })
         
         text_content = f"""
-        Xin chào {user_name},
+        Hello {user_name},
         
-        Vui lòng click vào link sau để {subject.lower()}:
+        Please click the following link to {subject.lower()}:
         {verification_url}
         
-        Link có hiệu lực trong 24 giờ.
+        This link is valid for 24 hours.
         """
         
         email = EmailMultiAlternatives(
@@ -124,16 +158,16 @@ def send_verification_link_email(self, user_email, user_name, token, token_type)
 @shared_task(bind=True, max_retries=2)
 def async_export_data(self, user_id: str, data_type: str, export_format: str, filters: dict = None):
     """
-    Export dữ liệu bất đồng bộ cho dataset lớn.
+    Async data export for large datasets.
     
     Args:
-        user_id: ID của user
-        data_type: Loại dữ liệu (transactions, accounts, budgets, etc.)
-        export_format: Định dạng (csv, excel, pdf)
-        filters: Bộ lọc tùy chọn
+        user_id: User ID
+        data_type: Data type (transactions, accounts, budgets, etc.)
+        export_format: Format (csv, excel, pdf)
+        filters: Optional filters
     
     Returns:
-        Dict chứa thông tin file và URL download
+        Dict containing file info and download URL
     """
     from api.models import Users, Transactions, Accounts, Budgets, Debts, SavingsGoals
     from api.services.export_service import ExportService
@@ -158,7 +192,7 @@ def async_export_data(self, user_id: str, data_type: str, export_format: str, fi
         
         model = model_map.get(data_type)
         if not model:
-            raise ValueError(f"Loại dữ liệu không hỗ trợ: {data_type}")
+            raise ValueError(f"Unsupported data type: {data_type}")
         
         # Build queryset with filters
         queryset = model.objects.filter(user=user)
@@ -182,7 +216,7 @@ def async_export_data(self, user_id: str, data_type: str, export_format: str, fi
         elif export_format == 'pdf':
             filepath = ExportService.export_to_pdf(data_type, queryset, user)
         else:
-            raise ValueError(f"Định dạng không hỗ trợ: {export_format}")
+            raise ValueError(f"Unsupported format: {export_format}")
         
         # Get download URL
         download_url = ExportService.get_export_file_url(filepath)
@@ -234,7 +268,7 @@ def cleanup_old_exports():
 @shared_task(bind=True, max_retries=2)
 def create_user_backup(self, user_id: str, encrypt: bool = True, upload_s3: bool = True):
     """
-    Tạo backup cho một user cụ thể.
+    Create backup for a specific user.
     """
     from api.models import Users
     from api.services.backup_service import BackupService
@@ -258,7 +292,7 @@ def create_user_backup(self, user_id: str, encrypt: bool = True, upload_s3: bool
 @shared_task
 def daily_backup_all_users():
     """
-    Daily backup job cho tất cả active users.
+    Daily backup job for all active users.
     Scheduled to run daily at 2:00 AM.
     """
     from api.services.backup_service import BackupService
@@ -294,7 +328,7 @@ def cleanup_old_backups():
 @shared_task
 def process_recurring_transactions():
     """
-    Xử lý các giao dịch định kỳ đến hạn.
+    Process due recurring transactions.
     Scheduled to run daily at 00:00.
     """
     from api.services.recurring_service import RecurringService
@@ -311,7 +345,7 @@ def process_recurring_transactions():
 @shared_task
 def process_debt_reminders():
     """
-    Xử lý nhắc nhở và đánh dấu nợ quá hạn.
+    Process reminders and mark overdue debts.
     Scheduled to run daily at 08:00.
     """
     from api.services.debt_service import DebtService
@@ -328,35 +362,35 @@ def process_debt_reminders():
 @shared_task(bind=True, max_retries=3)
 def send_export_ready_email(self, user_email: str, user_name: str, download_url: str, export_type: str):
     """
-    Gửi email thông báo export đã sẵn sàng.
+    Send email notification that export is ready.
     """
     try:
-        subject = f'Export {export_type} đã sẵn sàng'
+        subject = f'Export {export_type} is ready'
         
         text_content = f"""
-        Xin chào {user_name},
+        Hello {user_name},
         
-        File export {export_type} của bạn đã sẵn sàng để tải xuống.
+        Your {export_type} export file is ready for download.
         
-        Link tải: {download_url}
+        Download link: {download_url}
         
-        Link này có hiệu lực trong 24 giờ.
+        This link is valid for 24 hours.
         """
         
         html_content = f"""
         <html>
         <body style="font-family: Arial, sans-serif;">
-            <h2>Export đã hoàn tất!</h2>
-            <p>Xin chào {user_name},</p>
-            <p>File export <strong>{export_type}</strong> của bạn đã sẵn sàng.</p>
+            <h2>Export Complete!</h2>
+            <p>Hello {user_name},</p>
+            <p>Your <strong>{export_type}</strong> export file is ready.</p>
             <p>
                 <a href="{download_url}" 
                    style="background-color: #4CAF50; color: white; padding: 10px 20px; 
                           text-decoration: none; border-radius: 5px;">
-                    Tải xuống
+                    Download
                 </a>
             </p>
-            <p><small>Link có hiệu lực trong 24 giờ.</small></p>
+            <p><small>This link is valid for 24 hours.</small></p>
         </body>
         </html>
         """
@@ -381,22 +415,22 @@ def send_export_ready_email(self, user_email: str, user_name: str, download_url:
 @shared_task(bind=True, max_retries=3)
 def send_backup_ready_email(self, user_email: str, user_name: str, backup_info: dict):
     """
-    Gửi email thông báo backup đã hoàn tất.
+    Send email notification that backup is complete.
     """
     try:
-        subject = 'Backup dữ liệu đã hoàn tất'
+        subject = 'Data Backup Completed'
         
         text_content = f"""
-        Xin chào {user_name},
+        Hello {user_name},
         
-        Backup dữ liệu của bạn đã được tạo thành công.
+        Your data backup has been created successfully.
         
-        Thông tin backup:
+        Backup information:
         - Backup ID: {backup_info.get('backup_id', 'N/A')}
-        - Kích thước: {backup_info.get('size', 0)} bytes
-        - Mã hóa: {'Có' if backup_info.get('encrypted') else 'Không'}
+        - Size: {backup_info.get('size', 0)} bytes
+        - Encrypted: {'Yes' if backup_info.get('encrypted') else 'No'}
         
-        Bạn có thể tải backup từ trang Cài đặt > Backup & Restore.
+        You can download the backup from Settings > Backup & Restore.
         """
         
         email = EmailMultiAlternatives(

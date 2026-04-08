@@ -1,6 +1,6 @@
 """
 Activity Log Service
-Quản lý ghi log và truy vấn lịch sử hoạt động người dùng.
+Manage logging and querying user activity history.
 """
 import logging
 import json
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class ActivityLogService:
-    """Service xử lý activity logging."""
+    """Service for handling activity logging."""
     
     # Action type constants
     # Authentication
@@ -124,19 +124,19 @@ class ActivityLogService:
             old_values: dict = None, new_values: dict = None,
             status: str = 'success', error_message: str = None) -> ActivityLogs:
         """
-        Ghi log hoạt động của người dùng.
+        Log user activity.
         
         Args:
             request: Django request object
-            action: Loại hành động (LOGIN_SUCCESS, CREATE_TRANSACTION, etc.)
-            details: Mô tả chi tiết
+            action: Action type (LOGIN_SUCCESS, CREATE_TRANSACTION, etc.)
+            details: Detailed description
             level: INFO, ACTION, WARNING, ERROR (auto-determined if None)
-            entity_type: Loại entity (transaction, account, budget, etc.)
-            entity_id: ID của entity
-            old_values: Giá trị cũ (cho update)
-            new_values: Giá trị mới
-            status: success hoặc failed
-            error_message: Thông báo lỗi (nếu có)
+            entity_type: Entity type (transaction, account, budget, etc.)
+            entity_id: Entity ID
+            old_values: Old values (for update)
+            new_values: New values
+            status: success or failed
+            error_message: Error message (if any)
         
         Returns:
             ActivityLogs object
@@ -192,8 +192,8 @@ class ActivityLogService:
     def log_simple(cls, user, action: str, details: str = None, level: str = None,
                    ip_address: str = None, user_agent: str = None) -> ActivityLogs:
         """
-        Ghi log đơn giản không cần request object.
-        Dùng cho background tasks hoặc internal operations.
+        Simple logging without request object.
+        Used for background tasks or internal operations.
         """
         try:
             if level is None:
@@ -224,21 +224,21 @@ class ActivityLogService:
     @classmethod
     def get_logs(cls, filters: dict = None, page: int = 1, page_size: int = 50) -> dict:
         """
-        Lấy danh sách activity logs với filter và phân trang.
+        Get list of activity logs with filter and pagination.
         
         Args:
-            filters: Dict chứa các điều kiện filter
-                - user_id: Filter theo user
+            filters: Dict containing filter conditions
+                - user_id: Filter by user
                 - level: INFO, ACTION, WARNING, ERROR
-                - action: Filter theo action type
-                - search: Tìm kiếm trong user name, email, action, details
-                - start_date: Từ ngày
-                - end_date: Đến ngày
-            page: Số trang
-            page_size: Số items mỗi trang
+                - action: Filter by action type
+                - search: Search in user name, email, action, details
+                - start_date: From date
+                - end_date: To date
+            page: Page number
+            page_size: Number of items per page
         
         Returns:
-            Dict với logs, total, pages
+            Dict with logs, total, pages
         """
         queryset = ActivityLogs.objects.select_related('user').all()
         
@@ -288,7 +288,7 @@ class ActivityLogService:
     
     @classmethod
     def get_user_recent_logs(cls, user_id: str, limit: int = 10) -> list:
-        """Lấy logs gần đây của một user."""
+        """Get recent logs of a user."""
         return list(ActivityLogs.objects.filter(
             user_id=user_id
         ).order_by('-created_at')[:limit])
@@ -296,15 +296,15 @@ class ActivityLogService:
     @classmethod
     def get_stats(cls, start_date=None, end_date=None) -> dict:
         """
-        Lấy thống kê hoạt động.
+        Get activity statistics.
         
         Returns:
-            Dict với các thống kê:
-            - active_users: Số user đang active (có hoạt động trong 5 phút gần nhất)
-            - actions_today: Tổng số actions trong ngày
-            - warnings: Số warnings trong ngày
-            - errors: Số errors trong ngày
-            - top_users: Top 5 users hoạt động nhiều nhất
+            Dict with statistics:
+            - active_users: Number of active users (activity in last 5 minutes)
+            - actions_today: Total actions today
+            - warnings: Number of warnings today
+            - errors: Number of errors today
+            - top_users: Top 5 most active users
         """
         today = timezone.now().date()
         five_minutes_ago = timezone.now() - timezone.timedelta(minutes=5)
@@ -323,7 +323,7 @@ class ActivityLogService:
             user__isnull=False
         ).values('user_id').distinct().count()
         
-        # Total online (có hoạt động trong 30 phút gần nhất)
+        # Total online (activity in last 30 minutes)
         thirty_minutes_ago = timezone.now() - timezone.timedelta(minutes=30)
         total_online = ActivityLogs.objects.filter(
             created_at__gte=thirty_minutes_ago,
@@ -359,21 +359,21 @@ class ActivityLogService:
     
     @classmethod
     def get_user_detail(cls, user_id: str) -> dict:
-        """Lấy thông tin chi tiết của user từ activity logs."""
+        """Get detailed user information from activity logs."""
         try:
             user = Users.objects.get(user_id=user_id)
             
-            # Lấy log gần nhất
+            # Get latest log
             latest_log = ActivityLogs.objects.filter(user_id=user_id).first()
             
-            # Kiểm tra online status
+            # Check online status
             five_minutes_ago = timezone.now() - timezone.timedelta(minutes=5)
             is_online = ActivityLogs.objects.filter(
                 user_id=user_id,
                 created_at__gte=five_minutes_ago
             ).exists()
             
-            # Lấy recent logs
+            # Get recent logs
             recent_logs = cls.get_user_recent_logs(user_id, limit=10)
             
             return {
@@ -398,7 +398,7 @@ class ActivityLogService:
     
     @classmethod
     def cleanup_old_logs(cls, days: int = 90) -> int:
-        """Xóa logs cũ hơn số ngày chỉ định."""
+        """Delete logs older than the specified number of days."""
         cutoff_date = timezone.now() - timezone.timedelta(days=days)
         deleted_count, _ = ActivityLogs.objects.filter(
             created_at__lt=cutoff_date

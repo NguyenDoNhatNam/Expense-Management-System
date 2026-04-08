@@ -22,7 +22,7 @@ class DebtService:
                 debt_type=validated_data['debt_type'],
                 person_name=validated_data['person_name'],
                 amount=validated_data['amount'],
-                remaining_amount=validated_data['amount'], # Ban đầu chưa trả -> Còn nợ nguyên
+                remaining_amount=validated_data['amount'], # Initially unpaid -> Full debt remaining
                 interest_rate=validated_data.get('interest_rate', 0),
                 start_date=validated_data['start_date'],
                 due_date=validated_data['due_date'],
@@ -39,7 +39,7 @@ class DebtService:
             payment_amount = validated_data['payment_amount']
             
             if payment_amount > debt_obj.remaining_amount:
-                raise ValueError("Số tiền thanh toán không được lớn hơn số nợ còn lại")
+                raise ValueError("Payment amount must not exceed the remaining debt")
 
             payment_id = f'PAY-{str(uuid4())[:15]}'
             DebtPayment.objects.create(
@@ -51,7 +51,7 @@ class DebtService:
                 created_at=timezone.now()
             )
             
-            # Trừ nợ
+            # Deduct debt
             debt_obj.remaining_amount -= payment_amount
             if debt_obj.remaining_amount <= 0:
                 debt_obj.status = 'completed'
@@ -62,27 +62,27 @@ class DebtService:
 
     @staticmethod
     def process_daily_debts():
-        """Cronjob hàng ngày xử lý nhắc nợ và đánh dấu quá hạn"""
+        """Daily cronjob to process debt reminders and mark overdue debts"""
         today = timezone.now().date()
         warning_date = today + timedelta(days=3)
         now = timezone.now()
 
-        # 1. Đánh dấu các khoản nợ quá hạn
+        # 1. Mark overdue debts
         overdue_debts = Debts.objects.filter(status='active', due_date__lt=today)
         for debt in overdue_debts:
             debt.status = 'overdue'
             debt.save()
 
-        # 2. Gửi thông báo cho khoản nợ sắp đến hạn (Trong vòng 3 ngày) hoặc quá hạn
+        # 2. Send notifications for debts due soon (within 3 days) or overdue
         active_debts = Debts.objects.filter(status__in=['active', 'overdue'], due_date__lte=warning_date)
         
         count = 0
         for debt in active_debts:
-            title = 'Khoản nợ QUÁ HẠN!' if debt.status == 'overdue' else 'Sắp đến hạn thanh toán nợ'
-            action_str = 'phải trả cho' if debt.debt_type == 'borrow' else 'thu từ'
-            message = f"Bạn có khoản nợ {action_str} {debt.person_name} số tiền {debt.remaining_amount} đến hạn vào ngày {debt.due_date.strftime('%d/%m/%Y')}."
+            title = 'OVERDUE Debt!' if debt.status == 'overdue' else 'Debt payment due soon'
+            action_str = 'owe to' if debt.debt_type == 'borrow' else 'collect from'
+            message = f"You have a debt to {action_str} {debt.person_name} for {debt.remaining_amount} due on {debt.due_date.strftime('%d/%m/%Y')}."
             
-            # Tạo notification (tránh spam cùng 1 khoản nợ chưa đọc trong 1 ngày)
+            # Create notification (avoid spam: only 1 unread notification per debt per day)
             if not Notification.objects.filter(user=debt.user, related_id=debt.debt_id, is_read=False, created_at__date=today).exists():
                 Notification.objects.create(
                     notification_id=f'NOT-{str(uuid4())[:15]}', user=debt.user, notification_type='debt_reminder',

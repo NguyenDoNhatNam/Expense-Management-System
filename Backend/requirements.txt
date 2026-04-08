@@ -45,6 +45,7 @@ referencing==0.37.0
 rpds-py==0.30.0
 six==1.17.0
 sqlparse==0.5.5
+twilio==9.6.1
 tzdata==2026.1
 tzlocal==5.3.1
 ua-parser==1.0.2

@@ -37,7 +37,7 @@ class UserRegistrationSerializer(serializers.Serializer):
         if not re.match(pattern , value): 
             raise serializers.ValidationError('Invalid email format')
         elif Users.objects.filter(email = value).exists(): 
-            raise serializers.ValidationError('Email đã được sử dụng')
+            raise serializers.ValidationError('Email is already in use')
         return value
     
     def validate_phone(self , value):
@@ -73,13 +73,13 @@ class UserRegistrationSerializer(serializers.Serializer):
             full_name = validated_data['full_name'] , 
             phone = validated_data['phone'] , 
             avatar_url = validated_data.get('avatar_url' , '') ,
-            default_currency = validated_data.get('default_currency' , 'VNĐ') ,
+            default_currency = validated_data.get('default_currency' , 'VND') ,
             is_active = True ,
             created_at = timezone.now() ,
             role_id = '1'
         )
 
-        # Tạo tài khoản tiền mặt mặc định trong account
+        # Create default cash account
         account = Accounts.objects.create(
             account_id = f'AC-{str(uuid4())[:15]}', 
             user = user , 
@@ -91,7 +91,7 @@ class UserRegistrationSerializer(serializers.Serializer):
             created_at = timezone.now()
         )
 
-        ### Tạo danh mục mặc đinh trong category ##### 
+        ### Create default categories ##### 
         default_categories = [
             {'name': 'Food', 'type': 'expense', 'icon': '🍔', 'color': '#FF6B6B'},
             {'name': 'Transportation', 'type': 'expense', 'icon': '🚗', 'color': '#4ECDC4'},
@@ -118,7 +118,7 @@ class UserRegistrationSerializer(serializers.Serializer):
             )
             categories.append(category)
 
-        ### Tạo cài đặt mặc định
+        ### Create default settings
         user_setting = UserSetting.objects.create(
             setting_id = f'SET-{str(uuid4())[:15]}' , 
             user = user , 
@@ -155,9 +155,6 @@ class UserLoginSerializer(serializers.Serializer):
         if not check_password(password , user.password): 
             raise serializers.ValidationError('Email or password is incorrect, please try again')
         
-        if not user.is_active:
-            raise serializers.ValidationError('Account is not active, please contact support')
-        
         data['user'] = user
         return data
 
@@ -168,13 +165,15 @@ class VerifyOTPSerializer(serializers.Serializer):
 
 class ResendOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    # otp_type: 'activation' hoặc 'reset_password'
+    # otp_type: 'activation' or 'reset_password'
     otp_type = serializers.ChoiceField(choices=['activation', 'reset_password'], default='activation')
+    # method: 'email' or 'sms'
+    method = serializers.ChoiceField(choices=['email', 'sms'], default='email')
 
 
 class ForgotPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    # Hỗ trợ nhận cả OTP (nhập số) hoặc Link (bấm vào email)
+    # Supports both OTP (enter code) or Link (click in email)
     method = serializers.ChoiceField(choices=['otp', 'link'], default='otp')
 
 
@@ -186,7 +185,7 @@ class ResetPasswordOTPSerializer(serializers.Serializer):
     
     def validate(self, data):
         if data['new_password'] != data['confirm_password']:
-            raise serializers.ValidationError("Mật khẩu xác nhận không khớp.")
+            raise serializers.ValidationError("Confirmation password does not match.")
         return data
 
 
@@ -197,5 +196,5 @@ class ResetPasswordLinkSerializer(serializers.Serializer):
     
     def validate(self, data):
         if data['new_password'] != data['confirm_password']:
-            raise serializers.ValidationError("Mật khẩu xác nhận không khớp.")
+            raise serializers.ValidationError("Confirmation password does not match.")
         return data

@@ -6,7 +6,7 @@ from api.models import ActivityLogs
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
-    """Serializer cho activity log list."""
+    """Serializer for activity log list."""
     
     user_id = serializers.CharField(source='user.user_id', read_only=True, allow_null=True)
     user_name = serializers.CharField(source='user.full_name', read_only=True, allow_null=True)
@@ -38,7 +38,7 @@ class ActivityLogSerializer(serializers.ModelSerializer):
 
 
 class ActivityLogDetailSerializer(ActivityLogSerializer):
-    """Serializer chi tiết cho activity log."""
+    """Detailed serializer for activity log."""
     
     old_values = serializers.JSONField(read_only=True, allow_null=True)
     new_values = serializers.JSONField(read_only=True, allow_null=True)
@@ -48,7 +48,7 @@ class ActivityLogDetailSerializer(ActivityLogSerializer):
 
 
 class ActivityLogStatsSerializer(serializers.Serializer):
-    """Serializer cho thống kê activity."""
+    """Serializer for activity statistics."""
     
     active_users = serializers.IntegerField()
     total_online = serializers.IntegerField()
@@ -61,7 +61,7 @@ class ActivityLogStatsSerializer(serializers.Serializer):
 
 
 class UserDetailFromActivitySerializer(serializers.Serializer):
-    """Serializer cho user detail lấy từ activity logs."""
+    """Serializer for user detail retrieved from activity logs."""
     
     user = serializers.DictField()
     is_online = serializers.BooleanField()

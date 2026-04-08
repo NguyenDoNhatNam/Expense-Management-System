@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class BudgetService:
     @staticmethod
     def get_budgets(user):
-        """Lấy danh sách ngân sách kèm theo tổng số tiền đã chi (spent_amount) realtime"""
+        """Get budget list with real-time spent_amount"""
         spent_subquery = Transactions.objects.filter(
             user=user,
             category=OuterRef('category_id'),
@@ -66,7 +66,7 @@ class BudgetService:
     @staticmethod
     def delete_budget(budget):
         with db_transaction.atomic():
-            # Soft delete ngân sách
+            # Soft delete budget
             budget.is_active = False
             budget.updated_at = timezone.now()
             budget.save()

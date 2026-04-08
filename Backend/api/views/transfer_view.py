@@ -32,7 +32,7 @@ class TransferViewSet(viewsets.ViewSet):
                 transfer = TransferService.create_transfer(serializer.validated_data, request.user)
                 return Response({
                     'success': True, 
-                    'message': 'Chuyển khoản thành công',
+                    'message': 'Transfer successful',
                     'data': {'transfer_id': transfer.transfer_id}
                 }, status=status.HTTP_201_CREATED)
             except ValueError as e:
@@ -43,6 +43,6 @@ class TransferViewSet(viewsets.ViewSet):
     def delete_transfer(self, request, transfer_id=None):
         try:
             TransferService.delete_transfer(transfer_id, request.user)
-            return Response({'success': True, 'message': 'Đã xóa và hoàn nguyên số dư thành công'})
+            return Response({'success': True, 'message': 'Deleted and balance reverted successfully'})
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

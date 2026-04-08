@@ -1,199 +1,199 @@
-# Hướng Dẫn Kiểm Thử Tính Năng Transactions
+# Transaction Feature Testing Guide
 
-## Yêu Cầu Chuẩn Bị
-1. Backend Django chạy trên `http://127.0.0.1:8000`
-2. Frontend Next.js chạy trên `http://localhost:3000`
-3. User đã đăng nhập
-4. Có ít nhất 1 wallet/account
-5. Có ít nhất 1 category trong hệ thống
+## Prerequisites
+1. Backend Django running on `http://127.0.0.1:8000`
+2. Frontend Next.js running on `http://localhost:3000`
+3. User is logged in
+4. Has at least 1 wallet/account
+5. Has at least 1 category in the system
 
 ## Test Cases
 
-### 1. Load Danh Sách Giao Dịch
+### 1. Load Transaction List
 
-**Bước thực hiện**:
-1. Đăng nhập vào ứng dụng
-2. Chọn wallet/account
-3. Vào trang "Transactions"
-4. Chờ dữ liệu load từ server
+**Steps**:
+1. Log in to the application
+2. Select a wallet/account
+3. Go to "Transactions" page
+4. Wait for data to load from server
 
-**Kết quả mong đợi**:
-- ✅ Thấy "Loading transactions..." trong lúc chờ
-- ✅ Danh sách giao dịch từ backend hiển thị
-- ✅ Pagination info hiển thị (ví dụ: "10 transactions found")
-- ❌ Không có lỗi JavaScript trong console
+**Expected Results**:
+- ✅ See "Loading transactions..." while waiting
+- ✅ Transaction list from backend is displayed
+- ✅ Pagination info is displayed (e.g.: "10 transactions found")
+- ❌ No JavaScript errors in console
 
-**Debug nếu lỗi**:
+**Debug if errors**:
 ```bash
-# Kiểm tra backend endpoint
+# Check backend endpoint
 curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/api/transactions/
 
-# Kiểm tra network tab trong DevTools
+# Check network tab in DevTools
 # - Status: 200 OK
-# - Response format đúng
+# - Response format is correct
 ```
 
 ---
 
-### 2. Tạo Giao Dịch Mới
+### 2. Create New Transaction
 
-**Bước thực hiện**:
-1. Vào trang Transactions
+**Steps**:
+1. Go to Transactions page
 2. Click "+ Add Transaction"
-3. Điền form:
+3. Fill form:
    - Type: Expense
-   - Category: Chọn một category
+   - Category: Select a category
    - Amount: 100000
    - Description: "Test transaction"
    - Date: Today
 4. Click "Add Transaction"
 
-**Kết quả mong đợi**:
-- ✅ Form đóng
-- ✅ Giao dịch mới xuất hiện trong danh sách
-- ✅ Wallet balance cập nhật (giảm đi khoản chi)
-- ✅ Thông báo thành công
+**Expected Results**:
+- ✅ Form closes
+- ✅ New transaction appears in the list
+- ✅ Wallet balance updates (decreases by expense amount)
+- ✅ Success notification
 
-**Debug nếu lỗi**:
+**Debug if errors**:
 ```javascript
-// Kiểm tra console
-// Error: "Số dư tài khoản không đủ"
-//   → Wallet balance không đủ, cần top-up
+// Check console
+// Error: "Insufficient account balance"
+//   → Wallet balance is insufficient, need to top-up
 
-// Error: "Danh mục không tồn tại"
-//   → Category ID không hợp lệ
+// Error: "Category does not exist"
+//   → Category ID is invalid
 
 // Network error
-//   → Backend không chạy hoặc token hết hạn
+//   → Backend is not running or token has expired
 ```
 
 ---
 
-### 3. Upload Ảnh Hóa Đơn
+### 3. Upload Receipt Image
 
-**Bước thực hiện**:
-1. Vào form tạo/sửa giao dịch
-2. Click input file "Receipt Image"
-3. Chọn file ảnh (JPG/PNG/WebP, < 5MB)
-4. Chờ upload hoàn thành
+**Steps**:
+1. Go to create/edit transaction form
+2. Click file input "Receipt Image"
+3. Select an image file (JPG/PNG/WebP, < 5MB)
+4. Wait for upload to complete
 
-**Kết quả mong đợi**:
-- ✅ Ảnh preview hiển thị sau upload
-- ✅ URL ảnh được lưu: `/media/receipts/USER-xxx/abc123.webp`
-- ✅ Ảnh tự động resize và nén
-- ❌ Không có lỗi "Lỗi khi upload ảnh"
+**Expected Results**:
+- ✅ Image preview displays after upload
+- ✅ Image URL is saved: `/media/receipts/USER-xxx/abc123.webp`
+- ✅ Image automatically resized and compressed
+- ❌ No "Error uploading image" message
 
-**Debug nếu lỗi**:
+**Debug if errors**:
 ```bash
-# Kiểm tra file size
-ls -lh your-image.jpg  # Phải < 5MB
+# Check file size
+ls -lh your-image.jpg  # Must be < 5MB
 
-# Kiểm tra format
-file your-image.jpg    # Phải là JPEG/PNG/WebP
+# Check format
+file your-image.jpg    # Must be JPEG/PNG/WebP
 
-# Kiểm tra thư mục lưu trữ
+# Check storage directory
 ls -la Backend/media/receipts/
 ```
 
 ---
 
-### 4. Cập Nhật Giao Dịch
+### 4. Update Transaction
 
-**Bước thực hiện**:
-1. Tìm giao dịch trong danh sách
+**Steps**:
+1. Find a transaction in the list
 2. Click "Edit"
-3. Thay đổi:
-   - Amount: tăng/giảm
-   - Category: chọn category khác
-   - Description: sửa
+3. Change:
+   - Amount: increase/decrease
+   - Category: select different category
+   - Description: edit
 4. Click "Update Transaction"
 
-**Kết quả mong đợi**:
-- ✅ Giao dịch cập nhật trong danh sách
-- ✅ Balance của cả tài khoản cũ & mới được điều chỉnh
-- ✅ Category icon/name cập nhật
+**Expected Results**:
+- ✅ Transaction updated in the list
+- ✅ Balance of both old & new accounts adjusted
+- ✅ Category icon/name updated
 
-**Debug nếu lỗi**:
+**Debug if errors**:
 ```javascript
-// Error: "Số dư tài khoản không đủ sau khi cập nhật"
-//   → Giảm amount hoặc chuyển sang tài khoản khác có balance
+// Error: "Insufficient account balance after update"
+//   → Reduce amount or switch to an account with more balance
 
-// Error: "Danh mục không tồn tại"
-//   → Reload page để refresh category list
+// Error: "Category does not exist"
+//   → Reload page to refresh category list
 ```
 
 ---
 
-### 5. Xóa Giao Dịch
+### 5. Delete Transaction
 
-**Bước thực hiện**:
-1. Tìm giao dịch trong danh sách
+**Steps**:
+1. Find a transaction in the list
 2. Click "Delete"
-3. Xác nhận "Are you sure?"
-4. Chờ xóa hoàn thành
+3. Confirm "Are you sure?"
+4. Wait for deletion to complete
 
-**Kết quả mong đợi**:
-- ✅ Giao dịch biến mất khỏi danh sách
-- ✅ Wallet balance cập nhật (hoàn nguyên)
-- ✅ Không có lỗi
+**Expected Results**:
+- ✅ Transaction disappears from the list
+- ✅ Wallet balance updates (reverted)
+- ✅ No errors
 
-**Debug nếu lỗi**:
+**Debug if errors**:
 ```javascript
-// Error: "Chỉ được phép xóa giao dịch trong vòng 30 ngày"
-//   → Giao dịch > 30 ngày, không thể xóa
-//   → Dùng admin panel để force delete
+// Error: "Can only delete transactions within 30 days"
+//   → Transaction is > 30 days old, cannot delete
+//   → Use admin panel to force delete
 
-// Error: "Giao dịch không tồn tại hoặc đã bị xóa"
-//   → Giao dịch đã bị xóa trước đó, reload danh sách
+// Error: "Transaction does not exist or has been deleted"
+//   → Transaction was already deleted, reload the list
 ```
 
 ---
 
-### 6. Tìm Kiếm & Lọc
+### 6. Search & Filter
 
 **Test Search**:
-1. Nhập vào input "Search transactions"
-2. Gõ một phần description (ví dụ: "test")
-3. Danh sách tự động lọc
+1. Type in "Search transactions" input
+2. Type part of description (e.g.: "test")
+3. List automatically filters
 
 **Test Filter by Type**:
 1. Click dropdown "All Types"
-2. Chọn "Income" hoặc "Expense"
-3. Danh sách hiển thị chỉ loại đó
+2. Select "Income" or "Expense"
+3. List shows only that type
 
-**Kết quả mong đợi**:
-- ✅ Tìm kiếm real-time (không cần reload)
-- ✅ Lọc hoạt động chính xác
-- ✅ Kết hợp search + filter cùng lúc
-
----
-
-### 7. Phân Trang (Nếu có nhiều giao dịch)
-
-**Bước thực hiện**:
-1. Backend trả về `page_size=10`
-2. Nếu có > 10 giao dịch
-3. Kiểm tra pagination info
-
-**Kết quả mong đợi**:
-- ✅ Thông báo "X transactions found"
-- ✅ Nếu cần, thêm pagination UI (next/prev page)
+**Expected Results**:
+- ✅ Real-time search (no reload needed)
+- ✅ Filter works correctly
+- ✅ Combined search + filter works simultaneously
 
 ---
 
-## Kiểm Tra Kỹ Thuật
+### 7. Pagination (If many transactions)
+
+**Steps**:
+1. Backend returns `page_size=10`
+2. If there are > 10 transactions
+3. Check pagination info
+
+**Expected Results**:
+- ✅ Shows "X transactions found"
+- ✅ If needed, add pagination UI (next/prev page)
+
+---
+
+## Technical Verification
 
 ### Backend API Responses
 
 ```bash
-# Lấy danh sách (200 OK)
+# Get list (200 OK)
 curl -H "Authorization: Bearer TOKEN" \
   http://127.0.0.1:8000/api/transactions/
 
 # Response example:
 {
   "success": true,
-  "message": "Lấy danh sách giao dịch thành công",
+  "message": "Transactions retrieved successfully",
   "data": {
     "transactions": [
       {
@@ -223,7 +223,7 @@ curl -H "Authorization: Bearer TOKEN" \
 ### Frontend Console Logs
 
 ```javascript
-// Kiểm tra trong DevTools Console
+// Check in DevTools Console
 
 // 1. AppContext init
 console.log('User:', currentUser)
@@ -231,10 +231,10 @@ console.log('Wallet:', currentWallet)
 console.log('Transactions loaded:', transactions.length)
 
 // 2. API call logs
-// Nên thấy logs từ API layer nếu có
+// Should see logs from API layer if any
 
 // 3. Error logs
-// Không nên có lỗi undefined, null references
+// Should not have undefined, null reference errors
 ```
 
 ### Network Tab
@@ -251,28 +251,28 @@ console.log('Transactions loaded:', transactions.length)
 
 ## Troubleshooting
 
-### Vấn đề: "Failed to fetch transactions"
+### Issue: "Failed to fetch transactions"
 
-**Nguyên nhân có thể**:
-1. Backend không chạy
-2. Token hết hạn
-3. CORS policy bị từ chối
+**Possible causes**:
+1. Backend is not running
+2. Token has expired
+3. CORS policy rejected
 
-**Giải pháp**:
-1. Kiểm tra backend chạy: `python manage.py runserver`
-2. Kiểm tra token: `localStorage.access_token`
-3. Kiểm tra CORS settings trong `settings.py`
+**Solutions**:
+1. Check backend is running: `python manage.py runserver`
+2. Check token: `localStorage.access_token`
+3. Check CORS settings in `settings.py`
 
 ---
 
-### Vấn đề: "Ảnh không upload được"
+### Issue: "Image cannot be uploaded"
 
-**Nguyên nhân có thể**:
+**Possible causes**:
 1. File > 5MB
-2. Định dạng không hỗ trợ
-3. Folder `/media/receipts/` không có quyền ghi
+2. Unsupported format
+3. Folder `/media/receipts/` lacks write permissions
 
-**Giải pháp**:
+**Solutions**:
 ```bash
 # 1. Check file size
 du -h upload-file.jpg
@@ -280,45 +280,45 @@ du -h upload-file.jpg
 # 2. Check format
 file upload-file.jpg
 
-# 3. Tạo folder & set permissions
+# 3. Create folder & set permissions
 mkdir -p Backend/media/receipts/
 chmod 755 Backend/media/receipts/
 ```
 
 ---
 
-### Vấn đề: "Transaction list không cập nhật sau khi tạo"
+### Issue: "Transaction list doesn't update after creating"
 
-**Nguyên nhân có thể**:
-1. `loadTransactions()` không được gọi
-2. Response từ backend không chính xác
-3. State update bị block
+**Possible causes**:
+1. `loadTransactions()` is not called
+2. Response from backend is incorrect
+3. State update is blocked
 
-**Giải pháp**:
-1. Thêm console.log trong `loadTransactions()`
-2. Kiểm tra response format
-3. Kiểm tra dependency array của useEffect
+**Solutions**:
+1. Add console.log in `loadTransactions()`
+2. Check response format
+3. Check dependency array of useEffect
 
 ---
 
 ## Performance Tips
 
-1. **Giảm API calls**: Thêm caching hoặc infinite scroll
-2. **Tối ưu search**: Debounce input trước khi gọi API
-3. **Lazy load images**: Preview ảnh hóa đơn chỉ khi hover
-4. **Pagination**: Luôn sử dụng page_size hợp lý (10-50)
+1. **Reduce API calls**: Add caching or infinite scroll
+2. **Optimize search**: Debounce input before calling API
+3. **Lazy load images**: Preview receipt images only on hover
+4. **Pagination**: Always use reasonable page_size (10-50)
 
 ---
 
-## Checklist Hoàn Thành
+## Completion Checklist
 
-- [ ] Load danh sách giao dịch từ backend
-- [ ] Tính năng tạo -> backend cập nhật -> list refresh
-- [ ] Upload ảnh hóa đơn thành công
-- [ ] Tính năng sửa -> backend cập nhật -> list refresh
-- [ ] Tính năng xóa -> backend cập nhật -> list refresh
-- [ ] Tìm kiếm & lọc hoạt động
-- [ ] Error handling đầy đủ
-- [ ] Wallet balance cập nhật đúng
-- [ ] Performance tốt (< 500ms API response)
-- [ ] Không có console errors
+- [ ] Load transaction list from backend
+- [ ] Create feature -> backend updates -> list refresh
+- [ ] Upload receipt image successfully
+- [ ] Edit feature -> backend updates -> list refresh
+- [ ] Delete feature -> backend updates -> list refresh
+- [ ] Search & filter working
+- [ ] Complete error handling
+- [ ] Wallet balance updates correctly
+- [ ] Good performance (< 500ms API response)
+- [ ] No console errors

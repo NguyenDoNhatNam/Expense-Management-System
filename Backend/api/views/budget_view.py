@@ -26,18 +26,18 @@ class BudgetViewSet(viewsets.ViewSet):
     
     @extend_schema(
         parameters=[
-            OpenApiParameter(name='p', description='Trang hiện tại (mặc định 1)', required=False, type=int),
-            OpenApiParameter(name='ipp', description='Số lượng bản ghi mỗi trang', required=False, type=int),
-            OpenApiParameter(name='search', description='Từ khóa tìm kiếm theo tên ngân sách', required=False, type=str),
-            OpenApiParameter(name='category_id', description='Lọc theo ID danh mục', required=False, type=str),
-            OpenApiParameter(name='period', description='Lọc theo kỳ (daily, weekly, monthly, yearly)', required=False, type=str),
-            OpenApiParameter(name='status', description='Lọc theo trạng thái (safe, warning, exceeded)', required=False, type=str),
-            OpenApiParameter(name='min_progress', description='Tiến độ tối thiểu (%)', required=False, type=float),
-            OpenApiParameter(name='max_progress', description='Tiến độ tối đa (%)', required=False, type=float),
+            OpenApiParameter(name='p', description='Current page (default 1)', required=False, type=int),
+            OpenApiParameter(name='ipp', description='Number of records per page', required=False, type=int),
+            OpenApiParameter(name='search', description='Search keyword by budget name', required=False, type=str),
+            OpenApiParameter(name='category_id', description='Filter by category ID', required=False, type=str),
+            OpenApiParameter(name='period', description='Filter by period (daily, weekly, monthly, yearly)', required=False, type=str),
+            OpenApiParameter(name='status', description='Filter by status (safe, warning, exceeded)', required=False, type=str),
+            OpenApiParameter(name='min_progress', description='Minimum progress (%)', required=False, type=float),
+            OpenApiParameter(name='max_progress', description='Maximum progress (%)', required=False, type=float),
         ],
         responses={
             200: OpenApiResponse(
-                description="Lấy danh sách ngân sách thành công"
+                description="Successfully retrieved budget list"
             )
         }
     )
@@ -79,13 +79,13 @@ class BudgetViewSet(viewsets.ViewSet):
             return paginator.get_paginated_response(serializer.data)
 
         except Exception as e:
-            return Response({'success': False, 'message': f'Lỗi server: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'success': False, 'message': f'Server error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @extend_schema(
         request=CreateBudgetSerializer,
         responses={
             201: OpenApiResponse(
-                description="Tạo ngân sách thành công"
+                description="Budget created successfully"
              )
         }
     )
@@ -93,19 +93,19 @@ class BudgetViewSet(viewsets.ViewSet):
     def create_budget(self, request):
         serializer = CreateBudgetSerializer(data=request.data, context={'user': request.user})
         if not serializer.is_valid():
-            return Response({'success': False, 'message': 'Lỗi dữ liệu', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'success': False, 'message': 'Data error', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             budget = BudgetService.create_budget(serializer.validated_data, request.user)
-            return Response({'success': True, 'message': 'Tạo thành công', 'data': {'budget_id': budget.budget_id}}, status=status.HTTP_201_CREATED)
+            return Response({'success': True, 'message': 'Created successfully', 'data': {'budget_id': budget.budget_id}}, status=status.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'success': False, 'message': 'Lỗi server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'success': False, 'message': 'Server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @extend_schema(
         request=UpdateBudgetSerializer,
         responses={
             200: OpenApiResponse(
-                description="Cập nhật ngân sách thành công"
+                description="Budget updated successfully"
             )
         }
     )
@@ -114,22 +114,22 @@ class BudgetViewSet(viewsets.ViewSet):
         try:
             budget = Budgets.objects.get(budget_id=budget_id, user=request.user, is_active=True)
         except Budgets.DoesNotExist:
-            return Response({'success': False, 'message': 'Ngân sách không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': False, 'message': 'Budget not found'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = UpdateBudgetSerializer(data=request.data, context={'user': request.user, 'budget': budget})
         if not serializer.is_valid():
-            return Response({'success': False, 'message': 'Lỗi dữ liệu', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'success': False, 'message': 'Data error', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             updated_budget = BudgetService.update_budget(budget, serializer.validated_data)
-            return Response({'success': True, 'message': 'Cập nhật thành công', 'data': {'budget_id': updated_budget.budget_id}}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'message': 'Updated successfully', 'data': {'budget_id': updated_budget.budget_id}}, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({'success': False, 'message': 'Lỗi server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'success': False, 'message': 'Server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @extend_schema(
         responses={
             200: OpenApiResponse(
-                description="Xóa ngân sách thành công"
+                description="Budget deleted successfully"
             )
         }
     )
@@ -138,6 +138,6 @@ class BudgetViewSet(viewsets.ViewSet):
         try:
             budget = Budgets.objects.get(budget_id=budget_id, user=request.user, is_active=True)
             BudgetService.delete_budget(budget)
-            return Response({'success': True, 'message': 'Xóa thành công'}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'message': 'Deleted successfully'}, status=status.HTTP_200_OK)
         except Budgets.DoesNotExist:
-            return Response({'success': False, 'message': 'Ngân sách không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': False, 'message': 'Budget not found'}, status=status.HTTP_404_NOT_FOUND)

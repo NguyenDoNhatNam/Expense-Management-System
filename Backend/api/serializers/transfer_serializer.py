@@ -20,13 +20,13 @@ class CreateTransferSerializer(serializers.Serializer):
 
     def validate(self, data):
         if data['amount'] <= 0:
-            raise serializers.ValidationError("Số tiền chuyển phải lớn hơn 0")
+            raise serializers.ValidationError("Transfer amount must be greater than 0")
         if data.get('fee', 0) < 0:
-            raise serializers.ValidationError("Phí chuyển khoản không được âm")
+            raise serializers.ValidationError("Transfer fee must not be negative")
         if data['from_account_id'] == data['to_account_id']:
-            raise serializers.ValidationError("Tài khoản nguồn và đích không được phép trùng nhau")
+            raise serializers.ValidationError("Source and destination accounts must not be the same")
         
-        # Nếu yêu cầu khắt khe có thể chặn ngày chuyển tiền ở tương lai
+        # Optionally block future transfer dates
         if data['transfer_date'] > timezone.now().date():
-            raise serializers.ValidationError("Ngày chuyển tiền không được ở tương lai")
+            raise serializers.ValidationError("Transfer date must not be in the future")
         return data

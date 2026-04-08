@@ -14,7 +14,7 @@ class ReportService:
     def get_dashboard_report(user, start_date_str, end_date_str, keyword=None):
         now = timezone.now().date()
         
-        # Xử lý chuỗi ngày tháng, mặc định là tháng hiện tại nếu không truyền
+        # Parse date strings, default to current month if not provided
         if start_date_str and end_date_str:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
@@ -22,27 +22,27 @@ class ReportService:
             start_date = now.replace(day=1)
             end_date = (start_date + relativedelta(months=1)) - timedelta(days=1)
 
-        # 1. Xác định thời gian Cache
+        # 1. Determine Cache timeout
         current_month_start = now.replace(day=1)
         last_month_start = current_month_start - relativedelta(months=1)
 
         if end_date >= current_month_start:
-            cache_timeout = 300  # Tháng hiện tại: 5 phút
+            cache_timeout = 300  # Current month: 5 minutes
         elif end_date >= last_month_start:
-            cache_timeout = 3600  # Tháng trước: 1 giờ
+            cache_timeout = 3600  # Last month: 1 hour
         else:
-            cache_timeout = 86400  # Cũ hơn: 24 giờ
+            cache_timeout = 86400  # Older: 24 hours
 
-        # 2. Tạo Cache Key (Hash để tránh key quá dài hoặc có ký tự đặc biệt)
+        # 2. Create Cache Key (Hash to avoid long keys or special characters)
         raw_key = f"report_{user.user_id}_{start_date}_{end_date}_{keyword or ''}"
         cache_key = hashlib.md5(raw_key.encode('utf-8')).hexdigest()
 
-        # Kiểm tra Cache
+        # Check Cache
         cached_data = cache.get(cache_key)
         if cached_data:
             return json.loads(cached_data)
 
-        # 3. Query Động cho kỳ hiện tại
+        # 3. Dynamic Query for current period
         transactions = Transactions.objects.filter(
             user=user,
             is_deleted=False,
@@ -60,7 +60,7 @@ class ReportService:
         current_expense = transactions.filter(transaction_type='expense').aggregate(total=Sum('amount'))['total'] or 0
         current_balance = current_income - current_expense
 
-        # B. SO SÁNH KỲ TRƯỚC ( so sánh với kỳ trước cùng độ dài)
+        # B. PREVIOUS PERIOD COMPARISON (compare with previous period of same length)
         duration = (end_date - start_date).days + 1
         prev_end_date = start_date - timedelta(days=1)
         prev_start_date = prev_end_date - timedelta(days=duration - 1)
@@ -113,7 +113,7 @@ class ReportService:
                 category_data['expense'].append(item)
 
         # D. THEO THỜI GIAN (Line/Bar Chart)
-        # Group by TruncDate (Ngày)
+        # Group by TruncDate (Date)
         time_stats = transactions.annotate(date=TruncDate('transaction_date')).values('date', 'transaction_type').annotate(total=Sum('amount')).order_by('date')
         
         chart_data_map = {}
@@ -129,7 +129,7 @@ class ReportService:
 
         time_chart_data = list(chart_data_map.values())
 
-        # 4. Gom Data & Lưu Cache
+        # 4. Aggregate Data & Save Cache
         report_result = {
             'overview': {
                 'income': float(current_income),

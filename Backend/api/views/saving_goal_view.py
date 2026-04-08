@@ -11,7 +11,7 @@ from drf_spectacular.utils import extend_schema
 class SavingGoalViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
     
-    # Bạn có thể bổ sung các permission tương ứng vào bảng permissions trong DB
+    # You can add corresponding permissions to the permissions table in DB
     permission_map = {
         'list_goals': 'view_own_expense', 
         'create_goal': 'create_expense',
@@ -43,10 +43,10 @@ class SavingGoalViewSet(viewsets.ViewSet):
             serializer = UpdateSavingGoalSerializer(data=request.data)
             if serializer.is_valid():
                 SavingGoalService.update_goal(goal, serializer.validated_data)
-                return Response({'success': True, 'message': 'Cập nhật thành công'})
+                return Response({'success': True, 'message': 'Updated successfully'})
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         except SavingsGoals.DoesNotExist:
-            return Response({'success': False, 'message': 'Không tìm thấy'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': False, 'message': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
     @extend_schema(responses={200: None})
     @action(detail=False, methods=['delete'], url_path='delete/(?P<goal_id>[^/.]+)')
@@ -54,6 +54,6 @@ class SavingGoalViewSet(viewsets.ViewSet):
         try:
             goal = SavingsGoals.objects.get(goal_id=goal_id, user=request.user)
             goal.delete()
-            return Response({'success': True, 'message': 'Xóa mục tiêu thành công'}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'message': 'Goal deleted successfully'}, status=status.HTTP_200_OK)
         except SavingsGoals.DoesNotExist:
-            return Response({'success': False, 'message': 'Không tìm thấy mục tiêu'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': False, 'message': 'Goal not found'}, status=status.HTTP_404_NOT_FOUND)

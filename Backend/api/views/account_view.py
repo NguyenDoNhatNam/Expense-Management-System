@@ -12,7 +12,6 @@ from api.pagination import CustomPagination
 class AccountViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
     
-    # Sử dụng quyền quản lý tài sản chung (tham chiếu từ bảng permission có sẵn)
     permission_map = {
         'list_accounts': 'view_own_expense',
         'create_account': 'create_expense',
@@ -22,14 +21,14 @@ class AccountViewSet(viewsets.ViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name='p', description='Trang hiện tại (mặc định 1)', required=False, type=int),
-            OpenApiParameter(name='ipp', description='Số lượng bản ghi mỗi trang', required=False, type=int),
-            OpenApiParameter(name='search', description='Từ khóa tìm kiếm theo tên tài khoản', required=False, type=str),
-            OpenApiParameter(name='account_type', description='Loại tài khoản (cash, bank, credit_card, e_wallet, investment)', required=False, type=str),
-            OpenApiParameter(name='is_include_in_total', description='Tính vào tổng tài sản (true/false)', required=False, type=bool),
+            OpenApiParameter(name='p', description='Current page (default 1)', required=False, type=int),
+            OpenApiParameter(name='ipp', description='Number of records per page', required=False, type=int),
+            OpenApiParameter(name='search', description='Search keyword by account name', required=False, type=str),
+            OpenApiParameter(name='account_type', description='Account type (cash, bank, credit_card, e_wallet, investment)', required=False, type=str),
+            OpenApiParameter(name='is_include_in_total', description='Include in total assets (true/false)', required=False, type=bool),
         ],
         responses={
-            200: OpenApiResponse(description="Lấy danh sách tài khoản thành công")
+            200: OpenApiResponse(description="Successfully retrieved account list")
         }
     )
     @action(detail=False, methods=['get'], url_path='list')
@@ -59,7 +58,7 @@ class AccountViewSet(viewsets.ViewSet):
     @extend_schema(
         request=CreateAccountSerializer,
         responses={
-            201: OpenApiResponse(description="Tạo tài khoản mới thành công")
+            201: OpenApiResponse(description="Successfully created new account")
         }
     )
     @action(detail=False, methods=['post'], url_path='create')
@@ -68,7 +67,7 @@ class AccountViewSet(viewsets.ViewSet):
         if not serializer.is_valid():
             return Response({
                 'success': False,
-                'message': 'Dữ liệu không hợp lệ',
+                'message': 'Invalid data',
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -76,11 +75,11 @@ class AccountViewSet(viewsets.ViewSet):
             account = AccountService.create_account(serializer.validated_data, request.user)
             return Response({
                 'success': True,
-                'message': 'Tạo tài khoản thành công',
+                'message': 'Account created successfully',
                 'data': {'account_id': account.account_id, 'balance': str(account.balance)}
             }, status=status.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'success': False, 'message': f'Lỗi server: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'success': False, 'message': f'Server error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @extend_schema(request=UpdateAccountSerializer)
     @action(detail=False, methods=['put', 'patch'], url_path='update/(?P<account_id>[^/.]+)')
@@ -88,7 +87,7 @@ class AccountViewSet(viewsets.ViewSet):
         try:
             account = Accounts.objects.get(account_id=account_id, user=request.user)
         except Accounts.DoesNotExist:
-            return Response({'success': False, 'message': 'Tài khoản không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': False, 'message': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = UpdateAccountSerializer(data=request.data, context={'user': request.user, 'account': account})
         if not serializer.is_valid():
@@ -96,7 +95,7 @@ class AccountViewSet(viewsets.ViewSet):
 
         try:
             updated_account = AccountService.update_account(account, serializer.validated_data, request.user)
-            return Response({'success': True, 'message': 'Cập nhật tài khoản thành công', 'data': {'account_id': updated_account.account_id}}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'message': 'Account updated successfully', 'data': {'account_id': updated_account.account_id}}, status=status.HTTP_200_OK)
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -105,8 +104,8 @@ class AccountViewSet(viewsets.ViewSet):
         try:
             account = Accounts.objects.get(account_id=account_id, user=request.user)
             AccountService.delete_account(account, request.user)
-            return Response({'success': True, 'message': 'Xóa tài khoản thành công'}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'message': 'Account deleted successfully'}, status=status.HTTP_200_OK)
         except Accounts.DoesNotExist:
-            return Response({'success': False, 'message': 'Tài khoản không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': False, 'message': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

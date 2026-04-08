@@ -47,11 +47,11 @@ class CustomTokenAuthentication(BaseAuthentication):
             return(user, token)
         
         except Users.DoesNotExist:
-            raise AuthenticationFailed('User không tồn tại')
+            raise AuthenticationFailed('User does not exist')
         except TokenError as e:
-            raise AuthenticationFailed(f'Token không hợp lệ: {str(e)}')
+            raise AuthenticationFailed(f'Invalid token: {str(e)}')
         except Exception as e:
-            raise AuthenticationFailed(f'Xác thực thất bại: {str(e)}')
+            raise AuthenticationFailed(f'Authentication failed: {str(e)}')
 
 
     def authenticate_header(self , request): 

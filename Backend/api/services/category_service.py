@@ -58,7 +58,7 @@ class CategoryService:
 
     @staticmethod
     def update_category(category_obj, validated_data, user):
-        """Cập nhật danh mục"""
+        """Update category"""
         with db_transaction.atomic():
             if 'category_name' in validated_data:
                 category_obj.category_name = validated_data['category_name']
@@ -69,7 +69,7 @@ class CategoryService:
             if 'parent_category' in validated_data:
                 category_obj.parent_category = validated_data['parent_category']
             
-            #### Chỉ có admin mới có quyền sửa category default ######
+            #### Only admin can edit default category ######
             if 'is_default' in validated_data:
                 is_admin = user.role and user.role.role_name in ['admin', 'super_admin']
                 if is_admin:
@@ -81,43 +81,43 @@ class CategoryService:
     @staticmethod
     def delete_category(category_obj, validated_data, user):
         """
-        Xóa danh mục:
-        1. Nâng cấp các danh mục con (con thành gốc).
-        2. Xử lý giao dịch đang chứa danh mục này.
-        3. Xóa danh mục.
+        Delete category:
+        1. Promote child categories (children become root).
+        2. Handle transactions belonging to this category.
+        3. Delete category.
         """
         action = validated_data.get('action')
         target_category = validated_data.get('target_category')
         now = timezone.now()
 
         with db_transaction.atomic():
-            #  Đưa các danh mục con thành danh mục gốc
+            #  Promote child categories to root
             Categories.objects.filter(parent_category=category_obj).update(parent_category=None)
 
-            # Xử lý giao dịch liên quan
-            # Lấy tất cả giao dịch (kể cả soft deleted để chuyển cho đồng bộ data)
+            # Handle related transactions
+            # Get all transactions (including soft deleted for data consistency)
             related_transactions = Transactions.objects.filter(category=category_obj)
             transaction_count = related_transactions.count()
 
             if transaction_count > 0:
                 if not action:
-                    raise ValueError("Danh mục này đang có giao dịch. Vui lòng chọn hành động (Xóa giao dịch hoặc Di chuyển sang danh mục khác).")
+                    raise ValueError("This category has transactions. Please choose an action (Delete transactions or Move to another category).")
                 
                 if action == 'migrate':
-                    # Đổi category_id của các giao dịch sang danh mục đích
+                    # Move transactions to target category
                     related_transactions.update(
                         category=target_category,
                         updated_at=now
                     )
                     
                 elif action == 'delete_all':
-                    # Soft Delete tất cả giao dịch thuộc danh mục này
-                    # Khi xóa giao dịch (Expense/Income), 
-                    # ta phải hoàn nguyên Balance của Account. 
+                    # Soft Delete all transactions in this category
+                    # When deleting transactions (Expense/Income),
+                    # we must revert the Account Balance.
                     
                     active_transactions = related_transactions.filter(is_deleted=False)
                     for trans in active_transactions:
-                        # Phải hoàn nguyên số dư tài khoản
+                        # Must revert account balance
                         try:
                             TransactionService.delete_transaction(
                                 transaction_id=trans.transaction_id,
@@ -125,9 +125,9 @@ class CategoryService:
                                 hard_delete=False 
                             )
                         except Exception as e:
-                            raise ValueError(f"Lỗi khi xóa giao dịch {trans.transaction_id}: {str(e)}")
+                            raise ValueError(f"Error deleting transaction {trans.transaction_id}: {str(e)}")
 
-            # 3. Soft delete danh mục (tránh FK constraint với transaction đã soft delete)
+            # 3. Soft delete category (avoid FK constraint with soft deleted transactions)
             category_obj.is_deleted = True
             category_obj.save()
 

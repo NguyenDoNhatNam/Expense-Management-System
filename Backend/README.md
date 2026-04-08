@@ -1,8 +1,8 @@
 # Expense Management System - Backend
 
-## Tổng quan
+## Overview
 
-Backend API cho hệ thống quản lý chi tiêu cá nhân, được xây dựng với Django REST Framework.
+Backend API for the personal expense management system, built with Django REST Framework.
 
 ### Tech Stack
 
@@ -13,16 +13,16 @@ Backend API cho hệ thống quản lý chi tiêu cá nhân, được xây dựn
 - **Authentication**: JWT (Simple JWT)
 - **Documentation**: drf-spectacular (OpenAPI/Swagger)
 
-## Cài đặt
+## Installation
 
-### Yêu cầu
+### Requirements
 
 - Python 3.11+
 - Redis Server
-- Microsoft SQL Server (hoặc Azure SQL)
+- Microsoft SQL Server (or Azure SQL)
 - ODBC Driver 17 for SQL Server
 
-### Bước 1: Clone và cài đặt dependencies
+### Step 1: Clone and install dependencies
 
 ```bash
 cd Backend
@@ -31,9 +31,9 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Bước 2: Cấu hình môi trường
+### Step 2: Configure environment
 
-Tạo file `.env` hoặc thiết lập biến môi trường:
+Create a `.env` file or set environment variables:
 
 ```bash
 # Database
@@ -42,34 +42,34 @@ DATABASE_USER=sa
 DATABASE_PASSWORD=your_password
 DATABASE_HOST=127.0.0.1
 
-# Email (cho OTP)
+# Email (for OTP)
 EMAIL_HOST_USER=your_email@gmail.com
 EMAIL_HOST_PASSWORD=your_app_password
 
-# Backup (tùy chọn - cho S3)
+# Backup (optional - for S3)
 BACKUP_ENCRYPTION_KEY=your_32_byte_hex_key
 AWS_ACCESS_KEY_ID=your_aws_key
 AWS_SECRET_ACCESS_KEY=your_aws_secret
 AWS_BACKUP_BUCKET=your_bucket_name
 ```
 
-### Bước 3: Khởi tạo database
+### Step 3: Initialize database
 
 ```bash
 python manage.py migrate
 ```
 
-### Bước 4: Chạy server
+### Step 4: Run server
 
 ```bash
 # Development server
 python manage.py runserver
 
-# Production (với Gunicorn)
+# Production (with Gunicorn)
 gunicorn expense.wsgi:application
 ```
 
-### Bước 5: Chạy Celery (cho async tasks)
+### Step 5: Run Celery (for async tasks)
 
 ```bash
 # Terminal 1: Celery Worker
@@ -81,12 +81,12 @@ celery -A expense beat -l INFO
 
 ## API Documentation
 
-Sau khi chạy server, truy cập:
+After running the server, visit:
 - **Swagger UI**: http://localhost:8000/docs/
 - **ReDoc**: http://localhost:8000/api/redoc/
 - **OpenAPI Schema**: http://localhost:8000/api/schema/
 
-## Cấu trúc Project
+## Project Structure
 
 ```
 Backend/
@@ -122,55 +122,55 @@ Backend/
 ### Authentication
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/auth/register/` | Đăng ký tài khoản |
-| POST | `/auth/login/` | Đăng nhập |
+| POST | `/auth/register/` | Register account |
+| POST | `/auth/login/` | Login |
 | POST | `/auth/refresh/` | Refresh token |
-| POST | `/auth/verify-activation/` | Xác thực OTP |
+| POST | `/auth/verify-activation/` | Verify OTP |
 
 ### Transactions
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/transactions/list/` | Danh sách giao dịch |
-| POST | `/transactions/create/` | Tạo giao dịch |
-| PUT | `/transactions/update/{id}/` | Cập nhật giao dịch |
-| DELETE | `/transactions/delete/{id}/` | Xóa giao dịch |
+| GET | `/transactions/list/` | List transactions |
+| POST | `/transactions/create/` | Create transaction |
+| PUT | `/transactions/update/{id}/` | Update transaction |
+| DELETE | `/transactions/delete/{id}/` | Delete transaction |
 
-### Export (MỚI)
+### Export (NEW)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/exports/transactions/` | Export transactions (CSV/Excel/PDF) |
 | GET | `/exports/accounts/` | Export accounts |
-| GET | `/exports/list/` | Danh sách file export |
-| GET | `/exports/status/{task_id}/` | Kiểm tra async export |
+| GET | `/exports/list/` | List export files |
+| GET | `/exports/status/{task_id}/` | Check async export status |
 
-### Import (MỚI)
+### Import (NEW)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/imports/transactions/` | Import transactions từ CSV |
+| POST | `/imports/transactions/` | Import transactions from CSV |
 | GET | `/imports/template/` | Download CSV template |
-| POST | `/imports/validate/` | Validate file trước import |
+| POST | `/imports/validate/` | Validate file before import |
 
-### Backup (MỚI)
+### Backup (NEW)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/backups/create/` | Tạo backup |
-| GET | `/backups/list/` | Danh sách backups |
+| POST | `/backups/create/` | Create backup |
+| GET | `/backups/list/` | List backups |
 | GET | `/backups/download/{filename}/` | Download backup |
 | GET | `/backups/preview/{filename}/` | Preview backup metadata |
 
-### Các endpoints khác
-- `/accounts/` - Quản lý tài khoản
-- `/categories/` - Quản lý danh mục
-- `/budgets/` - Quản lý ngân sách
-- `/debts/` - Quản lý công nợ
-- `/savings/` - Mục tiêu tiết kiệm
-- `/transfers/` - Chuyển khoản nội bộ
-- `/recurring/` - Giao dịch định kỳ
-- `/reports/` - Báo cáo thống kê
+### Other endpoints
+- `/accounts/` - Account management
+- `/categories/` - Category management
+- `/budgets/` - Budget management
+- `/debts/` - Debt management
+- `/savings/` - Savings goals
+- `/transfers/` - Internal transfers
+- `/recurring/` - Recurring transactions
+- `/reports/` - Statistical reports
 
 ## Export/Import/Backup Guide
 
-### Export dữ liệu
+### Export data
 
 ```bash
 # Export transactions ra Excel
@@ -183,7 +183,7 @@ GET /exports/transactions/?format=csv
 GET /exports/transactions/?format=pdf
 ```
 
-**Async Export**: Với dữ liệu lớn (>1000 dòng), hệ thống tự động chuyển sang async. Response sẽ trả về `task_id` để kiểm tra tiến độ.
+**Async Export**: For large data (>1000 rows), the system automatically switches to async. Response will return a `task_id` to check progress.
 
 ### Import transactions
 
@@ -191,7 +191,7 @@ GET /exports/transactions/?format=pdf
 # Download template
 GET /imports/template/?type=transactions
 
-# Validate trước khi import
+# Validate before import
 POST /imports/validate/
 Content-Type: multipart/form-data
 file: transactions.csv
@@ -205,21 +205,21 @@ file: transactions.csv
 **CSV Format**:
 ```csv
 amount,transaction_type,transaction_date,account_name,category_name,description,note,location
-100000,expense,2024-01-15,Ví tiền mặt,Ăn uống,Tiền ăn trưa,,Công ty
-5000000,income,2024-01-01,Ngân hàng,Lương,Lương tháng 1,Đã nhận,
+100000,expense,2024-01-15,Cash wallet,Food & Dining,Lunch,,Office
+5000000,income,2024-01-01,Bank,Salary,January salary,Received,
 ```
 
-### Backup dữ liệu
+### Backup data
 
 ```bash
-# Tạo backup (sync)
+# Create backup (sync)
 POST /backups/create/
 {
   "encrypt": true,
   "upload_s3": false
 }
 
-# Tạo backup (async)
+# Create backup (async)
 POST /backups/create/
 {
   "async": true,
@@ -234,15 +234,15 @@ GET /backups/download/{filename}/
 
 | Task | Schedule | Description |
 |------|----------|-------------|
-| `process_recurring_transactions` | 00:00 daily | Tạo giao dịch định kỳ |
-| `process_debt_reminders` | 08:00 daily | Nhắc nhở khoản nợ |
-| `daily_backup_all_users` | 02:00 daily | Backup tự động hàng ngày |
-| `cleanup_old_exports` | 03:00 daily | Xóa file export cũ (>24h) |
-| `cleanup_old_backups` | 04:00 weekly | Xóa backup cũ |
+| `process_recurring_transactions` | 00:00 daily | Create recurring transactions |
+| `process_debt_reminders` | 08:00 daily | Debt reminders |
+| `daily_backup_all_users` | 02:00 daily | Automatic daily backup |
+| `cleanup_old_exports` | 03:00 daily | Delete old export files (>24h) |
+| `cleanup_old_backups` | 04:00 weekly | Delete old backups |
 
 ## Logging
 
-Logs được lưu trong thư mục `logs/`:
+Logs are saved in the `logs/` directory:
 - `app.log`: Application logs
 - `celery.log`: Celery task logs
 
@@ -254,40 +254,40 @@ Format log:
 ## Security
 
 ### JWT Configuration
-- Access Token: 1 giờ
-- Refresh Token: 7 ngày (90 ngày nếu Remember Me)
-- Refresh Token được lưu trong HttpOnly cookie
+- Access Token: 1 hour
+- Refresh Token: 7 days (90 days if Remember Me)
+- Refresh Token is stored in HttpOnly cookie
 
 ### Backup Encryption
 - AES-256-CBC encryption
-- User-specific key derived từ master key
-- Checksum SHA-256 để verify integrity
+- User-specific key derived from master key
+- Checksum SHA-256 to verify integrity
 
 ### Permissions
-Hệ thống sử dụng Role-Based Access Control:
-- `view_own_expense`: Xem dữ liệu cá nhân
-- `create_expense`: Tạo giao dịch
-- `edit_own_expense`: Sửa dữ liệu cá nhân
-- `delete_own_expense`: Xóa dữ liệu cá nhân
-- Admin roles có thêm quyền `view_all`, `edit_all`, `delete_all`
+The system uses Role-Based Access Control:
+- `view_own_expense`: View personal data
+- `create_expense`: Create transactions
+- `edit_own_expense`: Edit personal data
+- `delete_own_expense`: Delete personal data
+- Admin roles have additional `view_all`, `edit_all`, `delete_all` permissions
 
 ## Production Deployment
 
 ### Checklist
 
 1. **Environment Variables**:
-   - Đặt `DEBUG=False`
-   - Đổi `SECRET_KEY`
-   - Đặt `BACKUP_ENCRYPTION_KEY` riêng
-   - Cấu hình AWS credentials nếu dùng S3
+   - Set `DEBUG=False`
+   - Change `SECRET_KEY`
+   - Set a separate `BACKUP_ENCRYPTION_KEY`
+   - Configure AWS credentials if using S3
 
 2. **Database**:
-   - Sử dụng Azure SQL hoặc SQL Server production
-   - Bật SSL connection
+   - Use Azure SQL or production SQL Server
+   - Enable SSL connection
 
 3. **Redis**:
-   - Sử dụng Redis Cloud hoặc managed Redis
-   - Bật authentication
+   - Use Redis Cloud or managed Redis
+   - Enable authentication
 
 4. **Static Files**:
    ```bash
@@ -295,7 +295,7 @@ Hệ thống sử dụng Role-Based Access Control:
    ```
 
 5. **HTTPS**:
-   - Cấu hình nginx với SSL
+   - Configure nginx with SSL
    - Set `SECURE_SSL_REDIRECT = True`
 
 ### Docker
@@ -314,18 +314,18 @@ CMD ["gunicorn", "expense.wsgi:application", "--bind", "0.0.0.0:8000"]
 
 ## Troubleshooting
 
-### Celery không chạy tasks
+### Celery not running tasks
 ```bash
-# Kiểm tra Redis connection
+# Check Redis connection
 redis-cli ping
 
-# Kiểm tra Celery worker
+# Check Celery worker
 celery -A expense inspect active
 ```
 
-### Export PDF lỗi
+### Export PDF errors
 ```bash
-# WeasyPrint cần GTK3
+# WeasyPrint requires GTK3
 # macOS:
 brew install pango
 
@@ -333,17 +333,17 @@ brew install pango
 apt-get install libpango-1.0-0 libpangocairo-1.0-0
 ```
 
-### Import CSV encoding lỗi
-- File CSV phải là UTF-8 (có thể có BOM)
-- Nếu từ Excel, lưu dạng "CSV UTF-8"
+### Import CSV encoding errors
+- CSV file must be UTF-8 (may include BOM)
+- If from Excel, save as "CSV UTF-8"
 
 ## Contributing
 
 1. Fork repository
-2. Tạo branch: `git checkout -b feature/my-feature`
+2. Create branch: `git checkout -b feature/my-feature`
 3. Commit: `git commit -am 'Add new feature'`
 4. Push: `git push origin feature/my-feature`
-5. Tạo Pull Request
+5. Create Pull Request
 
 ## License
 

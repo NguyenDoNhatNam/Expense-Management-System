@@ -17,13 +17,13 @@ class CreateDebtSerializer(serializers.Serializer):
 
     def validate(self, data):
         if data['start_date'] > data['due_date']:
-            raise serializers.ValidationError("Ngày bắt đầu không được lớn hơn ngày đáo hạn")
+            raise serializers.ValidationError("Start date must not be later than due date")
         if data['amount'] <= 0:
-            raise serializers.ValidationError("Số tiền phải lớn hơn 0")
+            raise serializers.ValidationError("Amount must be greater than 0")
         return data
 
 class CreateDebtPaymentSerializer(serializers.Serializer):
     payment_amount = serializers.DecimalField(max_digits=18, decimal_places=2, required=True)
     payment_date = serializers.DateField(required=True)
     note = serializers.CharField(required=False, allow_blank=True, default='')
-    # Validation amount có thể check thêm nhỏ hơn remaining_amount trong Service
+    # Validation amount can additionally check less than remaining_amount in Service

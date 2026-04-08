@@ -21,7 +21,7 @@ class DebtViewSet(viewsets.ViewSet):
     @extend_schema(
         responses={
             200: OpenApiResponse(
-                description="Lấy danh sách khoản nợ thành công"
+                description="Successfully retrieved debt list"
             )
         }
     )
@@ -48,16 +48,15 @@ class DebtViewSet(viewsets.ViewSet):
             
             if serializer.is_valid():
                 DebtService.add_payment(debt, serializer.validated_data)
-                return Response({'success': True, 'message': 'Thanh toán thành công'})
+                return Response({'success': True, 'message': 'Payment successful'})
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         except Debts.DoesNotExist:
-            return Response({'success': False, 'message': 'Không tìm thấy khoản nợ'}, status=status.HTTP_404_NOT_FOUND)
-        except ValueError as e:
+            return Response({'success': False, 'message': 'Debt not found'}, status=status.HTTP_404_NOT_FOUND)
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(
         responses={
-            200: OpenApiResponse(description="Xóa khoản nợ thành công")
+            200: OpenApiResponse(description="Debt deleted successfully")
         }
     )
     @action(detail=False, methods=['delete'], url_path='delete/(?P<debt_id>[^/.]+)')
@@ -65,6 +64,6 @@ class DebtViewSet(viewsets.ViewSet):
         try:
             debt = Debts.objects.get(debt_id=debt_id, user=request.user)
             debt.delete()
-            return Response({'success': True, 'message': 'Xóa khoản nợ thành công'}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'message': 'Debt deleted successfully'}, status=status.HTTP_200_OK)
         except Debts.DoesNotExist:
-            return Response({'success': False, 'message': 'Không tìm thấy khoản nợ'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': False, 'message': 'Debt not found'}, status=status.HTTP_404_NOT_FOUND)

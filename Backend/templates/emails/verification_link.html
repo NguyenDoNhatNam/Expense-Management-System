@@ -20,25 +20,25 @@
 </head>
 <body>
     <div class="container">
-        <h2>Xin chào {{ user_name }},</h2>
+        <h2>Hello {{ user_name }},</h2>
         
         {% if token_type == 'activation' %}
-        <p>Cảm ơn bạn đã đăng ký. Vui lòng click vào nút bên dưới để kích hoạt tài khoản:</p>
+        <p>Thank you for registering. Please click the button below to activate your account:</p>
         {% else %}
-        <p>Bạn đã yêu cầu đặt lại mật khẩu. Vui lòng click vào nút bên dưới:</p>
+        <p>You have requested a password reset. Please click the button below:</p>
         {% endif %}
         
         <a href="{{ verification_url }}" class="button">
-            {% if token_type == 'activation' %}Kích hoạt tài khoản{% else %}Đặt lại mật khẩu{% endif %}
+            {% if token_type == 'activation' %}Activate Account{% else %}Reset Password{% endif %}
         </a>
         
-        <p>Hoặc copy link sau vào trình duyệt:</p>
+        <p>Or copy the following link into your browser:</p>
         <p style="word-break: break-all; color: #4F46E5;">{{ verification_url }}</p>
         
-        <p>Link có hiệu lực trong <strong>{{ expiry_hours }} giờ</strong>.</p>
+        <p>This link is valid for <strong>{{ expiry_hours }} hours</strong>.</p>
         
         <div class="footer">
-            <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
+            <p>If you did not request this, please ignore this email.</p>
             <p>© 2024 Expense Management App</p>
         </div>
     </div>

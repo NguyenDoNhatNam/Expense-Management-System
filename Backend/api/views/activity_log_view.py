@@ -1,6 +1,6 @@
 """
 Activity Log Views
-API endpoints cho Admin Activity Terminal.
+API endpoints for Admin Activity Terminal.
 """
 from rest_framework import viewsets, status
 from rest_framework.response import Response
@@ -27,14 +27,14 @@ logger = logging.getLogger(__name__)
 
 class ActivityLogViewSet(viewsets.ViewSet):
     """
-    ViewSet cho Activity Log API.
+    ViewSet for Activity Log API.
     
     Endpoints:
-    - GET /activity-logs/list/ - Lấy danh sách logs với filter và phân trang
-    - GET /activity-logs/stats/ - Lấy thống kê hoạt động
-    - GET /activity-logs/user/{user_id}/ - Lấy thông tin chi tiết user
-    - GET /activity-logs/export/ - Export logs ra CSV
-    - GET /activity-logs/realtime/ - Endpoint cho polling realtime data
+    - GET /activity-logs/list/ - Get list of activity logs with filters and pagination
+    - GET /activity-logs/stats/ - Get activity statistics
+    - GET /activity-logs/user/{user_id}/ - Get user detail information
+    - GET /activity-logs/export/ - Export logs to CSV
+    - GET /activity-logs/realtime/ - Endpoint for polling realtime data
     """
     permission_classes = [IsAuthenticated, DynamicPermission]
     permission_map = {
@@ -47,21 +47,21 @@ class ActivityLogViewSet(viewsets.ViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name='page', description='Số trang', required=False, type=int),
-            OpenApiParameter(name='page_size', description='Số items mỗi trang', required=False, type=int),
-            OpenApiParameter(name='level', description='Filter theo level: INFO, ACTION, WARNING, ERROR', required=False, type=str),
-            OpenApiParameter(name='action', description='Filter theo action type', required=False, type=str),
-            OpenApiParameter(name='user_id', description='Filter theo user ID', required=False, type=str),
-            OpenApiParameter(name='search', description='Tìm kiếm trong user, action, details, IP', required=False, type=str),
-            OpenApiParameter(name='start_date', description='Từ ngày (YYYY-MM-DD)', required=False, type=str),
-            OpenApiParameter(name='end_date', description='Đến ngày (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='page', description='Page number', required=False, type=int),
+            OpenApiParameter(name='page_size', description='Items per page', required=False, type=int),
+            OpenApiParameter(name='level', description='Filter by level: INFO, ACTION, WARNING, ERROR', required=False, type=str),
+            OpenApiParameter(name='action', description='Filter by action type', required=False, type=str),
+            OpenApiParameter(name='user_id', description='Filter by user ID', required=False, type=str),
+            OpenApiParameter(name='search', description='Search in user, action, details, IP', required=False, type=str),
+            OpenApiParameter(name='start_date', description='From date (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='end_date', description='To date (YYYY-MM-DD)', required=False, type=str),
         ],
         responses={200: ActivityLogSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='list')
     def list_logs(self, request):
         """
-        Lấy danh sách activity logs.
+        Get list of activity logs.
         GET /api/activity-logs/list/?page=1&page_size=50&level=ERROR
         """
         # Log activity (view logs)
@@ -115,7 +115,7 @@ class ActivityLogViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='stats')
     def get_stats(self, request):
         """
-        Lấy thống kê hoạt động.
+        Get activity statistics.
         GET /api/activity-logs/stats/
         """
         start_date = request.query_params.get('start_date')
@@ -137,7 +137,7 @@ class ActivityLogViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='user/(?P<user_id>[^/.]+)')
     def get_user_detail(self, request, user_id=None):
         """
-        Lấy thông tin chi tiết user từ activity logs.
+        Get user detail information from activity logs.
         GET /api/activity-logs/user/{user_id}/
         """
         user_detail = ActivityLogService.get_user_detail(user_id)
@@ -145,7 +145,7 @@ class ActivityLogViewSet(viewsets.ViewSet):
         if not user_detail:
             return Response({
                 'success': False,
-                'message': 'User không tồn tại'
+                'message': 'User not found'
             }, status=status.HTTP_404_NOT_FOUND)
         
         # Serialize recent logs
@@ -160,17 +160,17 @@ class ActivityLogViewSet(viewsets.ViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name='level', description='Filter theo level', required=False, type=str),
-            OpenApiParameter(name='action', description='Filter theo action', required=False, type=str),
-            OpenApiParameter(name='start_date', description='Từ ngày (YYYY-MM-DD)', required=False, type=str),
-            OpenApiParameter(name='end_date', description='Đến ngày (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='level', description='Filter by level', required=False, type=str),
+            OpenApiParameter(name='action', description='Filter by action', required=False, type=str),
+            OpenApiParameter(name='start_date', description='From date (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='end_date', description='To date (YYYY-MM-DD)', required=False, type=str),
         ],
         responses={200: OpenApiResponse(description="CSV file")}
     )
     @action(detail=False, methods=['get'], url_path='export')
     def export_logs(self, request):
         """
-        Export activity logs ra CSV.
+        Export activity logs to CSV.
         GET /api/activity-logs/export/?start_date=2024-01-01&end_date=2024-01-31
         """
         # Log export action
@@ -218,19 +218,19 @@ class ActivityLogViewSet(viewsets.ViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name='since', description='Lấy logs từ timestamp này (ISO format)', required=False, type=str),
+            OpenApiParameter(name='since', description='Get logs from this timestamp (ISO format)', required=False, type=str),
         ],
         responses={200: ActivityLogSerializer(many=True)}
     )
     @action(detail=False, methods=['get'], url_path='realtime')
     def realtime(self, request):
         """
-        Endpoint cho polling realtime data.
+        Endpoint for polling realtime data.
         GET /api/activity-logs/realtime/?since=2024-01-01T12:00:00
         
-        Trả về:
-        - new_logs: Logs mới từ timestamp
-        - stats: Thống kê cập nhật
+        Returns:
+        - new_logs: New logs since timestamp
+        - stats: Updated statistics
         """
         since = request.query_params.get('since')
         

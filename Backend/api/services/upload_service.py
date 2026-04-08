@@ -15,52 +15,52 @@ class UploadService:
 
     @staticmethod
     def validate_receipt_image(file):
-        """Validate file trước khi upload."""
+        """Validate file before upload."""
         errors = []
 
         if file.size > UploadService.MAX_FILE_SIZE:
-            errors.append('File không được vượt quá 5MB')
+            errors.append('File must not exceed 5MB')
 
         if file.content_type not in UploadService.ALLOWED_CONTENT_TYPES:
-            errors.append('Chỉ chấp nhận file JPEG, PNG hoặc WebP')
+            errors.append('Only JPEG, PNG or WebP files are accepted')
 
         return errors
 
     @staticmethod
     def upload_receipt_image(file, user):
         """
-        Resize, compress và lưu ảnh hóa đơn.
-        Trả về URL của ảnh đã lưu.
+        Resize, compress and save receipt image.
+        Returns the URL of the saved image.
         """
-        # Mở ảnh bằng Pillow
+        # Open image with Pillow
         img = Image.open(file)
 
-        # Chuyển RGBA → RGB nếu cần (để lưu WEBP/JPEG)
+        # Convert RGBA → RGB if needed (for WEBP/JPEG)
         if img.mode in ('RGBA', 'LA', 'P'):
             img = img.convert('RGB')
 
-        # Resize nếu ảnh quá lớn (giữ tỉ lệ)
+        # Resize if image is too large (maintain aspect ratio)
         img.thumbnail(
             (UploadService.MAX_DIMENSION, UploadService.MAX_DIMENSION),
             Image.LANCZOS,
         )
 
-        # Compress vào buffer
+        # Compress into buffer
         buffer = BytesIO()
         img.save(buffer, format='WEBP', quality=UploadService.COMPRESS_QUALITY)
         buffer.seek(0)
 
-        # Tạo đường dẫn lưu file
+        # Create file save path
         filename = f'receipts/{user.user_id}/{uuid.uuid4().hex}.webp'
         filepath = os.path.join(settings.MEDIA_ROOT, filename)
 
-        # Tạo thư mục nếu chưa có
+        # Create directory if not exists
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-        # Lưu file
+        # Save file
         with open(filepath, 'wb') as f:
             f.write(buffer.read())
 
-        # Trả về URL
+        # Return URL
         file_url = f'{settings.MEDIA_URL}{filename}'
         return file_url
