@@ -42,8 +42,6 @@ export interface SignupData {
   account: Record<string, unknown>;
   categories: Array<Record<string, unknown>>;
   setting: Record<string, unknown>;
-  access_token: string;
-  refresh_token: string;
 }
 
 export const loginApi = async (payload: LoginPayload): Promise<AuthSuccessResponse<LoginData>> => {
@@ -53,6 +51,16 @@ export const loginApi = async (payload: LoginPayload): Promise<AuthSuccessRespon
 
 export const signupApi = async (payload: SignupPayload): Promise<AuthSuccessResponse<SignupData>> => {
   const response = await api.post<AuthSuccessResponse<SignupData>>('/auth/register/', payload);
+  return response.data;
+};
+
+export const verifyActivationApi = async (email: string, code: string) => {
+  const response = await api.post<{ success: boolean; message: string }>('/auth/verify-activation/', { email, code });
+  return response.data;
+};
+
+export const resendOtpApi = async (email: string, otp_type: 'activation' | 'reset_password', method: 'email' | 'sms' = 'email') => {
+  const response = await api.post<{ success: boolean; message: string }>('/auth/resend-otp/', { email, otp_type, method });
   return response.data;
 };
 

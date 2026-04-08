@@ -202,13 +202,13 @@ export default function DashboardPage() {
         console.error("Error fetching dashboard data:", err);
 
         if (err.code === "ECONNABORTED") {
-          setError("Kết nối bị timeout. Vui lòng kiểm tra lại mạng.");
+          setError("Connection timed out. Please check your network.");
         } else if (err.response?.status === 401) {
-          setError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+          setError("Session expired. Please log in again.");
         } else if (err.response?.status >= 500) {
-          setError("Lỗi server. Vui lòng thử lại sau.");
+          setError("Server error. Please try again later.");
         } else {
-          setError("Không thể tải dữ liệu. Vui lòng thử lại.");
+          setError("Unable to load data. Please try again.");
         }
       } finally {
         setLoading(false);
@@ -237,7 +237,7 @@ export default function DashboardPage() {
     const percentage = limit > 0 ? (budget.spent / limit) * 100 : 0;
     return {
       id: budget.id,
-      category: category?.name || "Không xác định",
+      category: category?.name || "Unknown",
       spent: budget.spent,
       limit,
       percentage: Math.min(percentage, 100),
@@ -247,7 +247,7 @@ export default function DashboardPage() {
 
   const exportToCSV = () => {
     if (!dashboardData) return;
-    let csv = "Ngày,Thu nhập,Chi tiêu\n";
+    let csv = "Date,Income,Expense\n";
     dashboardData.trends.forEach((item) => {
       csv += `"${item.date}","${item.income}","${item.expense}"\n`;
     });
@@ -256,7 +256,7 @@ export default function DashboardPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `bao-cao-${period}.csv`;
+    a.download = `report-${period}.csv`;
     a.click();
   };
 
@@ -270,16 +270,16 @@ export default function DashboardPage() {
     return (
       <div className="p-6 space-y-6">
         <div>
-          <h2 className="text-3xl font-bold">Tổng quan</h2>
+          <h2 className="text-3xl font-bold">Overview</h2>
           <p className="text-muted-foreground mt-1">
-            Vui lòng đăng nhập để xem dữ liệu tài chính
+            Please log in to view your financial data
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard title="Thu nhập" value="0 VND" icon="💚" color="bg-success/10" />
-          <StatCard title="Chi tiêu" value="0 VND" icon="❤️" color="bg-destructive/10" />
-          <StatCard title="Số dư" value="0 VND" icon="💰" color="bg-primary/10" />
-          <StatCard title="Ví hiện tại" value="N/A" icon="👛" color="bg-accent/10" />
+          <StatCard title="Income" value="0 VND" icon="💚" color="bg-success/10" />
+          <StatCard title="Expense" value="0 VND" icon="❤️" color="bg-destructive/10" />
+          <StatCard title="Balance" value="0 VND" icon="💰" color="bg-primary/10" />
+          <StatCard title="Current Wallet" value="N/A" icon="👛" color="bg-accent/10" />
         </div>
       </div>
     );
@@ -291,9 +291,9 @@ export default function DashboardPage() {
       <div className="p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-          <div className="text-lg">Đang tải dữ liệu...</div>
+          <div className="text-lg">Loading data...</div>
           <div className="text-sm text-muted-foreground mt-2">
-            Đang lấy dữ liệu tài chính của bạn
+            Fetching your financial data
           </div>
         </div>
       </div>
@@ -320,7 +320,7 @@ export default function DashboardPage() {
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
-            <div className="text-sm">Đang cập nhật...</div>
+            <div className="text-sm">Updating...</div>
           </div>
         </div>
       )}
@@ -336,7 +336,7 @@ export default function DashboardPage() {
               onClick={() => fetchDashboardData(true)}
               disabled={loading}
             >
-              Thử lại
+              Retry
             </Button>
           </div>
         </div>
@@ -346,9 +346,9 @@ export default function DashboardPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold">Tổng quan</h2>
+            <h2 className="text-3xl font-bold">Overview</h2>
             <p className="text-muted-foreground mt-1">
-              Dữ liệu tài chính của bạn
+              Your financial data
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -358,10 +358,10 @@ export default function DashboardPage() {
               variant="outline"
               size="sm"
             >
-              {loading ? "Đang tải..." : "🔄 Làm mới"}
+              {loading ? "Loading..." : "🔄 Refresh"}
             </Button>
             <Button onClick={exportToCSV} variant="outline" size="sm">
-              📥 Xuất CSV
+              📥 Export CSV
             </Button>
           </div>
         </div>
@@ -378,12 +378,12 @@ export default function DashboardPage() {
                 className="text-xs"
               >
                 {p === "week"
-                  ? "7 ngày"
+                  ? "7 days"
                   : p === "month"
-                    ? "30 ngày"
+                    ? "30 days"
                     : p === "quarter"
-                      ? "90 ngày"
-                      : "1 năm"}
+                      ? "90 days"
+                      : "1 year"}
               </Button>
             ))}
           </div>
@@ -407,7 +407,7 @@ export default function DashboardPage() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             className="px-3 py-1.5 border rounded-lg bg-background text-sm"
-            placeholder="🔍 Tìm kiếm..."
+            placeholder="🔍 Search..."
           />
           {(startDate || endDate || keyword) && (
             <Button
@@ -420,7 +420,7 @@ export default function DashboardPage() {
               }}
               className="text-xs text-muted-foreground"
             >
-              ✕ Xoá bộ lọc
+              ✕ Clear filters
             </Button>
           )}
         </div>
@@ -429,28 +429,28 @@ export default function DashboardPage() {
       {/* STAT CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard
-          title="Thu nhập"
+          title="Income"
           value={formatMoney(currency, overview.income)}
           icon="💚"
           color="bg-success/10"
           change={overview.changes.income_percentage}
         />
         <StatCard
-          title="Chi tiêu"
+          title="Expense"
           value={formatMoney(currency, overview.expense)}
           icon="❤️"
           color="bg-destructive/10"
           change={overview.changes.expense_percentage}
         />
         <StatCard
-          title="Số dư"
+          title="Balance"
           value={formatMoney(currency, overview.balance)}
           icon="💰"
           color="bg-primary/10"
         />
         <StatCard
-          title="Ví hiện tại"
-          value={currentWallet?.name || "Chưa chọn ví"}
+          title="Current Wallet"
+          value={currentWallet?.name || "No wallet selected"}
           icon="👛"
           color="bg-accent/10"
         />
@@ -461,8 +461,8 @@ export default function DashboardPage() {
         {/* Income Breakdown */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Thu nhập theo danh mục</CardTitle>
-            <CardDescription>Phân bổ theo danh mục</CardDescription>
+            <CardTitle className="text-base">Income by Category</CardTitle>
+            <CardDescription>Category breakdown</CardDescription>
           </CardHeader>
           <CardContent>
             {categoryData.income.length > 0 ? (
@@ -524,7 +524,7 @@ export default function DashboardPage() {
             ) : (
               <div className="h-64 flex flex-col items-center justify-center text-muted-foreground">
                 <span className="text-4xl mb-2">📊</span>
-                <span className="text-sm">Chưa có dữ liệu thu nhập</span>
+                <span className="text-sm">No income data yet</span>
               </div>
             )}
           </CardContent>
@@ -533,8 +533,8 @@ export default function DashboardPage() {
         {/* Expense Breakdown */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Chi tiêu theo danh mục</CardTitle>
-            <CardDescription>Phân bổ theo danh mục</CardDescription>
+            <CardTitle className="text-base">Expense by Category</CardTitle>
+            <CardDescription>Category breakdown</CardDescription>
           </CardHeader>
           <CardContent>
             {categoryData.expense.length > 0 ? (
@@ -596,7 +596,7 @@ export default function DashboardPage() {
             ) : (
               <div className="h-64 flex flex-col items-center justify-center text-muted-foreground">
                 <span className="text-4xl mb-2">📊</span>
-                <span className="text-sm">Chưa có dữ liệu chi tiêu</span>
+                <span className="text-sm">No expense data yet</span>
               </div>
             )}
           </CardContent>
@@ -605,8 +605,8 @@ export default function DashboardPage() {
         {/* Budget Status */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Ngân sách</CardTitle>
-            <CardDescription>Theo hạn mức danh mục</CardDescription>
+            <CardTitle className="text-base">Budget</CardTitle>
+            <CardDescription>By category limits</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {budgetStatus.length > 0 ? (
@@ -634,7 +634,7 @@ export default function DashboardPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <span className="text-4xl mb-2">📋</span>
-                <span className="text-sm">Chưa đặt ngân sách</span>
+                <span className="text-sm">No budget set</span>
               </div>
             )}
           </CardContent>
@@ -644,8 +644,8 @@ export default function DashboardPage() {
       {/* TRENDS CHART */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Thu nhập & Chi tiêu theo thời gian</CardTitle>
-          <CardDescription>Biến động theo ngày</CardDescription>
+          <CardTitle className="text-base">Income & Expense Over Time</CardTitle>
+          <CardDescription>Daily trend</CardDescription>
         </CardHeader>
         <CardContent>
           {trends.length > 0 ? (
@@ -680,13 +680,13 @@ export default function DashboardPage() {
                 <Bar
                   dataKey="income"
                   fill="#10b981"
-                  name="Thu nhập"
+                  name="Income"
                   radius={[4, 4, 0, 0]}
                 />
                 <Bar
                   dataKey="expense"
                   fill="#ef4444"
-                  name="Chi tiêu"
+                  name="Expense"
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>
@@ -694,7 +694,7 @@ export default function DashboardPage() {
           ) : (
             <div className="h-64 flex flex-col items-center justify-center text-muted-foreground">
               <span className="text-4xl mb-2">📈</span>
-              <span className="text-sm">Chưa có dữ liệu biến động</span>
+              <span className="text-sm">No trend data yet</span>
             </div>
           )}
         </CardContent>
@@ -703,8 +703,8 @@ export default function DashboardPage() {
       {/* RECENT TRANSACTIONS */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Giao dịch gần đây</CardTitle>
-          <CardDescription>Hoạt động mới nhất</CardDescription>
+          <CardTitle className="text-base">Recent Transactions</CardTitle>
+          <CardDescription>Latest activity</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-1">
@@ -721,7 +721,7 @@ export default function DashboardPage() {
                     />
                     <div>
                       <p className="font-medium text-sm">
-                        {tx.category_name || "Không xác định"}
+                        {tx.category_name || "Unknown"}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {tx.description || tx.note || ""}
@@ -750,7 +750,7 @@ export default function DashboardPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <span className="text-4xl mb-2">📝</span>
-                <span className="text-sm">Chưa có giao dịch nào</span>
+                <span className="text-sm">No transactions yet</span>
               </div>
             )}
           </div>
