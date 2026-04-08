@@ -265,7 +265,8 @@ const mapBackendBudgetToBudget = useCallback(
 
 const syncBudgetsFromBackend = useCallback(async (userId: string) => {
   const response = await listBudgetsApi();
-  const mappedBudgets = response.data.map((item: BackendBudget) =>
+  const items = Array.isArray(response.data) ? response.data : (response.data as any)?.items ?? [];
+  const mappedBudgets = items.map((item: BackendBudget) =>
     mapBackendBudgetToBudget(item, userId)
   );
   setBudgets(mappedBudgets);
