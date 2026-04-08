@@ -164,12 +164,12 @@ export default function TransactionsPage() {
               size="sm"
             >
               {type === "all"
-                ? "Tất cả"
+                ? "All"
                 : type === "income"
-                  ? "Thu nhập"
+                  ? "Income"
                   : type === "expense"
-                    ? "Chi tiêu"
-                    : "Chuyển khoản"}
+                    ? "Expense"
+                    : "Transfer"}
             </Button>
           ))}
         </div>
@@ -179,7 +179,7 @@ export default function TransactionsPage() {
           value={selectedWalletId}
           onChange={(e) => setSelectedWalletId(e.target.value)}
         >
-          <option value="all">Tất cả ví</option>
+          <option value="all">All wallets</option>
           {wallets.map((w) => (
             <option key={w.id} value={w.id}>
               {w.name}

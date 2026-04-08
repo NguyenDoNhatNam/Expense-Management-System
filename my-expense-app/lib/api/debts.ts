@@ -20,7 +20,7 @@ export interface BackendDebt {
 export interface DebtListResponse {
   success: boolean;
   message?: string;
-  data: BackendDebt[];        // Backend trả về trực tiếp mảng, không có {items, pagination}
+  data: BackendDebt[];        // Backend returns array directly, no {items, pagination}
 }
 
 export interface CreateDebtPayload {

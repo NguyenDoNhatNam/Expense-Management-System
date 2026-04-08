@@ -16,7 +16,7 @@ import {
 } from "./ui/card";
 
 export default function LoginPage() {
-  const { login, register } = useApp();
+  const { login, register, pendingVerification } = useApp();
   const { showNotification } = useNotification();
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
@@ -108,10 +108,17 @@ export default function LoginPage() {
         }
       } else {
         await register(email, password, fullName, phone);
-        showNotification("Account created successfully!", "success");
+        showNotification("Account created! Please enter the OTP code.", "success");
         router.push('/verify');
       }
-    } catch (err) {
+    } catch (err: any) {
+      // Handle inactive account on login → redirect to verify
+      const respData = err?.response?.data;
+      if (respData?.require_activation) {
+        showNotification("Account not activated. Please verify OTP.", "error");
+        router.push('/verify');
+        return;
+      }
       const msg = getApiErrorMessage(err);
       setError(msg);
       showNotification(msg, "error");

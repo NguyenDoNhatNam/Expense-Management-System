@@ -41,13 +41,15 @@ import {
   deleteBudgetApi,
   BackendBudget,
   CreateBudgetPayload,
-} from './api/budgets';   // ← đường dẫn đúng của bạn
+} from './api/budgets';   // ← correct path for your budgets
 interface AppContextType {
   // Auth
   currentUser: Types.User | null;
   isAuthenticated: boolean;
+  pendingVerification: { email: string; phone: string } | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<any>;
   register: (email: string, password: string, fullName: string, phone: string) => Promise<void>;
+  clearPendingVerification: () => void;
   logout: () => void;
 
   // Wallets
@@ -107,6 +109,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [budgets, setBudgets] = useState<Types.Budget[]>([]);
   const [savingsGoals, setSavingsGoals] = useState<Types.SavingsGoal[]>([]);
   const [debts, setDebts] = useState<Types.Debt[]>([]);
+  const [pendingVerification, setPendingVerification] = useState<{ email: string; phone: string } | null>(null);
 
   const mapBackendCategoryToCategory = useCallback(
     (backendCategory: BackendCategory, userId: string): Types.Category => {
@@ -375,25 +378,14 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
 };
 
   const register = async (email: string, password: string, fullName: string, phone: string) => {
-    const res = await signupApi({ email, password, full_name: fullName, phone });
-    const { user: apiUser, access_token, refresh_token, account, categories: apiCategories } = res.data;
+    await signupApi({ email, password, full_name: fullName, phone });
+    // Backend creates user with is_active=False and sends OTP email.
+    // Do NOT store tokens or set currentUser — user must verify OTP first.
+    setPendingVerification({ email, phone });
+  };
 
-    localStorage.setItem('access_token', access_token);
-    localStorage.setItem('refresh_token', refresh_token);
-
-    const user: Types.User = {
-      id: apiUser.user_id,
-      email: apiUser.email,
-      fullName: apiUser.full_name,
-      createdAt: new Date(apiUser.created_at),
-    };
-    setCurrentUser(user);
-
-    // Keep values to avoid unused variables from backend response while syncing from API.
-    void account;
-    void apiCategories;
-
-    await Promise.all([syncWalletsFromBackend(user.id), syncCategoriesFromBackend(user.id), syncSavingGoals(user.id), syncDebtsFromBackend(user.id), syncBudgetsFromBackend(user.id),]);
+  const clearPendingVerification = () => {
+    setPendingVerification(null);
   };
 
   const logout = () => {
@@ -422,7 +414,7 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
   // Wallet functions
   const addWallet = async (wallet: Omit<Types.Wallet, 'id' | 'createdAt' | 'updatedAt' | 'transactionCount' | 'totalIncome' | 'totalExpense'>) => {
     if (!currentUser) {
-      throw new Error('Bạn cần đăng nhập để tạo ví.');
+      throw new Error('You must be logged in to create a wallet.');
     }
 
     const payload: CreateAccountPayload = {
@@ -442,7 +434,7 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
 
   const updateWallet = async (id: string, data: Partial<Types.Wallet>) => {
     if (!currentUser) {
-      throw new Error('Bạn cần đăng nhập để cập nhật ví.');
+      throw new Error('You must be logged in to update a wallet.');
     }
 
     const payload: UpdateAccountPayload = {};
@@ -465,7 +457,7 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
 
   const deleteWallet = async (id: string) => {
     if (!currentUser) {
-      throw new Error('Bạn cần đăng nhập để xóa ví.');
+      throw new Error('You must be logged in to delete a wallet.');
     }
 
     await deleteAccountApi(id);
@@ -475,7 +467,7 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
   // Category functions
   const addCategory = async (category: Omit<Types.Category, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!currentUser) {
-      throw new Error('Bạn cần đăng nhập để tạo danh mục.');
+      throw new Error('You must be logged in to create a category.');
     }
 
     await createCategoryApi({
@@ -490,7 +482,7 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
 
   const updateCategory = async (id: string, data: Partial<Types.Category>) => {
     if (!currentUser) {
-      throw new Error('Bạn cần đăng nhập để cập nhật danh mục.');
+      throw new Error('You must be logged in to update a category.');
     }
 
     await updateCategoryApi(id, {
@@ -504,7 +496,7 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
 
   const deleteCategory = async (id: string) => {
     if (!currentUser) {
-      throw new Error('Bạn cần đăng nhập để xóa danh mục.');
+      throw new Error('You must be logged in to delete a category.');
     }
 
     await deleteCategoryApi(id);
@@ -600,13 +592,13 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
 
   // Budget functions
 const addBudget = async (payload: CreateBudgetPayload) => {
-  if (!currentUser) throw new Error('Bạn cần đăng nhập để tạo ngân sách.');
+  if (!currentUser) throw new Error('You must be logged in to create a budget.');
   await createBudgetApi(payload);
   await syncBudgetsFromBackend(currentUser.id);
 };
 
 const updateBudget = async (id: string, data: Partial<CreateBudgetPayload>) => {
-  if (!currentUser) throw new Error('Bạn cần đăng nhập để cập nhật ngân sách.');
+  if (!currentUser) throw new Error('You must be logged in to update a budget.');
   await updateBudgetApi(id, data);
   await syncBudgetsFromBackend(currentUser.id);
 };
@@ -661,7 +653,7 @@ const deleteBudget = async (id: string) => {
 
   // Debt functions
   const addDebt = async (debt: Omit<Types.Debt, 'id' | 'createdAt' | 'updatedAt'>) => {
-  if (!currentUser) throw new Error('Bạn cần đăng nhập để tạo nợ.');
+  if (!currentUser) throw new Error('You must be logged in to create a debt.');
 
   const payload: CreateDebtPayload = {
     debt_type: debt.debt_type === 'owe' ? 'borrow' : debt.debt_type,
@@ -683,17 +675,17 @@ const deleteBudget = async (id: string) => {
 
   const deleteDebt = async (id: string) => {
   if (!currentUser) {
-    // fallback xóa local nếu chưa login
+    // fallback delete locally if not logged in
     setDebts(debts.filter((d) => d.id !== id));
     return;
   }
 
   try {
     await deleteDebtApi(id);
-    await syncDebtsFromBackend(currentUser.id);   // ← đồng bộ lại từ server
+    await syncDebtsFromBackend(currentUser.id);   // ← sync again from server
   } catch (error: any) {
     console.error('Delete debt error:', error);
-    alert(error.response?.data?.message || 'Không thể xóa khoản nợ');
+    alert(error.response?.data?.message || 'Cannot delete debt');
   }
 };
 
@@ -763,8 +755,10 @@ const deleteBudget = async (id: string) => {
       value={{
         currentUser,
         isAuthenticated: !!currentUser,
+        pendingVerification,
         login,
         register,
+        clearPendingVerification,
         logout,
         wallets,
         currentWallet,

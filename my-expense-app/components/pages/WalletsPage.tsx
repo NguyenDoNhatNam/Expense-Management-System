@@ -13,12 +13,12 @@ import {
 import { Input } from "../ui/input";
 
 const WALLET_TYPES: { value: WalletType | "all"; label: string }[] = [
-  { value: "all", label: "Tất cả" },
-  { value: "cash", label: "Tiền mặt" },
-  { value: "bank", label: "Ngân hàng" },
-  { value: "credit_card", label: "Thẻ tín dụng" },
-  { value: "e_wallet", label: "Ví điện tử" },
-  { value: "investment", label: "Đầu tư" },
+  { value: "all", label: "All" },
+  { value: "cash", label: "Cash" },
+  { value: "bank", label: "Bank" },
+  { value: "credit_card", label: "Credit Card" },
+  { value: "e_wallet", label: "E-Wallet" },
+  { value: "investment", label: "Investment" },
 ];
 
 const WALLET_TYPE_OPTIONS = WALLET_TYPES.filter((t) => t.value !== "all");
@@ -130,13 +130,13 @@ export default function WalletsPage() {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      showNotification("Vui lòng nhập tên ví", "error");
+      showNotification("Please enter wallet name", "error");
       return;
     }
 
     const balanceNum = Number(formData.balance);
     if (!editingId && (isNaN(balanceNum) || balanceNum < 0)) {
-      showNotification("Số dư ban đầu không hợp lệ", "error");
+      showNotification("Invalid initial balance", "error");
       return;
     }
 
@@ -152,7 +152,7 @@ export default function WalletsPage() {
           bankName: formData.bankName || undefined,
           accountNumber: formData.accountNumber || undefined,
         });
-        showNotification("Cập nhật ví thành công", "success");
+        showNotification("Wallet updated successfully", "success");
       } else {
         await addWallet({
           name: formData.name,
@@ -166,7 +166,7 @@ export default function WalletsPage() {
           accountNumber: formData.accountNumber || undefined,
           userId: currentUser?.id || "",
         });
-        showNotification("Tạo ví thành công", "success");
+        showNotification("Wallet created successfully", "success");
       }
       resetForm();
     } catch (err) {
@@ -192,11 +192,11 @@ export default function WalletsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xoá ví này?")) return;
+    if (!confirm("Are you sure you want to delete this wallet?")) return;
 
     try {
       await deleteWallet(id);
-      showNotification("Xoá ví thành công", "success");
+      showNotification("Wallet deleted successfully", "success");
     } catch (err) {
       showNotification(getApiErrorMessage(err), "error");
     }
@@ -217,24 +217,24 @@ export default function WalletsPage() {
         {/* Net Worth Card */}
         <Card>
           <CardContent className="pt-4 pb-4">
-            <p className="text-sm text-muted-foreground">Tổng tài sản</p>
+            <p className="text-sm text-muted-foreground">Net Worth</p>
             <p className="text-2xl font-bold text-green-600">
               {formatAmount(totalBalance)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {wallets.length} ví
+              {wallets.length} wallets
             </p>
           </CardContent>
         </Card>
 
         <Input
-          placeholder="🔍 Tìm kiếm ví..."
+          placeholder="🔍 Search wallets..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
 
         <div>
-          <p className="font-semibold mb-2 text-sm">Loại ví</p>
+          <p className="font-semibold mb-2 text-sm">Wallet Type</p>
           <div className="flex flex-wrap gap-1.5">
             {WALLET_TYPES.map((t) => (
               <Button
@@ -251,13 +251,13 @@ export default function WalletsPage() {
         </div>
 
         <div>
-          <p className="font-semibold mb-2 text-sm">Tiền tệ</p>
+          <p className="font-semibold mb-2 text-sm">Currency</p>
           <select
             className="w-full border rounded-lg p-2 text-sm"
             value={filterCurrency}
             onChange={(e) => setFilterCurrency(e.target.value)}
           >
-            <option value="all">Tất cả</option>
+            <option value="all">All</option>
             {CURRENCIES.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -274,7 +274,7 @@ export default function WalletsPage() {
             onChange={(e) => setIncludeOnly(e.target.checked)}
           />
           <label htmlFor="includeOnly" className="text-sm">
-            Chỉ hiện ví tính vào tổng
+            Only show wallets included in total
           </label>
         </div>
       </div>
@@ -283,7 +283,7 @@ export default function WalletsPage() {
       <div className="flex-1 space-y-6">
         {/* HEADER */}
         <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-bold">Ví của tôi</h2>
+          <h2 className="text-3xl font-bold">My Wallets</h2>
           <Button
             onClick={() => {
               if (showForm) {
@@ -293,7 +293,7 @@ export default function WalletsPage() {
               }
             }}
           >
-            {showForm ? "Huỷ" : "+ Thêm ví"}
+            {showForm ? "Cancel" : "+ Add Wallet"}
           </Button>
         </div>
 
@@ -302,17 +302,17 @@ export default function WalletsPage() {
           <Card>
             <CardContent className="pt-6">
               <h3 className="font-semibold text-lg mb-4">
-                {editingId ? "Chỉnh sửa ví" : "Tạo ví mới"}
+                {editingId ? "Edit Wallet" : "Create New Wallet"}
               </h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Wallet Name */}
                   <div>
                     <label className="text-sm font-medium mb-1 block">
-                      Tên ví <span className="text-red-500">*</span>
+                      Wallet Name <span className="text-red-500">*</span>
                     </label>
                     <Input
-                      placeholder="Ví dụ: Tiền ngân hàng"
+                      placeholder="e.g. Bank Account"
                       value={formData.name}
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
@@ -324,7 +324,7 @@ export default function WalletsPage() {
                   {/* Wallet Type */}
                   <div>
                     <label className="text-sm font-medium mb-1 block">
-                      Loại ví <span className="text-red-500">*</span>
+                      Wallet Type <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={formData.type}
@@ -347,7 +347,7 @@ export default function WalletsPage() {
                   {/* Currency */}
                   <div>
                     <label className="text-sm font-medium mb-1 block">
-                      Tiền tệ <span className="text-red-500">*</span>
+                      Currency <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={formData.currency}
@@ -368,7 +368,7 @@ export default function WalletsPage() {
                   {!editingId && (
                     <div>
                       <label className="text-sm font-medium mb-1 block">
-                        Số dư ban đầu
+                        Initial Balance
                       </label>
                       <Input
                         type="number"
@@ -387,10 +387,10 @@ export default function WalletsPage() {
                     <>
                       <div>
                         <label className="text-sm font-medium mb-1 block">
-                          Tên ngân hàng
+                          Bank Name
                         </label>
                         <Input
-                          placeholder="Ví dụ: BIDV, Vietcombank..."
+                          placeholder="e.g. BIDV, Vietcombank..."
                           value={formData.bankName}
                           onChange={(e) =>
                             setFormData({
@@ -403,10 +403,10 @@ export default function WalletsPage() {
 
                       <div>
                         <label className="text-sm font-medium mb-1 block">
-                          Số tài khoản
+                          Account Number
                         </label>
                         <Input
-                          placeholder="Nhập số tài khoản"
+                          placeholder="Enter account number"
                           value={formData.accountNumber}
                           onChange={(e) =>
                             setFormData({
@@ -423,10 +423,10 @@ export default function WalletsPage() {
                 {/* Description */}
                 <div>
                   <label className="text-sm font-medium mb-1 block">
-                    Mô tả
+                    Description
                   </label>
                   <Input
-                    placeholder="Ghi chú về ví..."
+                    placeholder="Notes about the wallet..."
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
@@ -448,20 +448,20 @@ export default function WalletsPage() {
                     }
                   />
                   <label htmlFor="formInclude" className="text-sm">
-                    Tính vào tổng tài sản
+                    Include in net worth
                   </label>
                 </div>
 
                 <div className="flex gap-2">
                   <Button type="submit" disabled={isSubmitting}>
                     {isSubmitting
-                      ? "Đang xử lý..."
+                      ? "Processing..."
                       : editingId
-                      ? "Cập nhật"
-                      : "Tạo ví"}
+                      ? "Update"
+                      : "Create Wallet"}
                   </Button>
                   <Button type="button" variant="outline" onClick={resetForm}>
-                    Huỷ
+                    Cancel
                   </Button>
                 </div>
               </form>
@@ -474,9 +474,9 @@ export default function WalletsPage() {
           <Card>
             <CardContent className="py-12 text-center">
               <p className="text-4xl mb-4">💰</p>
-              <p className="text-lg font-medium">Chưa có ví nào</p>
+              <p className="text-lg font-medium">No wallets yet</p>
               <p className="text-muted-foreground text-sm mt-1">
-                Bấm &quot;+ Thêm ví&quot; để tạo ví đầu tiên
+                Click &quot;+ Add Wallet&quot; to create your first wallet
               </p>
             </CardContent>
           </Card>
@@ -508,14 +508,14 @@ export default function WalletsPage() {
                         {getTypeLabel(w.type)} • {w.currency}
                         {!w.isIncludeInTotal && (
                           <span className="ml-2 text-xs bg-gray-100 px-1.5 py-0.5 rounded">
-                            Không tính vào tổng
+                            Not included in total
                           </span>
                         )}
                       </p>
                     </div>
                     {isActive && (
                       <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                        Đang chọn
+                        Selected
                       </span>
                     )}
                   </div>
@@ -548,18 +548,18 @@ export default function WalletsPage() {
                   <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
                     <div>
                       <p className="text-muted-foreground text-xs">
-                        Giao dịch
+                        Transactions
                       </p>
                       <p className="font-medium">{w.transactionCount}</p>
                     </div>
                     <div>
-                      <p className="text-green-600 text-xs">Thu</p>
+                      <p className="text-green-600 text-xs">Income</p>
                       <p className="font-medium text-green-600">
                         {Number(w.totalIncome || 0).toLocaleString("vi-VN")}
                       </p>
                     </div>
                     <div>
-                      <p className="text-red-500 text-xs">Chi</p>
+                      <p className="text-red-500 text-xs">Expense</p>
                       <p className="font-medium text-red-500">
                         {Number(w.totalExpense || 0).toLocaleString("vi-VN")}
                       </p>
@@ -576,7 +576,7 @@ export default function WalletsPage() {
                         handleEdit(w);
                       }}
                     >
-                      Sửa
+                      Edit
                     </Button>
                     <Button
                       size="sm"
@@ -586,7 +586,7 @@ export default function WalletsPage() {
                         handleDelete(w.id);
                       }}
                     >
-                      Xoá
+                      Delete
                     </Button>
                   </div>
                 </CardContent>
