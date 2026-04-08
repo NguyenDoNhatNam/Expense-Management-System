@@ -293,61 +293,61 @@ BACKUP_LOCAL_RETENTION_DAYS = 7
 BACKUP_S3_RETENTION_DAYS = 30
 
 # ==================== LOGGING CONFIGURATION ====================
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '[{asctime}] {levelname} {name} {module}:{lineno} - {message}',
-            'style': '{',
-            'datefmt': '%Y-%m-%d %H:%M:%S',
-        },
-        'simple': {
-            'format': '[{levelname}] {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'app.log',
-            'maxBytes': 10 * 1024 * 1024,  # 10MB
-            'backupCount': 5,
-            'formatter': 'verbose',
-        },
-        'celery_file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': BASE_DIR / 'logs' / 'celery.log',
-            'maxBytes': 10 * 1024 * 1024,
-            'backupCount': 5,
-            'formatter': 'verbose',
-        },
-    },
-    'loggers': {
-        'api': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'celery': {
-            'handlers': ['console', 'celery_file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'django': {
-            'handlers': ['console'],
-            'level': 'WARNING',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
-}
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'formatters': {
+#         'verbose': {
+#             'format': '[{asctime}] {levelname} {name} {module}:{lineno} - {message}',
+#             'style': '{',
+#             'datefmt': '%Y-%m-%d %H:%M:%S',
+#         },
+#         'simple': {
+#             'format': '[{levelname}] {message}',
+#             'style': '{',
+#         },
+#     },
+#     'handlers': {
+#         'console': {
+#             'class': 'logging.StreamHandler',
+#             'formatter': 'verbose',
+#         },
+#         'file': {
+#             'class': 'logging.handlers.RotatingFileHandler',
+#             'filename': BASE_DIR / 'logs' / 'app.log',
+#             'maxBytes': 10 * 1024 * 1024,  # 10MB
+#             'backupCount': 5,
+#             'formatter': 'verbose',
+#         },
+#         'celery_file': {
+#             'class': 'logging.handlers.RotatingFileHandler',
+#             'filename': BASE_DIR / 'logs' / 'celery.log',
+#             'maxBytes': 10 * 1024 * 1024,
+#             'backupCount': 5,
+#             'formatter': 'verbose',
+#         },
+#     },
+#     'loggers': {
+#         'api': {
+#             'handlers': ['console', 'file'],
+#             'level': 'INFO',
+#             'propagate': False,
+#         },
+#         'celery': {
+#             'handlers': ['console', 'celery_file'],
+#             'level': 'INFO',
+#             'propagate': False,
+#         },
+#         'django': {
+#             'handlers': ['console'],
+#             'level': 'WARNING',
+#         },
+#     },
+#     'root': {
+#         'handlers': ['console'],
+#         'level': 'INFO',
+#     },
+# }
 
 # Create logs directory if not exists
 LOGS_DIR = BASE_DIR / 'logs'

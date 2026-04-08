@@ -66,7 +66,7 @@ export interface Budget {
   limit: number;
   spent: number;
   currency: string;
-  period: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
   alertThreshold: number;
   startDate: Date;
   endDate?: Date;

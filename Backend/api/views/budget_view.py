@@ -93,7 +93,7 @@ class BudgetViewSet(viewsets.ViewSet):
     def create_budget(self, request):
         serializer = CreateBudgetSerializer(data=request.data, context={'user': request.user})
         if not serializer.is_valid():
-            return Response({'success': False, 'message': 'Data error', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'success': False, 'message': f'Data error {serializer.errors}', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             budget = BudgetService.create_budget(serializer.validated_data, request.user)
