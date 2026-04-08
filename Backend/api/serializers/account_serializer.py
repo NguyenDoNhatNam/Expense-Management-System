@@ -30,13 +30,13 @@ class CreateAccountSerializer(serializers.Serializer):
 
     def validate_initial_balance(self, value):
         if value < 0:
-            raise serializers.ValidationError("Số dư ban đầu phải lớn hơn hoặc bằng 0")
+            raise serializers.ValidationError("Initial balance must be greater than or equal to 0")
         return value
 
     def validate(self, data):
         user = self.context.get('user')
         if Accounts.objects.filter(user=user, account_name__iexact=data.get('account_name')).exists():
-            raise serializers.ValidationError("Tên tài khoản này đã tồn tại trong danh sách của bạn")
+            raise serializers.ValidationError("This account name already exists in your list")
         return data
 
 class UpdateAccountSerializer(serializers.Serializer):
@@ -56,13 +56,13 @@ class UpdateAccountSerializer(serializers.Serializer):
         account = self.context.get('account')
         
         new_name = data.get('account_name')
-        # Kiểm tra nếu người dùng thay đổi tên tài khoản
+        # Check if user is changing the account name
         if new_name and new_name.lower() != account.account_name.lower():
             if Accounts.objects.filter(user=user, account_name__iexact=new_name).exists():
-                raise serializers.ValidationError("Tên tài khoản này đã tồn tại")
+                raise serializers.ValidationError("This account name already exists")
         
-        # Nếu truyền vào loại tiền tệ rỗng thì không hợp lệ
+        # If currency is empty, it's invalid
         if 'currency' in data and not data['currency'].strip():
-            raise serializers.ValidationError("Loại tiền tệ không được để trống")
+            raise serializers.ValidationError("Currency must not be empty")
             
         return data

@@ -44,19 +44,19 @@ class CreateCategorySerializer(serializers.Serializer):
             category_name__iexact=data.get('category_name'),
             category_type=data.get('category_type')
         ).exists():
-            raise serializers.ValidationError('Tên danh mục này đã tồn tại trong tài khoản của bạn')
+            raise serializers.ValidationError('This category name already exists in your account')
 
-        # 2. Validate: parent_category_id nếu có phải thuộc về user này
+        # 2. Validate: parent_category_id must belong to this user if provided
         parent_id = data.get('parent_category_id')
         if parent_id:
             try:
                 parent_cat = Categories.objects.get(category_id=parent_id, user=user)
-                # Kiểm tra type của cha và con phải giống nhau
+                # Check that parent and child must have the same type
                 if parent_cat.category_type != data.get('category_type'):
-                    raise serializers.ValidationError('Danh mục cha và con phải cùng loại (Thu/Chi)')
+                    raise serializers.ValidationError('Parent and child categories must be the same type (Income/Expense)')
                 data['parent_category'] = parent_cat
             except Categories.DoesNotExist:
-                raise serializers.ValidationError('Danh mục cha không tồn tại hoặc không thuộc quyền sở hữu của bạn')
+                raise serializers.ValidationError('Parent category does not exist or does not belong to you')
         else:
             data['parent_category'] = None
 
@@ -74,25 +74,25 @@ class UpdateCategorySerializer(serializers.Serializer):
         user = self.context.get('user')
         category = self.context.get('category')
 
-        # 1. Validate tên trùng (nếu có đổi tên)
+        # 1. Validate duplicate name (if renaming)
         new_name = data.get('category_name')
         if new_name and new_name.lower() != category.category_name.lower():
             if Categories.objects.filter(user=user, category_name__iexact=new_name, category_type=category.category_type).exists():
-                raise serializers.ValidationError('Tên danh mục này đã tồn tại trong tài khoản của bạn')
+                raise serializers.ValidationError('This category name already exists in your account')
 
         # 2. Validate parent_category_id
         if 'parent_category_id' in data:
             parent_id = data.get('parent_category_id')
             if parent_id:
                 if parent_id == category.category_id:
-                    raise serializers.ValidationError('Danh mục không thể tự làm cha của chính nó')
+                    raise serializers.ValidationError('A category cannot be its own parent')
                 try:
                     parent_cat = Categories.objects.get(category_id=parent_id, user=user)
                     if parent_cat.category_type != category.category_type:
-                        raise serializers.ValidationError('Danh mục cha và con phải cùng loại (Thu/Chi)')
+                        raise serializers.ValidationError('Parent and child categories must be the same type (Income/Expense)')
                     data['parent_category'] = parent_cat
                 except Categories.DoesNotExist:
-                    raise serializers.ValidationError('Danh mục cha không tồn tại')
+                    raise serializers.ValidationError('Parent category does not exist')
             else:
                 data['parent_category'] = None
 
@@ -101,7 +101,7 @@ class UpdateCategorySerializer(serializers.Serializer):
 
 class DeleteCategorySerializer(serializers.Serializer):
     action = serializers.ChoiceField(
-        choices=[('delete_all', 'Xóa kèm giao dịch'), ('migrate', 'Di chuyển giao dịch')],
+        choices=[('delete_all', 'Delete with transactions'), ('migrate', 'Migrate transactions')],
         required=False
     )
     target_category_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
@@ -114,12 +114,12 @@ class DeleteCategorySerializer(serializers.Serializer):
 
         if action == 'migrate':
             if not target_category_id:
-                raise serializers.ValidationError('Vui lòng chọn danh mục đích để chuyển giao dịch')
+                raise serializers.ValidationError('Please select a target category to migrate transactions')
             try:
                 target_cat = Categories.objects.get(category_id=target_category_id, user=user)
                 if target_cat.category_type != category.category_type:
-                    raise serializers.ValidationError('Danh mục đích phải cùng loại (Thu/Chi) với danh mục bị xóa')
+                    raise serializers.ValidationError('Target category must be the same type (Income/Expense) as the category being deleted')
                 data['target_category'] = target_cat
             except Categories.DoesNotExist:
-                raise serializers.ValidationError('Danh mục đích không tồn tại')
+                raise serializers.ValidationError('Target category does not exist')
         return data

@@ -1,8 +1,8 @@
 """
 Data Management Views - Export, Import, Backup
-Cung cấp endpoints cho:
-- Export dữ liệu (CSV, Excel, PDF)
-- Import transactions từ CSV
+Provides endpoints for:
+- Data export (CSV, Excel, PDF)
+- Import transactions from CSV
 - Backup & restore
 """
 from rest_framework import viewsets, status
@@ -25,12 +25,12 @@ from api.permissions.permission import DynamicPermission
 
 logger = logging.getLogger(__name__)
 
-#### Export dữ liệu #####
+#### Export data #####
 class ExportViewSet(viewsets.ViewSet):
     """
     - Export transactions, accounts, budgets, debts, savings
-    - Định dạng: CSV, Excel, PDF
-    - Sync export cho dữ liệu nhỏ, async export cho dữ liệu lớn
+    - Formats: CSV, Excel, PDF
+    - Sync export for small data, async export for large data
     """
     permission_classes = [IsAuthenticated, DynamicPermission]
     permission_map = {
@@ -44,16 +44,16 @@ class ExportViewSet(viewsets.ViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name='format', description='Định dạng export: csv, excel, pdf', required=True, type=str),
-            OpenApiParameter(name='start_date', description='Ngày bắt đầu (YYYY-MM-DD)', required=False, type=str),
-            OpenApiParameter(name='end_date', description='Ngày kết thúc (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='format', description='Export format: csv, excel, pdf', required=True, type=str),
+            OpenApiParameter(name='start_date', description='Start date (YYYY-MM-DD)', required=False, type=str),
+            OpenApiParameter(name='end_date', description='End date (YYYY-MM-DD)', required=False, type=str),
         ],
-        responses={200: OpenApiResponse(description="Export thành công")}
+        responses={200: OpenApiResponse(description="Export successful")}
     )
     @action(detail=False, methods=['get'], url_path='transactions')
     def export_transactions(self, request):
         """
-        Export transactions ra file.
+        Export transactions to file.
         GET /api/exports/transactions/?format=excel&start_date=2024-01-01
         """
         user = request.user
@@ -64,7 +64,7 @@ class ExportViewSet(viewsets.ViewSet):
         if export_format not in ['csv', 'excel', 'pdf']:
             return Response({
                 'success': False,
-                'message': 'Định dạng không hợp lệ. Chọn: csv, excel, pdf'
+                'message': 'Invalid format. Choose: csv, excel, pdf'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         queryset = Transactions.objects.filter(user=user, is_deleted=False)
@@ -81,7 +81,7 @@ class ExportViewSet(viewsets.ViewSet):
         if row_count == 0:
             return Response({
                 'success': False,
-                'message': 'Không có dữ liệu để export'
+                'message': 'No data to export'
             }, status=status.HTTP_404_NOT_FOUND)
         
         if ExportService.should_use_async(queryset):
@@ -90,7 +90,7 @@ class ExportViewSet(viewsets.ViewSet):
             
             return Response({
                 'success': True,
-                'message': f'Export đang được xử lý ({row_count} giao dịch). Bạn sẽ nhận được thông báo khi hoàn tất.',
+                'message': f'Export is being processed ({row_count} transactions). You will be notified when complete.',
                 'data': {
                     'task_id': task.id,
                     'async': True,
@@ -111,7 +111,7 @@ class ExportViewSet(viewsets.ViewSet):
             
             return Response({
                 'success': True,
-                'message': f'Export thành công {row_count} giao dịch',
+                'message': f'Successfully exported {row_count} transactions',
                 'data': {
                     'download_url': download_url,
                     'filename': os.path.basename(filepath),
@@ -124,19 +124,19 @@ class ExportViewSet(viewsets.ViewSet):
             logger.error(f"[EXPORT] Error: {str(e)}", exc_info=True)
             return Response({
                 'success': False,
-                'message': f'Lỗi khi export: {str(e)}'
+                'message': f'Export error: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['get'], url_path='accounts')
     def export_accounts(self, request):
-        """Export accounts ra file."""
+        """Export accounts to file."""
         user = request.user
         export_format = request.query_params.get('format', 'excel').lower()
         
         if export_format not in ['csv', 'excel', 'pdf']:
             return Response({
                 'success': False,
-                'message': 'Định dạng không hợp lệ'
+                'message': 'Invalid format'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         queryset = Accounts.objects.filter(user=user)
@@ -144,7 +144,7 @@ class ExportViewSet(viewsets.ViewSet):
         if not queryset.exists():
             return Response({
                 'success': False,
-                'message': 'Không có dữ liệu để export'
+                'message': 'No data to export'
             }, status=status.HTTP_404_NOT_FOUND)
         
         try:
@@ -157,7 +157,7 @@ class ExportViewSet(viewsets.ViewSet):
             
             return Response({
                 'success': True,
-                'message': 'Export thành công',
+                'message': 'Export successful',
                 'data': {
                     'download_url': ExportService.get_export_file_url(filepath),
                     'filename': os.path.basename(filepath),
@@ -172,7 +172,7 @@ class ExportViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='list')
     def list_exports(self, request):
         """
-        Liệt kê các file export gần đây của user.
+        List recent export files for the user.
         GET /api/exports/list/
         """
         user = request.user
@@ -186,7 +186,7 @@ class ExportViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='status/(?P<task_id>[^/.]+)')
     def check_status(self, request, task_id=None):
         """
-        Kiểm tra trạng thái của async export task.
+        Check async export task status.
         GET /api/exports/status/{task_id}/
         """
         cache_key = f"export_task_{task_id}"
@@ -195,7 +195,7 @@ class ExportViewSet(viewsets.ViewSet):
         if not task_status:
             return Response({
                 'success': False,
-                'message': 'Không tìm thấy task hoặc task đã hết hạn'
+                'message': 'Task not found or task has expired'
             }, status=status.HTTP_404_NOT_FOUND)
         
         return Response({
@@ -206,11 +206,11 @@ class ExportViewSet(viewsets.ViewSet):
 
 class ImportViewSet(viewsets.ViewSet):
     """
-    ViewSet cho import dữ liệu.
+    ViewSet for data import.
     
-    Hỗ trợ:
-    - Import transactions từ CSV
-    - Validation và error reporting
+    Supports:
+    - Import transactions from CSV
+    - Validation and error reporting
     - Download template
     """
     permission_classes = [IsAuthenticated, DynamicPermission]
@@ -226,31 +226,31 @@ class ImportViewSet(viewsets.ViewSet):
             'type': 'object',
             'properties': {'file': {'type': 'string', 'format': 'binary'}}
         }},
-        responses={200: OpenApiResponse(description="Import thành công")}
+        responses={200: OpenApiResponse(description="Import successful")}
     )
     @action(detail=False, methods=['post'], url_path='transactions')
     def import_transactions(self, request):
         """
-        Import transactions từ file CSV.
+        Import transactions from CSV file.
         POST /api/imports/transactions/
-        Body: multipart/form-data với file CSV
+        Body: multipart/form-data with CSV file
         """
         user = request.user
         
         if 'file' not in request.FILES:
             return Response({
                 'success': False,
-                'message': 'Vui lòng upload file CSV'
+                'message': 'Please upload a CSV file'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         file = request.FILES['file']
         
-        # Validate file trước
+        # Validate file first
         validation = ImportService.validate_import_file(file)
         if not validation['valid']:
             return Response({
                 'success': False,
-                'message': 'File không hợp lệ',
+                'message': 'Invalid file',
                 'errors': validation['errors']
             }, status=status.HTTP_400_BAD_REQUEST)
         
@@ -261,12 +261,12 @@ class ImportViewSet(viewsets.ViewSet):
         
         return Response({
             'success': result['success'],
-            'message': f"Đã import {result['imported']}/{result['total_rows']} giao dịch",
+            'message': f"Imported {result['imported']}/{result['total_rows']} transactions",
             'data': {
                 'total_rows': result['total_rows'],
                 'imported': result['imported'],
                 'failed': result['failed'],
-                'errors': result['errors'][:10],  # Giới hạn 10 lỗi đầu
+                'errors': result['errors'][:10],  # Limit to first 10 errors
                 'warnings': result['warnings'],
             }
         }, status=response_status)
@@ -274,7 +274,7 @@ class ImportViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='template')
     def download_template(self, request):
         """
-        Download CSV template cho import.
+        Download CSV template for import.
         GET /api/imports/template/?type=transactions
         """
         template_type = request.query_params.get('type', 'transactions')
@@ -295,13 +295,13 @@ class ImportViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post'], url_path='validate')
     def validate_file(self, request):
         """
-        Validate file trước khi import (preview).
+        Validate file before import (preview).
         POST /api/imports/validate/
         """
         if 'file' not in request.FILES:
             return Response({
                 'success': False,
-                'message': 'Vui lòng upload file'
+                'message': 'Please upload a file'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         file = request.FILES['file']
@@ -322,11 +322,11 @@ class ImportViewSet(viewsets.ViewSet):
 
 class BackupViewSet(viewsets.ViewSet):
     """
-    Hỗ trợ:
-    - Tạo backup (manual hoặc async)
+    Supports:
+    - Create backup (manual or async)
     - List backups
     - Download backup
-    - Cấu hình backup settings
+    - Configure backup settings
     """
     permission_classes = [IsAuthenticated, DynamicPermission]
     permission_map = {
@@ -339,15 +339,15 @@ class BackupViewSet(viewsets.ViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name='encrypt', description='Mã hóa backup', required=False, type=bool),
-            OpenApiParameter(name='upload_s3', description='Upload lên S3', required=False, type=bool),
+            OpenApiParameter(name='encrypt', description='Encrypt backup', required=False, type=bool),
+            OpenApiParameter(name='upload_s3', description='Upload to S3', required=False, type=bool),
         ],
-        responses={202: OpenApiResponse(description="Backup đang được tạo")}
+        responses={202: OpenApiResponse(description="Backup is being created")}
     )
     @action(detail=False, methods=['post'], url_path='create')
     def create_backup(self, request):
         """
-        Tạo backup dữ liệu cá nhân.
+        Create personal data backup.
         POST /api/backups/create/
         """
         user = request.user
@@ -361,7 +361,7 @@ class BackupViewSet(viewsets.ViewSet):
             
             return Response({
                 'success': True,
-                'message': 'Backup đang được tạo. Bạn sẽ nhận được thông báo khi hoàn tất.',
+                'message': 'Backup is being created. You will be notified when complete.',
                 'data': {
                     'task_id': task.id,
                     'async': True,
@@ -375,7 +375,7 @@ class BackupViewSet(viewsets.ViewSet):
             if result['success']:
                 return Response({
                     'success': True,
-                    'message': 'Backup đã được tạo thành công',
+                    'message': 'Backup created successfully',
                     'data': {
                         'backup_id': result['backup_id'],
                         'size': result['size'],
@@ -386,7 +386,7 @@ class BackupViewSet(viewsets.ViewSet):
             else:
                 return Response({
                     'success': False,
-                    'message': result.get('error', 'Tạo backup thất bại')
+                    'message': result.get('error', 'Backup creation failed')
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
         except Exception as e:
@@ -399,7 +399,7 @@ class BackupViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='list')
     def list_backups(self, request):
         """
-        Liệt kê tất cả backups của user.
+                List all backups for the user.
         GET /api/backups/list/
         """
         user = request.user
@@ -420,9 +420,9 @@ class BackupViewSet(viewsets.ViewSet):
         source = request.query_params.get('source', 'local')
         
         try:
-            # Thêm extension nếu thiếu
+            # Add extension if missing
             if not filename.endswith(('.enc', '.gz')):
-                # Thử tìm file phù hợp
+                # Try to find matching file
                 backups = BackupService.list_backups(user)
                 matching = [b for b in backups.get('local', []) if b['filename'].startswith(filename)]
                 if matching:
@@ -430,7 +430,7 @@ class BackupViewSet(viewsets.ViewSet):
                 else:
                     return Response({
                         'success': False,
-                        'message': 'Không tìm thấy file backup'
+                        'message': 'Backup file not found'
                     }, status=status.HTTP_404_NOT_FOUND)
             
             backup_data = BackupService.download_backup(user, filename, source)
@@ -442,7 +442,7 @@ class BackupViewSet(viewsets.ViewSet):
         except FileNotFoundError:
             return Response({
                 'success': False,
-                'message': 'File backup không tồn tại'
+                'message': 'Backup file does not exist'
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({
@@ -453,7 +453,7 @@ class BackupViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='preview/(?P<filename>[^/.]+)')
     def preview_backup(self, request, filename=None):
         """
-        Preview nội dung backup (metadata).
+        Preview backup content (metadata).
         GET /api/backups/preview/{filename}/
         """
         user = request.user
@@ -464,7 +464,7 @@ class BackupViewSet(viewsets.ViewSet):
             
             data = BackupService.decrypt_and_extract(backup_data, user, encrypted=encrypted)
             
-            # Chỉ trả về metadata và statistics, không trả full data
+            # Only return metadata and statistics, not full data
             return Response({
                 'success': True,
                 'data': {
@@ -486,7 +486,7 @@ class BackupViewSet(viewsets.ViewSet):
             'application/json': {
                 'type': 'object',
                 'properties': {
-                    'filename': {'type': 'string', 'description': 'Tên file backup'},
+                    'filename': {'type': 'string', 'description': 'Backup file name'},
                     'strategy': {'type': 'string', 'enum': ['merge', 'replace']},
                     'restore_options': {
                         'type': 'object',
@@ -502,18 +502,18 @@ class BackupViewSet(viewsets.ViewSet):
                 }
             }
         },
-        responses={200: OpenApiResponse(description="Restore thành công")}
+        responses={200: OpenApiResponse(description="Restore successful")}
     )
     @action(detail=False, methods=['post'], url_path='restore')
     def restore_backup(self, request):
         """
-        Khôi phục dữ liệu từ backup.
+        Restore data from backup.
         POST /api/backups/restore/
         
         Body:
         {
             "filename": "backup_2024-01-15_abc123.enc",
-            "strategy": "merge",  // hoặc "replace"
+            "strategy": "merge",  // or "replace"
             "restore_options": {
                 "accounts": true,
                 "transactions": true,
@@ -530,13 +530,13 @@ class BackupViewSet(viewsets.ViewSet):
         if not filename:
             return Response({
                 'success': False,
-                'message': 'Vui lòng cung cấp tên file backup'
+                'message': 'Please provide backup filename'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         if strategy not in ['merge', 'replace']:
             return Response({
                 'success': False,
-                'message': 'Strategy phải là "merge" hoặc "replace"'
+                'message': 'Strategy must be "merge" or "replace"'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Warning cho replace strategy
@@ -545,7 +545,7 @@ class BackupViewSet(viewsets.ViewSet):
             if not confirm:
                 return Response({
                     'success': False,
-                    'message': 'Strategy "replace" sẽ XÓA toàn bộ dữ liệu hiện tại. Gửi lại với confirm_replace=true để xác nhận.',
+                    'message': 'Strategy "replace" will DELETE all current data. Resend with confirm_replace=true to confirm.',
                     'require_confirmation': True
                 }, status=status.HTTP_400_BAD_REQUEST)
         
@@ -563,7 +563,7 @@ class BackupViewSet(viewsets.ViewSet):
             if result['success']:
                 return Response({
                     'success': True,
-                    'message': 'Khôi phục dữ liệu thành công',
+                    'message': 'Data restored successfully',
                     'data': {
                         'strategy': result['strategy'],
                         'restored': result['restored'],
@@ -573,14 +573,14 @@ class BackupViewSet(viewsets.ViewSet):
             else:
                 return Response({
                     'success': False,
-                    'message': 'Khôi phục thất bại',
+                    'message': 'Restore failed',
                     'errors': result['errors']
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
         except FileNotFoundError:
             return Response({
                 'success': False,
-                'message': 'Không tìm thấy file backup'
+                'message': 'Backup file not found'
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.error(f"[RESTORE] Error: {str(e)}", exc_info=True)

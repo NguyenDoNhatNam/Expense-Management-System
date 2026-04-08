@@ -22,20 +22,20 @@ class CreateRecurringSerializer(serializers.Serializer):
     def validate(self, data):
         user = self.context.get('user')
         if data['start_date'] > data['end_date']:
-            raise serializers.ValidationError("Ngày bắt đầu không được lớn hơn ngày kết thúc")
+            raise serializers.ValidationError("Start date must not be later than end date")
 
         try:
             data['account'] = Accounts.objects.get(account_id=data['account_id'], user=user)
         except Accounts.DoesNotExist:
-            raise serializers.ValidationError("Tài khoản không tồn tại hoặc không thuộc quyền sở hữu")
+            raise serializers.ValidationError("Account does not exist or does not belong to you")
 
         try:
             category = Categories.objects.get(category_id=data['category_id'], user=user)
             if category.category_type != data['transaction_type']:
-                raise serializers.ValidationError("Loại danh mục không khớp với loại giao dịch")
+                raise serializers.ValidationError("Category type does not match the transaction type")
             data['category'] = category
         except Categories.DoesNotExist:
-            raise serializers.ValidationError("Danh mục không tồn tại")
+            raise serializers.ValidationError("Category does not exist")
 
         return data
 
@@ -53,5 +53,5 @@ class UpdateRecurringSerializer(serializers.Serializer):
     def validate(self, data):
         
         if 'start_date' in data and 'end_date' in data and data['start_date'] > data['end_date']:
-            raise serializers.ValidationError("Ngày bắt đầu không được lớn hơn ngày kết thúc")
+            raise serializers.ValidationError("Start date must not be later than end date")
         return data

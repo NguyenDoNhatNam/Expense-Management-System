@@ -1,7 +1,7 @@
 """
-Import Service - Xử lý nhập dữ liệu từ file
-Hỗ trợ: CSV import với validation
-Tích hợp batch processing và error reporting
+Import Service - Handle importing data from files
+Supports: CSV import with validation
+Integrated with batch processing and error reporting
 """
 import os
 import csv
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class ImportValidationError(Exception):
-    """Exception cho lỗi validation khi import"""
+    """Exception for validation errors during import"""
     def __init__(self, row_number: int, field: str, message: str):
         self.row_number = row_number
         self.field = field
@@ -32,16 +32,16 @@ class ImportValidationError(Exception):
 
 class ImportService:
     """
-    Service xử lý nhập dữ liệu với các tính năng:
-    - Import CSV cho transactions
-    - Validation toàn diện từng dòng
-    - Batch processing với rollback
-    - Chi tiết báo cáo lỗi
+    Service for handling data import with features:
+    - CSV import for transactions
+    - Comprehensive row-by-row validation
+    - Batch processing with rollback
+    - Detailed error reporting
     """
     
     IMPORT_DIR = os.path.join(settings.MEDIA_ROOT, 'imports')
     
-    # Cấu hình import transactions
+    # Import transactions configuration
     TRANSACTION_REQUIRED_FIELDS = ['amount', 'transaction_type', 'transaction_date', 'account_name', 'category_name']
     TRANSACTION_OPTIONAL_FIELDS = ['description', 'note', 'location']
     
@@ -54,14 +54,14 @@ class ImportService:
         'chi': 'expense',
     }
     
-    MAX_BATCH_SIZE = 500  # Số dòng tối đa xử lý mỗi batch
+    MAX_BATCH_SIZE = 500  # Maximum rows processed per batch
     
     # ==================== MAIN IMPORT METHODS ====================
     
     @classmethod
     def import_transactions_from_csv(cls, file, user) -> Dict[str, Any]:
         """
-        Import transactions từ file CSV.
+        Import transactions from CSV file.
         
         CSV format expected:
         amount,transaction_type,transaction_date,account_name,category_name,description,note,location
@@ -86,7 +86,7 @@ class ImportService:
         }
         
         try:
-            # Đọc và decode file
+            # Read and decode file
             content = file.read()
             
             # Try different encodings
@@ -97,7 +97,7 @@ class ImportService:
                 except UnicodeDecodeError:
                     continue
             else:
-                raise ValueError("Không thể đọc file. Vui lòng sử dụng encoding UTF-8.")
+                raise ValueError("Cannot read file. Please use UTF-8 encoding.")
             
             # Parse CSV
             reader = csv.DictReader(decoded_content.splitlines())
@@ -105,30 +105,30 @@ class ImportService:
             result['total_rows'] = len(rows)
             
             if result['total_rows'] == 0:
-                result['warnings'].append("File CSV rỗng hoặc không có dữ liệu hợp lệ")
+                result['warnings'].append("CSV file is empty or has no valid data")
                 return result
             
             # Validate headers
             headers = reader.fieldnames or []
             missing_required = set(cls.TRANSACTION_REQUIRED_FIELDS) - set(headers)
             if missing_required:
-                # Thử tìm header tương đương tiếng Việt
+                # Try to find equivalent Vietnamese headers
                 header_mapping = cls._get_header_mapping(headers)
                 if header_mapping:
                     rows = cls._remap_headers(rows, header_mapping)
                 else:
-                    raise ValueError(f"Thiếu các cột bắt buộc: {', '.join(missing_required)}")
+                    raise ValueError(f"Missing required columns: {', '.join(missing_required)}")
             
-            # Pre-fetch accounts và categories của user để optimize
+            # Pre-fetch user's accounts and categories to optimize
             user_accounts = {acc.account_name.lower(): acc for acc in Accounts.objects.filter(user=user)}
             user_categories = {}
             for cat in Categories.objects.filter(user=user, is_deleted=False):
                 key = f"{cat.category_name.lower()}_{cat.category_type}"
                 user_categories[key] = cat
             
-            # Process từng batch
+            # Process each batch
             validated_rows = []
-            for idx, row in enumerate(rows, start=2):  # Start từ 2 vì dòng 1 là header
+            for idx, row in enumerate(rows, start=2):  # Start from 2 since row 1 is header
                 try:
                     validated = cls._validate_transaction_row(
                         row, idx, user, user_accounts, user_categories
@@ -157,13 +157,13 @@ class ImportService:
                 result['imported'] = len(created_ids)
                 result['created_transactions'] = created_ids
             
-            # Kiểm tra kết quả
+            # Check results
             result['success'] = result['imported'] > 0
             
-            # Thêm warning nếu có lỗi
+            # Add warning if there are errors
             if result['failed'] > 0:
                 result['warnings'].append(
-                    f"Có {result['failed']} dòng không thể import do lỗi validation"
+                    f"{result['failed']} rows could not be imported due to validation errors"
                 )
             
             logger.info(
@@ -187,8 +187,8 @@ class ImportService:
     def _validate_transaction_row(cls, row: Dict, row_num: int, user, 
                                    accounts_cache: Dict, categories_cache: Dict) -> Dict:
         """
-        Validate một dòng transaction.
-        Throws ImportValidationError nếu không hợp lệ.
+        Validate a transaction row.
+        Throws ImportValidationError if invalid.
         Returns: Validated data dict ready for insertion
         """
         validated = {}
@@ -198,10 +198,10 @@ class ImportService:
         try:
             amount = Decimal(amount_str)
             if amount <= 0:
-                raise ImportValidationError(row_num, 'amount', 'Số tiền phải lớn hơn 0')
+                raise ImportValidationError(row_num, 'amount', 'Amount must be greater than 0')
             validated['amount'] = amount
         except (InvalidOperation, ValueError):
-            raise ImportValidationError(row_num, 'amount', f'Số tiền không hợp lệ: "{amount_str}"')
+            raise ImportValidationError(row_num, 'amount', f'Invalid amount: "{amount_str}"')
         
         # 2. Validate transaction_type
         trans_type_raw = str(row.get('transaction_type', '')).strip().lower()
@@ -209,7 +209,7 @@ class ImportService:
         if not trans_type:
             raise ImportValidationError(
                 row_num, 'transaction_type', 
-                f'Loại giao dịch không hợp lệ: "{trans_type_raw}". Chấp nhận: income, expense'
+                f'Invalid transaction type: "{trans_type_raw}". Accepted: income, expense'
             )
         validated['transaction_type'] = trans_type
         
@@ -219,7 +219,7 @@ class ImportService:
         if not trans_date:
             raise ImportValidationError(
                 row_num, 'transaction_date', 
-                f'Ngày không hợp lệ: "{date_str}". Format: YYYY-MM-DD hoặc DD/MM/YYYY'
+                f'Invalid date: "{date_str}". Format: YYYY-MM-DD or DD/MM/YYYY'
             )
         validated['transaction_date'] = trans_date
         
@@ -229,7 +229,7 @@ class ImportService:
         if not account:
             raise ImportValidationError(
                 row_num, 'account_name', 
-                f'Tài khoản "{row.get("account_name")}" không tồn tại'
+                f'Account "{row.get("account_name")}" does not exist'
             )
         validated['account'] = account
         
@@ -238,7 +238,7 @@ class ImportService:
         category_key = f"{category_name}_{trans_type}"
         category = categories_cache.get(category_key)
         
-        # Thử tìm category không phân biệt type
+        # Try to find category regardless of type
         if not category:
             for key, cat in categories_cache.items():
                 if key.startswith(category_name):
@@ -249,7 +249,7 @@ class ImportService:
         if not category:
             raise ImportValidationError(
                 row_num, 'category_name', 
-                f'Danh mục "{row.get("category_name")}" loại "{trans_type}" không tồn tại'
+                f'Category "{row.get("category_name")}" of type "{trans_type}" does not exist'
             )
         validated['category'] = category
         
@@ -258,16 +258,16 @@ class ImportService:
         validated['note'] = str(row.get('note', '')).strip()[:500]
         validated['location'] = str(row.get('location', '')).strip()[:255]
         
-        # 7. Validate balance (expense không được vượt quá số dư)
-        # Chỉ cảnh báo, không block vì có thể user muốn import lịch sử
+        # 7. Validate balance (expense should not exceed account balance)
+        # Only warn, don't block since user may want to import historical data
         if trans_type == 'expense' and amount > account.balance:
-            validated['_warning'] = f'Số tiền chi ({amount}) lớn hơn số dư tài khoản ({account.balance})'
+            validated['_warning'] = f'Expense amount ({amount}) exceeds account balance ({account.balance})'
         
         return validated
 
     @classmethod
     def _parse_date(cls, date_str: str) -> Optional[datetime]:
-        """Parse date string với nhiều format"""
+        """Parse date string with multiple formats"""
         formats = [
             '%Y-%m-%d',
             '%Y-%m-%d %H:%M:%S',
@@ -289,8 +289,8 @@ class ImportService:
     @classmethod
     def _get_header_mapping(cls, headers: List[str]) -> Optional[Dict[str, str]]:
         """
-        Map Vietnamese headers sang English headers.
-        Returns None nếu không thể map.
+        Map Vietnamese headers to English headers.
+        Returns None if mapping is not possible.
         """
         vn_to_en = {
             'số tiền': 'amount',
@@ -323,7 +323,7 @@ class ImportService:
                     mapping[headers[idx]] = en
                     break
         
-        # Kiểm tra có đủ required fields không
+        # Check if all required fields are covered
         mapped_values = set(mapping.values())
         if set(cls.TRANSACTION_REQUIRED_FIELDS).issubset(mapped_values):
             return mapping
@@ -347,20 +347,20 @@ class ImportService:
     @classmethod
     def _batch_insert_transactions(cls, validated_rows: List[Dict], user) -> List[str]:
         """
-        Batch insert transactions với atomic transaction.
+        Batch insert transactions with atomic transaction.
         Updates account balances accordingly.
         """
         created_ids = []
         now = timezone.now()
         
-        # Group by account để update balance hiệu quả
+        # Group by account to update balance efficiently
         account_deltas = {}  # account_id -> delta
         
         with db_transaction.atomic():
             for row in validated_rows:
                 trans_id = f'TR-{str(uuid4())[:15]}'
                 
-                # Tính delta cho account
+                # Calculate delta for account
                 account_id = row['account'].account_id
                 delta = row['amount'] if row['transaction_type'] == 'income' else -row['amount']
                 account_deltas[account_id] = account_deltas.get(account_id, Decimal('0')) + delta
@@ -400,17 +400,17 @@ class ImportService:
     @classmethod
     def get_import_template_csv(cls, template_type: str = 'transactions') -> str:
         """
-        Tạo CSV template cho import.
+        Create CSV template for import.
         Returns: CSV content string
         """
         if template_type == 'transactions':
             headers = cls.TRANSACTION_REQUIRED_FIELDS + cls.TRANSACTION_OPTIONAL_FIELDS
-            headers_vn = ['Số tiền', 'Loại (income/expense)', 'Ngày giao dịch', 
-                         'Tên tài khoản', 'Tên danh mục', 'Mô tả', 'Ghi chú', 'Địa điểm']
+            headers_vn = ['Amount', 'Type (income/expense)', 'Transaction Date', 
+                         'Account Name', 'Category Name', 'Description', 'Note', 'Location']
             
             sample_data = [
-                ['100000', 'expense', '2024-01-15', 'Ví tiền mặt', 'Ăn uống', 'Tiền ăn trưa', '', 'Công ty'],
-                ['5000000', 'income', '2024-01-01', 'Ngân hàng', 'Lương', 'Lương tháng 1', 'Đã nhận', ''],
+                ['100000', 'expense', '2024-01-15', 'Cash Wallet', 'Food & Dining', 'Lunch', '', 'Office'],
+                ['5000000', 'income', '2024-01-01', 'Bank', 'Salary', 'January salary', 'Received', ''],
             ]
             
             output = io.StringIO()
@@ -422,12 +422,12 @@ class ImportService:
             
             return output.getvalue()
         
-        raise ValueError(f"Template type '{template_type}' không được hỗ trợ")
+        raise ValueError(f"Template type '{template_type}' is not supported")
 
     @classmethod
     def validate_import_file(cls, file) -> Dict[str, Any]:
         """
-        Pre-validate file trước khi import (kiểm tra format, size, etc.)
+        Pre-validate file before import (check format, size, etc.)
         """
         result = {
             'valid': True,
@@ -439,14 +439,14 @@ class ImportService:
         # Check file size (max 10MB)
         if hasattr(file, 'size') and file.size > 10 * 1024 * 1024:
             result['valid'] = False
-            result['errors'].append('File quá lớn (tối đa 10MB)')
+            result['errors'].append('File is too large (max 10MB)')
             return result
         
         # Check extension
         filename = getattr(file, 'name', '')
         if not filename.lower().endswith('.csv'):
             result['valid'] = False
-            result['errors'].append('Chỉ hỗ trợ file CSV')
+            result['errors'].append('Only CSV files are supported')
             return result
         
         # Try to read and preview
@@ -460,7 +460,7 @@ class ImportService:
             
             if not rows:
                 result['valid'] = False
-                result['errors'].append('File rỗng')
+                result['errors'].append('File is empty')
                 return result
             
             # Preview first 5 rows
@@ -470,7 +470,7 @@ class ImportService:
             
         except Exception as e:
             result['valid'] = False
-            result['errors'].append(f'Không thể đọc file: {str(e)}')
+            result['errors'].append(f'Cannot read file: {str(e)}')
         
         return result
 

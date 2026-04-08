@@ -1,8 +1,8 @@
 """
-Backup Service - Xử lý sao lưu dữ liệu người dùng
+Backup Service - Handles user data backup
 Features:
-- Export JSON toàn bộ dữ liệu user
-- Mã hóa AES-256
+- Export full user data as JSON
+- AES-256 encryption
 - Upload S3 (optional)
 - Cronjob daily backup
 - User download backup
@@ -43,8 +43,8 @@ logger = logging.getLogger(__name__)
 
 class BackupEncryption:
     """
-    AES-256-CBC encryption cho backup files.
-    Sử dụng user-specific key derived từ master key + user_id.
+    AES-256-CBC encryption for backup files.
+    Uses user-specific key derived from master key + user_id.
     """
     
     BLOCK_SIZE = 16  
@@ -52,26 +52,26 @@ class BackupEncryption:
     
     @classmethod
     def get_master_key(cls) -> bytes:
-        """Lấy master encryption key từ settings"""
+        """Get master encryption key from settings"""
         key = getattr(settings, 'BACKUP_ENCRYPTION_KEY', None)
         if not key:
-            # Fallback sang SECRET_KEY (không khuyến khích cho production)
+            # Fallback to SECRET_KEY (not recommended for production)
             key = settings.SECRET_KEY
             logger.warning("[BACKUP] Using SECRET_KEY as encryption key. Set BACKUP_ENCRYPTION_KEY for production.")
         
-        # Đảm bảo key đủ 32 bytes
+        # Ensure key is 32 bytes
         return hashlib.sha256(key.encode()).digest()
     
     @classmethod
     def derive_user_key(cls, user_id: str) -> bytes:
-        """Derive unique key cho mỗi user từ master key"""
+        """Derive unique key for each user from master key"""
         master_key = cls.get_master_key()
         return hmac.new(master_key, user_id.encode(), hashlib.sha256).digest()
     
     @classmethod
     def encrypt(cls, data: bytes, user_id: str) -> Dict[str, str]:
         """
-        Encrypt data với AES-256-CBC.
+        Encrypt data with AES-256-CBC.
         Returns: {'iv': base64, 'ciphertext': base64, 'checksum': hex}
         """
         key = cls.derive_user_key(user_id)
@@ -86,7 +86,7 @@ class BackupEncryption:
         encryptor = cipher.encryptor()
         ciphertext = encryptor.update(padded_data) + encryptor.finalize()
         
-        # Checksum để verify integrity
+        # Checksum to verify integrity
         checksum = hashlib.sha256(data).hexdigest()
         
         return {
@@ -98,8 +98,8 @@ class BackupEncryption:
     @classmethod
     def decrypt(cls, encrypted_data: Dict[str, str], user_id: str) -> bytes:
         """
-        Decrypt data từ encrypted format.
-        Raises ValueError nếu checksum không khớp.
+        Decrypt data from encrypted format.
+        Raises ValueError if checksum does not match.
         """
         key = cls.derive_user_key(user_id)
         iv = b64decode(encrypted_data['iv'])
@@ -125,23 +125,23 @@ class BackupEncryption:
 
 class S3Storage:
     """
-    S3 storage cho backup files.
-    Có thể disable nếu không cấu hình.
+    S3 storage for backup files.
+    Can be disabled if not configured.
     """
     
     @classmethod
     def is_configured(cls) -> bool:
-        """Kiểm tra S3 đã được cấu hình chưa"""
+        """Check if S3 is configured"""
         required = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_BACKUP_BUCKET']
         return all(hasattr(settings, key) and getattr(settings, key) for key in required)
     
     @classmethod
     def get_client(cls):
-        """Lấy S3 client"""
+        """Get S3 client"""
         try:
             import boto3
         except ImportError:
-            raise ImportError("boto3 chưa được cài đặt. Chạy: pip install boto3")
+            raise ImportError("boto3 is not installed. Run: pip install boto3")
         
         return boto3.client(
             's3',
@@ -153,7 +153,7 @@ class S3Storage:
     @classmethod
     def upload_backup(cls, user_id: str, data: bytes, filename: str) -> str:
         """
-        Upload backup lên S3.
+        Upload backup to S3.
         Returns: S3 object key
         """
         if not cls.is_configured():
@@ -164,7 +164,7 @@ class S3Storage:
         bucket = settings.AWS_BACKUP_BUCKET
         key = f"backups/{user_id}/{filename}"
         
-        # Upload với metadata
+        # Upload with metadata
         client.put_object(
             Bucket=bucket,
             Key=key,
@@ -181,7 +181,7 @@ class S3Storage:
     
     @classmethod
     def download_backup(cls, user_id: str, filename: str) -> bytes:
-        """Download backup từ S3"""
+        """Download backup from S3"""
         if not cls.is_configured():
             raise ValueError("S3 not configured")
         
@@ -194,7 +194,7 @@ class S3Storage:
     
     @classmethod
     def list_backups(cls, user_id: str) -> List[Dict]:
-        """Liệt kê backups của user trên S3"""
+        """List user backups on S3"""
         if not cls.is_configured():
             return []
         
@@ -216,7 +216,7 @@ class S3Storage:
     
     @classmethod
     def delete_old_backups(cls, user_id: str, keep_days: int = 30) -> int:
-        """Xóa backups cũ hơn keep_days ngày"""
+        """Delete backups older than keep_days days"""
         if not cls.is_configured():
             return 0
         
@@ -243,22 +243,22 @@ class BackupService:
     """
     
     BACKUP_DIR = os.path.join(settings.MEDIA_ROOT, 'backups')
-    LOCAL_RETENTION_DAYS = 7  # Giữ local backup 7 ngày
-    S3_RETENTION_DAYS = 30    # Giữ S3 backup 30 ngày
+    LOCAL_RETENTION_DAYS = 7  # Keep local backup 7 days
+    S3_RETENTION_DAYS = 30    # Keep S3 backup 30 days
     
     # ==================== DATA EXPORT ====================
     
     @classmethod
     def export_user_data(cls, user) -> Dict[str, Any]:
         """
-        Export toàn bộ dữ liệu của user thành JSON.
-        Bao gồm: accounts, categories, transactions, budgets, debts, savings, transfers, settings
+        Export all user data as JSON.
+        Includes: accounts, categories, transactions, budgets, debts, savings, transfers, settings
         """
         user_id = user.user_id
         now = timezone.now()
         
         def model_to_dict(obj, exclude_fields=None):
-            """Convert model instance sang dict, xử lý Decimal và datetime"""
+            """Convert model instance to dict, handle Decimal and datetime"""
             exclude_fields = exclude_fields or []
             data = {}
             for field in obj._meta.fields:
@@ -313,7 +313,7 @@ class BackupService:
         for budget in Budgets.objects.filter(user=user):
             backup_data['budgets'].append(model_to_dict(budget, exclude_fields=['user']))
         
-        # Export debts và payments
+        # Export debts and payments
         for debt in Debts.objects.filter(user=user):
             backup_data['debts'].append(model_to_dict(debt, exclude_fields=['user']))
             for payment in DebtPayment.objects.filter(debt=debt):
@@ -360,13 +360,13 @@ class BackupService:
     @classmethod
     def create_backup(cls, user, encrypt: bool = True, upload_s3: bool = True) -> Dict[str, Any]:
         """
-        Tạo backup đầy đủ cho user.
+        Create a full backup for user.
         
         Returns: {
             'success': bool,
             'backup_id': str,
             'local_path': str,
-            's3_key': str (nếu upload),
+            's3_key': str (if uploaded),
             'size': int,
             'encrypted': bool,
         }
@@ -388,7 +388,7 @@ class BackupService:
             # 2. Compress (gzip)
             compressed = gzip.compress(json_data.encode('utf-8'))
             
-            # 3. Encrypt nếu cần
+            # 3. Encrypt if needed
             if encrypt:
                 encrypted = BackupEncryption.encrypt(compressed, user.user_id)
                 final_data = json.dumps(encrypted).encode('utf-8')
@@ -413,13 +413,13 @@ class BackupService:
             result['local_path'] = local_path
             logger.info(f"[BACKUP] Created local backup: {local_path} ({result['size']} bytes)")
             
-            # 5. Upload S3 nếu cần
+            # 5. Upload S3 if needed
             if upload_s3 and S3Storage.is_configured():
                 try:
                     result['s3_key'] = S3Storage.upload_backup(user.user_id, final_data, filename)
                 except Exception as e:
                     logger.error(f"[BACKUP] S3 upload failed: {e}")
-                    # Không fail toàn bộ backup vì local đã lưu
+                    # Don't fail entire backup since local is already saved
             
             result['success'] = True
             
@@ -435,7 +435,7 @@ class BackupService:
     def download_backup(cls, user, filename: str, source: str = 'local') -> bytes:
         """
         Download backup file.
-        source: 'local' hoặc 's3'
+        source: 'local' or 's3'
         """
         if source == 's3':
             return S3Storage.download_backup(user.user_id, filename)
@@ -450,7 +450,7 @@ class BackupService:
     @classmethod
     def decrypt_and_extract(cls, backup_data: bytes, user, encrypted: bool = True) -> Dict:
         """
-        Decrypt và giải nén backup data.
+        Decrypt and decompress backup data.
         """
         if encrypted:
             # Decrypt
@@ -468,7 +468,7 @@ class BackupService:
     @classmethod
     def list_backups(cls, user) -> Dict[str, List]:
         """
-        Liệt kê tất cả backups của user (local + S3).
+        List all backups for user (local + S3).
         """
         result = {
             'local': [],
@@ -501,7 +501,7 @@ class BackupService:
     @classmethod
     def cleanup_old_backups(cls, days: int = None):
         """
-        Cleanup old backups (được gọi bởi Celery beat).
+        Cleanup old backups (called by Celery beat).
         """
         local_days = days or cls.LOCAL_RETENTION_DAYS
         s3_days = days or cls.S3_RETENTION_DAYS
@@ -544,8 +544,8 @@ class BackupService:
     @classmethod
     def run_daily_backup(cls):
         """
-        Chạy backup hàng ngày cho tất cả active users.
-        Được gọi bởi Celery beat.
+        Run daily backup for all active users.
+        Called by Celery beat.
         """
         success_count = 0
         fail_count = 0
@@ -585,21 +585,21 @@ class RestoreService:
         
         Args:
             user: User object
-            backup_filename: Tên file backup
-            strategy: 'merge' (giữ data cũ, thêm mới) hoặc 'replace' (xóa hết, thay thế)
-            restore_options: Dict chọn loại data restore {'accounts': True, 'transactions': True, ...}
-            source: 'local' hoặc 's3'
+            backup_filename: Backup file name
+            strategy: 'merge' (keep old data, add new) or 'replace' (delete all, replace)
+            restore_options: Dict selecting data types to restore {'accounts': True, 'transactions': True, ...}
+            source: 'local' or 's3'
         
         Returns:
-            dict với kết quả restore
+            dict with restore results
         """
         from django.db import transaction as db_transaction
         from api.models import Accounts, Transactions, Budgets, Categories, Debts, SavingsGoals
         
         if strategy not in cls.RESTORE_STRATEGIES:
-            raise ValueError(f"Strategy phải là: {cls.RESTORE_STRATEGIES}")
+            raise ValueError(f"Strategy must be one of: {cls.RESTORE_STRATEGIES}")
         
-        # Default options - restore tất cả
+        # Default options - restore all
         if restore_options is None:
             restore_options = {
                 'accounts': True,
@@ -619,12 +619,12 @@ class RestoreService:
         }
         
         try:
-            # 1. Download và decrypt backup
+            # 1. Download and decrypt backup
             backup_data = BackupService.download_backup(user, backup_filename, source)
             encrypted = '.enc' in backup_filename
             data = BackupService.decrypt_and_extract(backup_data, user, encrypted=encrypted)
             
-            # 2. Tạo backup trước khi restore (safety)
+            # 2. Create backup before restore (safety)
             pre_restore_backup = BackupService.create_backup(
                 user, 
                 encrypt=True, 
@@ -633,13 +633,13 @@ class RestoreService:
             )
             result['pre_backup_id'] = pre_restore_backup.get('backup_id')
             
-            # 3. Thực hiện restore trong transaction
+            # 3. Perform restore within transaction
             with db_transaction.atomic():
                 if strategy == 'replace':
-                    # Xóa dữ liệu cũ trước
+                    # Delete old data first
                     cls._clear_user_data(user, restore_options)
                 
-                # Restore từng loại dữ liệu theo thứ tự dependency
+                # Restore each data type in dependency order
                 if restore_options.get('categories') and 'categories' in data:
                     count = cls._restore_categories(user, data['categories'], strategy)
                     result['restored']['categories'] = count
@@ -675,10 +675,10 @@ class RestoreService:
     
     @staticmethod
     def _clear_user_data(user, options: dict):
-        """Xóa dữ liệu user trước khi replace."""
+        """Delete user data before replace."""
         from api.models import Accounts, Transactions, Budgets, Categories, Debts, SavingsGoals
         
-        # Xóa theo thứ tự ngược dependency
+        # Delete in reverse dependency order
         if options.get('transactions'):
             Transactions.objects.filter(user=user).delete()
         if options.get('budgets'):
@@ -754,7 +754,7 @@ class RestoreService:
         
         restored = 0
         
-        # Cache accounts và categories
+        # Cache accounts and categories
         accounts_map = {a.account_name: a for a in Accounts.objects.filter(user=user)}
         categories_map = {c.category_name: c for c in Categories.objects.filter(user=user)}
         

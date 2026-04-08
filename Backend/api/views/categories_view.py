@@ -30,19 +30,19 @@ class CategoryViewSet(viewsets.ViewSet):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(name='p', description='Trang hiện tại (mặc định 1)', required=False, type=int),
-            OpenApiParameter(name='ipp', description='Số lượng bản ghi mỗi trang', required=False, type=int),
-            OpenApiParameter(name='search', description='Từ khóa tìm kiếm theo tên', required=False, type=str),
-            OpenApiParameter(name='category_type', description='Loại (income/expense)', required=False, type=str),
-            OpenApiParameter(name='is_default', description='Danh mục mặc định (true/false)', required=False, type=bool),
-            OpenApiParameter(name='min_count', description='Số lượng GD tối thiểu', required=False, type=int),
-            OpenApiParameter(name='max_count', description='Số lượng GD tối đa', required=False, type=int),
-            OpenApiParameter(name='min_amount', description='Tổng tiền tối thiểu', required=False, type=float),
-            OpenApiParameter(name='max_amount', description='Tổng tiền tối đa', required=False, type=float),
-            OpenApiParameter(name='tree', description='Hiển thị dạng cây cha-con (true/false)', required=False, type=bool),
+            OpenApiParameter(name='p', description='Current page (default 1)', required=False, type=int),
+            OpenApiParameter(name='ipp', description='Number of records per page', required=False, type=int),
+            OpenApiParameter(name='search', description='Search keyword by name', required=False, type=str),
+            OpenApiParameter(name='category_type', description='Type (income/expense)', required=False, type=str),
+            OpenApiParameter(name='is_default', description='Default category (true/false)', required=False, type=bool),
+            OpenApiParameter(name='min_count', description='Minimum transaction count', required=False, type=int),
+            OpenApiParameter(name='max_count', description='Maximum transaction count', required=False, type=int),
+            OpenApiParameter(name='min_amount', description='Minimum total amount', required=False, type=float),
+            OpenApiParameter(name='max_amount', description='Maximum total amount', required=False, type=float),
+            OpenApiParameter(name='tree', description='Display as parent-child tree (true/false)', required=False, type=bool),
         ],
         responses={
-            200: OpenApiResponse(description="Lấy danh sách danh mục thành công")
+            200: OpenApiResponse(description="Successfully retrieved category list")
         }
     )
     @action(detail=False, methods=['get'], url_path='list')
@@ -105,7 +105,7 @@ class CategoryViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response({
                 'success': False,
-                'message': f'Đã xảy ra lỗi khi lấy danh sách danh mục: {str(e)}'
+                'message': f'An error occurred while retrieving category list: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # ===================== CREATE NEW CATEGORY =====================
@@ -113,7 +113,7 @@ class CategoryViewSet(viewsets.ViewSet):
         request=CreateCategorySerializer,
         responses={
             201: OpenApiResponse(
-                description="Tạo danh mục thành công"
+                description="Category created successfully"
             )
         }
     )
@@ -127,7 +127,7 @@ class CategoryViewSet(viewsets.ViewSet):
         if not serializer.is_valid():
             return Response({
                 'success': False,
-                'message': 'Dữ liệu không hợp lệ',
+                'message': 'Invalid data',
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -139,7 +139,7 @@ class CategoryViewSet(viewsets.ViewSet):
             
             return Response({
                 'success': True,
-                'message': 'Tạo danh mục thành công',
+                'message': 'Category created successfully',
                 'data': {
                     'category_id': new_category.category_id,
                     'category_name': new_category.category_name
@@ -148,7 +148,7 @@ class CategoryViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response({
                 'success': False,
-                'message': f'Đã xảy ra lỗi khi tạo danh mục: {str(e)}'
+                'message': f'An error occurred while creating category: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # ===================== UPDATE  =====================
@@ -156,7 +156,7 @@ class CategoryViewSet(viewsets.ViewSet):
         request=UpdateCategorySerializer,
         responses={
             200: OpenApiResponse(
-                description="Cập nhật danh mục thành công"
+                description="Category updated successfully"
             )
         }
     )
@@ -166,7 +166,7 @@ class CategoryViewSet(viewsets.ViewSet):
             category = Categories.objects.get(category_id=category_id, user=request.user)
         except Categories.DoesNotExist:
             return Response({
-                'success': False, 'message': 'Danh mục không tồn tại'
+                'success': False, 'message': 'Category not found'
             }, status=status.HTTP_404_NOT_FOUND)
 
         serializer = UpdateCategorySerializer(
@@ -177,7 +177,7 @@ class CategoryViewSet(viewsets.ViewSet):
         if not serializer.is_valid():
             return Response({
                 'success': False,
-                'message': 'Dữ liệu không hợp lệ',
+                'message': 'Invalid data',
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -189,7 +189,7 @@ class CategoryViewSet(viewsets.ViewSet):
             )
             return Response({
                 'success': True,
-                'message': 'Cập nhật danh mục thành công',
+                'message': 'Category updated successfully',
                 'data': {
                     'category_id': updated_cat.category_id,
                     'category_name': updated_cat.category_name
@@ -198,7 +198,7 @@ class CategoryViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response({
                 'success': False,
-                'message': 'Đã xảy ra lỗi khi cập nhật danh mục'
+                'message': 'An error occurred while updating category'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # ===================== DELETE CATEGORY =====================
@@ -207,7 +207,7 @@ class CategoryViewSet(viewsets.ViewSet):
         request=DeleteCategorySerializer,
         responses={
             200: OpenApiResponse(
-                description="Xoá danh mục thành công"
+                description="Category deleted successfully"
             )
         }
     )
@@ -216,7 +216,7 @@ class CategoryViewSet(viewsets.ViewSet):
             category = Categories.objects.get(category_id=category_id, user=request.user)
         except Categories.DoesNotExist:
             return Response({
-                'success': False, 'message': 'Danh mục không tồn tại'
+                'success': False, 'message': 'Category not found'
             }, status=status.HTTP_404_NOT_FOUND)
 
         serializer = DeleteCategorySerializer(
@@ -226,13 +226,13 @@ class CategoryViewSet(viewsets.ViewSet):
 
         if not serializer.is_valid():
             return Response({
-                'success': False, 'message': 'Không thể xóa', 'errors': serializer.errors
+                'success': False, 'message': 'Cannot delete', 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             result = CategoryService.delete_category(category, serializer.validated_data, request.user)
-            return Response({'success': True, 'message': 'Xóa danh mục thành công', 'data': result}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'message': 'Category deleted successfully', 'data': result}, status=status.HTTP_200_OK)
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({'success': False, 'message': 'Lỗi server khi xóa danh mục'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'success': False, 'message': 'Server error while deleting category'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

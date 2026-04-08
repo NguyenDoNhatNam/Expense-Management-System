@@ -2,17 +2,17 @@ USE master;
 GO
 IF EXISTS (SELECT * FROM sys.databases WHERE name = 'ExpenseManagementDB')
 BEGIN
-    -- set database to single user mode để drop nó --
+    -- set database to single user mode to drop it --
     ALTER DATABASE ExpenseManagementDB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
     DROP DATABASE ExpenseManagementDB;
 END
 GO
 
--- Tạo database expensemanagement --
+-- Create database expensemanagement --
 CREATE DATABASE ExpenseManagementDB;
 GO
 
---- Kiểm tra xem database đã được tạo chưa ---
+--- Check if database has been created ---
 USE ExpenseManagementDB;
 GO
 
@@ -69,10 +69,10 @@ DROP TABLE users;
 GO
 
 
---- Tạo bảng ----
+--- Create tables ----
 
 
---- Tạo bảng User ( đăng nhập ) ---
+--- Create User table (login) ---
 
 CREATE TABLE users(
     user_id VARCHAR(50) NOT NULL ,
@@ -90,7 +90,7 @@ CREATE TABLE users(
 )
 GO
 
---- Tạo bảng account ( tài khoản ) , quản lý các ví / tài khoản tài chính của ngừoi dùng ----
+--- Create account table, manage wallets/financial accounts of users ----
 CREATE TABLE accounts(
     account_id VARCHAR(50) NOT NULL ,
     user_id VARCHAR(50) NOT NULL ,
@@ -110,7 +110,7 @@ CREATE TABLE accounts(
 )
 GO
 
---- Tạo bảng categories(danh mục thu chi ) ----
+--- Create categories table (income/expense categories) ----
 CREATE TABLE categories(
     category_id VARCHAR(50) NOT NULL ,
     user_id VARCHAR(50) NOT NULL ,
@@ -128,7 +128,7 @@ CREATE TABLE categories(
 )
 GO
 
---- Tạo bảng budgets : ngân sách ---
+--- Create budgets table ---
 CREATE TABLE budgets(
     budget_id VARCHAR(100) NOT NULL ,
     user_id VARCHAR(50) NOT NULL ,
@@ -149,7 +149,7 @@ CREATE TABLE budgets(
 )
 GO
 
---- Tạo bảng recurring transactions ( giao dịch định kì ) -----
+--- Create recurring transactions table -----
 CREATE TABLE recurring_transactions(
     recurring_id VARCHAR(100) NOT NULL ,
     user_id VARCHAR(50) NOT NULL ,
@@ -173,7 +173,7 @@ CREATE TABLE recurring_transactions(
 )
 GO
 
---- Tạo bảng transaction ( lưu trữ lịch sử giao dịch )
+--- Create transaction table (store transaction history)
 CREATE TABLE transactions(
     transaction_id VARCHAR(100) NOT NULL ,
     user_id VARCHAR(50) NOT NULL ,
@@ -199,7 +199,7 @@ CREATE TABLE transactions(
 GO
 
 
---- TẠO BẢNG TRANSFER ( chuyển khoản giữa các tài khoản ) ----
+--- CREATE TRANSFER TABLE (transfers between accounts) ----
 CREATE TABLE transfers(
     transfer_id VARCHAR(100) NOT NULL ,
     user_id VARCHAR(50) NOT NULL ,
@@ -218,7 +218,7 @@ CREATE TABLE transfers(
 GO
 
 
------ TẠO BẢNG DEBTS ( QUẢN LÝ KHOẢN NỢ) QUẢN LÝ CÁC KHOẢN NỢ ( VAY HOẶC CHO VAY ) -----
+----- CREATE DEBTS TABLE (DEBT MANAGEMENT) MANAGE DEBTS (LENDING OR BORROWING) -----
 CREATE TABLE debts(
     debt_id VARCHAR(100) NOT NULL ,
     user_id VARCHAR(50) NOT NULL ,
@@ -240,7 +240,7 @@ CREATE TABLE debts(
 )
 GO
 
----- tạo bảng debt_payment ( lịch sử thanh toán khoản nợ ) ----
+---- Create debt_payment table (debt payment history) ----
 CREATE TABLE debt_payment(
     payment_id VARCHAR(100) NOT NULL ,
     debt_id VARCHAR(100) NOT NULL ,
@@ -254,7 +254,7 @@ CREATE TABLE debt_payment(
 GO
 
 
----  TẠO BẢNG SAVING GOALS ( MỤC TIÊU TIẾT KIỆM ) ----
+---  CREATE SAVINGS GOALS TABLE ----
 CREATE TABLE savings_goals(
     goal_id VARCHAR(100) NOT NULL ,
     user_id VARCHAR(50) NOT NULL ,
@@ -274,7 +274,7 @@ CREATE TABLE savings_goals(
 )
 GO
 
---- Tạo bảng notification ----
+--- Create notification table ----
 CREATE TABLE notification(
     notification_id VARCHAR(100) NOT NULL ,
     user_id VARCHAR(50) NOT NULL ,
@@ -289,7 +289,7 @@ CREATE TABLE notification(
 )
 GO
 
---- Tạo bảng user_setting ( cai dat nguoi dung ) ----
+--- Create user_setting table (user settings) ----
 CREATE TABLE user_setting (
     setting_id VARCHAR(50) NOT NULL ,
     user_id VARCHAR(50) NOT NULL ,
@@ -322,7 +322,7 @@ CREATE TABLE shared_access
 )
 GO
 
----- TẠO INDEXES -----
+---- CREATE INDEXES -----
 
 CREATE NONCLUSTERED INDEX ix_user_email
 ON users(email);
@@ -341,7 +341,7 @@ CREATE NONCLUSTERED INDEX ix_categories_user_id_type
 ON categories(user_id , category_type);
 GO
 
---- Tạo index cho transaction ---
+--- Create index for transaction ---
 
 CREATE NONCLUSTERED INDEX ix_transaction_user_id_date
 ON transactions(user_id , transaction_date DESC)
@@ -363,7 +363,7 @@ ON transactions(transaction_type , transaction_date DESC)
 INCLUDE (user_id, amount , account_id, category_id);
 GO
 
--- Filtered index nếu muốn tối ưu hơn
+-- Filtered index for further optimization
 CREATE NONCLUSTERED INDEX IX_transactions_type_date_user_filtered
 ON transactions(transaction_type, transaction_date DESC)
 INCLUDE (user_id, amount, account_id, category_id)

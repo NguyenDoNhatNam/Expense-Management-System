@@ -39,7 +39,7 @@ class RecurringViewSet(viewsets.ViewSet):
             record = RecurringService.create_recurring(serializer.validated_data, request.user)
             return Response({'success': True, 'data': {'recurring_id': record.recurring_id}}, status=status.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'success': False, 'message': 'Lỗi server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'success': False, 'message': 'Server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @extend_schema(request=UpdateRecurringSerializer)
     @action(detail=False, methods=['put', 'patch'], url_path='update/(?P<recurring_id>[^/.]+)')
@@ -49,12 +49,12 @@ class RecurringViewSet(viewsets.ViewSet):
             serializer = UpdateRecurringSerializer(data=request.data)
             if serializer.is_valid():
                 RecurringService.update_recurring(recurring_obj, serializer.validated_data, request.user)
-                return Response({'success': True, 'message': 'Cập nhật thành công'})
+                return Response({'success': True, 'message': 'Updated successfully'})
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         except RecurringTransactions.DoesNotExist:
-            return Response({'success': False, 'message': 'Không tìm thấy'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'success': False, 'message': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
             
     @action(detail=False, methods=['delete'], url_path='delete/(?P<recurring_id>[^/.]+)')
     def delete_recurring(self, request, recurring_id=None):
         RecurringService.delete_recurring(recurring_id, request.user)
-        return Response({'success': True, 'message': 'Xóa thành công'})
+        return Response({'success': True, 'message': 'Deleted successfully'})

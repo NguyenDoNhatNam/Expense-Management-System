@@ -1,7 +1,7 @@
 """
-Export Service - Xử lý xuất dữ liệu ra nhiều định dạng
-Hỗ trợ: CSV, Excel (XLSX), PDF
-Tích hợp Celery cho export lớn
+Export Service - Handle exporting data to multiple formats
+Supports: CSV, Excel (XLSX), PDF
+Integrated with Celery for large exports
 """
 import os
 import io
@@ -29,54 +29,54 @@ logger = logging.getLogger(__name__)
 
 class ExportService:
     """
-    Service xử lý xuất dữ liệu với các tính năng:
+    Service for handling data export with features:
     - Export CSV/Excel/PDF
-    - Hỗ trợ nhiều loại dữ liệu (transactions, accounts, budgets, etc.)
-    - Tự động gom file và cleanup
-    - Tích hợp async với Celery
+    - Supports multiple data types (transactions, accounts, budgets, etc.)
+    - Automatic file aggregation and cleanup
+    - Integrated async with Celery
     """
     
-    # Cấu hình export
+    # Export configuration
     EXPORT_DIR = os.path.join(settings.MEDIA_ROOT, 'exports')
-    MAX_SYNC_ROWS = 1000  # Giới hạn rows cho sync export, vượt quá thì chuyển async
-    FILE_EXPIRY_HOURS = 24  # File export hết hạn sau 24h
+    MAX_SYNC_ROWS = 1000  # Row limit for sync export, exceeding triggers async
+    FILE_EXPIRY_HOURS = 24  # Export file expires after 24h
     
-    # Mapping các loại dữ liệu có thể export
+    # Mapping of exportable data types
     EXPORTABLE_TYPES = {
         'transactions': {
-            'title': 'Giao dịch',
+            'title': 'Transactions',
             'fields': ['transaction_id', 'account_name', 'category_name', 'amount', 
                       'transaction_type', 'transaction_date', 'description', 'note', 'location'],
-            'headers': ['Mã GD', 'Tài khoản', 'Danh mục', 'Số tiền', 
-                       'Loại', 'Ngày GD', 'Mô tả', 'Ghi chú', 'Địa điểm'],
+            'headers': ['Trans ID', 'Account', 'Category', 'Amount', 
+                       'Type', 'Trans Date', 'Description', 'Note', 'Location'],
         },
         'accounts': {
-            'title': 'Tài khoản',
+            'title': 'Accounts',
             'fields': ['account_id', 'account_name', 'account_type', 'balance', 
                       'currency', 'bank_name', 'account_number'],
-            'headers': ['Mã TK', 'Tên TK', 'Loại TK', 'Số dư', 
-                       'Tiền tệ', 'Ngân hàng', 'Số tài khoản'],
+            'headers': ['Acct ID', 'Acct Name', 'Acct Type', 'Balance', 
+                       'Currency', 'Bank', 'Account Number'],
         },
         'budgets': {
-            'title': 'Ngân sách',
+            'title': 'Budgets',
             'fields': ['budget_id', 'budget_name', 'category_name', 'amount', 
                       'period', 'start_date', 'end_date', 'spent_amount'],
-            'headers': ['Mã NS', 'Tên ngân sách', 'Danh mục', 'Hạn mức', 
-                       'Chu kỳ', 'Ngày bắt đầu', 'Ngày kết thúc', 'Đã chi'],
+            'headers': ['Budget ID', 'Budget Name', 'Category', 'Limit', 
+                       'Period', 'Start Date', 'End Date', 'Spent'],
         },
         'debts': {
-            'title': 'Khoản nợ',
+            'title': 'Debts',
             'fields': ['debt_id', 'debt_type', 'person_name', 'amount', 
                       'remaining_amount', 'interest_rate', 'start_date', 'due_date', 'status'],
-            'headers': ['Mã nợ', 'Loại nợ', 'Người liên quan', 'Số tiền', 
-                       'Còn lại', 'Lãi suất (%)', 'Ngày bắt đầu', 'Ngày đáo hạn', 'Trạng thái'],
+            'headers': ['Debt ID', 'Debt Type', 'Related Person', 'Amount', 
+                       'Remaining', 'Interest Rate (%)', 'Start Date', 'Due Date', 'Status'],
         },
         'savings': {
-            'title': 'Mục tiêu tiết kiệm',
+            'title': 'Savings Goals',
             'fields': ['goal_id', 'goal_name', 'target_amount', 'current_amount', 
                       'target_date', 'priority', 'status'],
-            'headers': ['Mã', 'Tên mục tiêu', 'Mục tiêu', 'Hiện tại', 
-                       'Ngày đích', 'Ưu tiên', 'Trạng thái'],
+            'headers': ['ID', 'Goal Name', 'Target', 'Current', 
+                       'Target Date', 'Priority', 'Status'],
         },
     }
 
@@ -85,11 +85,11 @@ class ExportService:
     @classmethod
     def prepare_export_data(cls, data_type: str, queryset: QuerySet) -> Tuple[List[Dict], List[str], List[str]]:
         """
-        Chuẩn bị dữ liệu cho export từ queryset.
+        Prepare data for export from queryset.
         Returns: (data_list, fields, headers)
         """
         if data_type not in cls.EXPORTABLE_TYPES:
-            raise ValueError(f"Loại dữ liệu '{data_type}' không được hỗ trợ export")
+            raise ValueError(f"Data type '{data_type}' is not supported for export")
         
         config = cls.EXPORTABLE_TYPES[data_type]
         fields = config['fields']
@@ -101,19 +101,19 @@ class ExportService:
             for field in fields:
                 value = None
                 
-                # Xử lý các related fields đặc biệt
+                # Handle special related fields
                 if field == 'account_name':
                     value = obj.account.account_name if hasattr(obj, 'account') and obj.account else ''
                 elif field == 'category_name':
                     value = obj.category.category_name if hasattr(obj, 'category') and obj.category else ''
                 elif field == 'spent_amount' and hasattr(obj, 'spent_amount'):
-                    # Cho budgets với annotation
+                    # For budgets with annotation
                     value = float(obj.spent_amount) if obj.spent_amount else 0
                 else:
-                    # Lấy trực tiếp từ object
+                    # Get directly from object
                     value = getattr(obj, field, '')
                 
-                # Chuyển đổi kiểu dữ liệu
+                # Convert data types
                 if isinstance(value, Decimal):
                     value = float(value)
                 elif isinstance(value, datetime):
@@ -129,24 +129,24 @@ class ExportService:
     @classmethod
     def export_to_csv(cls, data_type: str, queryset: QuerySet, user) -> str:
         """
-        Export dữ liệu sang CSV.
-        Returns: Đường dẫn file CSV đã tạo
+        Export data to CSV.
+        Returns: Path to created CSV file
         """
         data_list, fields, headers = cls.prepare_export_data(data_type, queryset)
         
-        # Tạo thư mục export nếu chưa có
+        # Create export directory if not exists
         user_export_dir = os.path.join(cls.EXPORT_DIR, str(user.user_id))
         os.makedirs(user_export_dir, exist_ok=True)
         
-        # Tạo tên file unique
+        # Create unique filename
         timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{data_type}_{timestamp}.csv"
         filepath = os.path.join(user_export_dir, filename)
         
-        # Ghi CSV với UTF-8 BOM để Excel đọc đúng tiếng Việt
+        # Write CSV with UTF-8 BOM so Excel reads Vietnamese correctly
         with open(filepath, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.DictWriter(f, fieldnames=fields)
-            # Ghi header dạng đẹp
+            # Write formatted headers
             header_dict = dict(zip(fields, headers))
             writer.writerow(header_dict)
             writer.writerows(data_list)
@@ -157,13 +157,13 @@ class ExportService:
     @classmethod
     def export_to_excel(cls, data_type: str, queryset: QuerySet, user) -> str:
         """
-        Export dữ liệu sang Excel với format đẹp.
-        Returns: Đường dẫn file Excel đã tạo
+        Export data to Excel with formatting.
+        Returns: Path to created Excel file
         """
         data_list, fields, headers = cls.prepare_export_data(data_type, queryset)
         config = cls.EXPORTABLE_TYPES[data_type]
         
-        # Tạo thư mục
+        # Create directory
         user_export_dir = os.path.join(cls.EXPORT_DIR, str(user.user_id))
         os.makedirs(user_export_dir, exist_ok=True)
         
@@ -171,7 +171,7 @@ class ExportService:
         filename = f"{data_type}_{timestamp}.xlsx"
         filepath = os.path.join(user_export_dir, filename)
         
-        # Tạo workbook và worksheet
+        # Create workbook and worksheet
         wb = Workbook()
         ws = wb.active
         ws.title = config['title']
@@ -187,7 +187,7 @@ class ExportService:
             bottom=Side(style='thin')
         )
         
-        # Ghi tiêu đề báo cáo
+        # Write report title
         ws.merge_cells('A1:' + chr(64 + len(headers)) + '1')
         title_cell = ws['A1']
         title_cell.value = f"BÁO CÁO {config['title'].upper()}"
@@ -196,7 +196,7 @@ class ExportService:
         
         ws.merge_cells('A2:' + chr(64 + len(headers)) + '2')
         date_cell = ws['A2']
-        date_cell.value = f"Xuất ngày: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
+        date_cell.value = f"Exported on: {timezone.now().strftime('%d/%m/%Y %H:%M')}"
         date_cell.alignment = Alignment(horizontal='center')
         
         # Ghi headers
@@ -214,7 +214,7 @@ class ExportService:
                 cell.border = thin_border
                 cell.alignment = Alignment(vertical='center')
                 
-                # Format số tiền
+                # Format amounts
                 if 'amount' in field or 'balance' in field:
                     cell.number_format = '#,##0.00'
                     cell.alignment = Alignment(horizontal='right', vertical='center')
@@ -239,18 +239,18 @@ class ExportService:
     @classmethod
     def export_to_pdf(cls, data_type: str, queryset: QuerySet, user) -> str:
         """
-        Export dữ liệu sang PDF sử dụng WeasyPrint.
-        Returns: Đường dẫn file PDF đã tạo
+        Export data to PDF using WeasyPrint.
+        Returns: Path to created PDF file
         """
         try:
             from weasyprint import HTML, CSS
         except ImportError:
-            raise ImportError("WeasyPrint chưa được cài đặt. Chạy: pip install weasyprint")
+            raise ImportError("WeasyPrint is not installed. Run: pip install weasyprint")
         
         data_list, fields, headers = cls.prepare_export_data(data_type, queryset)
         config = cls.EXPORTABLE_TYPES[data_type]
         
-        # Tạo thư mục
+        # Create directory
         user_export_dir = os.path.join(cls.EXPORT_DIR, str(user.user_id))
         os.makedirs(user_export_dir, exist_ok=True)
         
@@ -258,7 +258,7 @@ class ExportService:
         filename = f"{data_type}_{timestamp}.pdf"
         filepath = os.path.join(user_export_dir, filename)
         
-        # Tạo HTML content
+        # Create HTML content
         html_content = cls._generate_pdf_html(config['title'], headers, fields, data_list, user)
         
         # CSS cho PDF
@@ -312,7 +312,7 @@ class ExportService:
             }
         ''')
         
-        # Tạo PDF
+        # Create PDF
         HTML(string=html_content).write_pdf(filepath, stylesheets=[css])
         logger.info(f"[EXPORT] PDF exported: {filepath} ({len(data_list)} rows)")
         return filepath
@@ -320,7 +320,7 @@ class ExportService:
     @classmethod
     def _generate_pdf_html(cls, title: str, headers: List[str], fields: List[str], 
                            data_list: List[Dict], user) -> str:
-        """Tạo HTML template cho PDF"""
+        """Generate HTML template for PDF"""
         rows_html = ""
         for row in data_list:
             row_html = "<tr>"
@@ -340,12 +340,12 @@ class ExportService:
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>Báo cáo {title}</title>
+            <title>Report {title}</title>
         </head>
         <body>
             <h1>BÁO CÁO {title.upper()}</h1>
             <div class="meta">
-                Người dùng: {user.full_name} | Xuất ngày: {timezone.now().strftime('%d/%m/%Y %H:%M')}
+                User: {user.full_name} | Exported on: {timezone.now().strftime('%d/%m/%Y %H:%M')}
             </div>
             <table>
                 <thead>
@@ -356,7 +356,7 @@ class ExportService:
                 </tbody>
             </table>
             <div class="footer">
-                Được tạo tự động bởi Expense Management System | Tổng: {len(data_list)} bản ghi
+                Auto-generated by Expense Management System | Total: {len(data_list)} records
             </div>
         </body>
         </html>
@@ -367,15 +367,15 @@ class ExportService:
     
     @classmethod
     def get_export_file_url(cls, filepath: str) -> str:
-        """Chuyển đường dẫn file thành URL download"""
+        """Convert file path to download URL"""
         relative_path = os.path.relpath(filepath, settings.MEDIA_ROOT)
         return f"{settings.MEDIA_URL}{relative_path}"
     
     @classmethod
     def cleanup_old_exports(cls, hours: int = None):
         """
-        Xóa các file export cũ hơn thời gian quy định.
-        Được gọi bởi Celery beat định kỳ.
+        Delete export files older than the specified time.
+        Called by Celery beat periodically.
         """
         hours = hours or cls.FILE_EXPIRY_HOURS
         cutoff_time = timezone.now() - timezone.timedelta(hours=hours)
@@ -403,12 +403,12 @@ class ExportService:
 
     @classmethod
     def should_use_async(cls, queryset: QuerySet) -> bool:
-        """Kiểm tra xem có nên dùng async export không"""
+        """Check whether async export should be used"""
         return queryset.count() > cls.MAX_SYNC_ROWS
 
     @classmethod
     def list_user_exports(cls, user, limit: int = 20) -> List[Dict]:
-        """Liệt kê các file export gần đây của user"""
+        """List recent export files for a user"""
         user_export_dir = os.path.join(cls.EXPORT_DIR, str(user.user_id))
         
         if not os.path.exists(user_export_dir):
@@ -426,13 +426,13 @@ class ExportService:
                 'created_at': datetime.fromtimestamp(stat.st_mtime).isoformat(),
             })
         
-        # Sắp xếp theo thời gian mới nhất
+        # Sort by newest first
         exports.sort(key=lambda x: x['created_at'], reverse=True)
         return exports[:limit]
 
     @staticmethod
     def _format_file_size(size: int) -> str:
-        """Format file size sang dạng đọc được"""
+        """Format file size to human-readable format"""
         for unit in ['B', 'KB', 'MB', 'GB']:
             if size < 1024:
                 return f"{size:.1f} {unit}"

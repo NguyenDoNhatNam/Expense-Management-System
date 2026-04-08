@@ -31,7 +31,7 @@ class TransactionViewset(viewsets.ViewSet):
     # ===================== LIST =====================
     @extend_schema(
         responses=TransactionListSerializer(many=True),
-        description="Lấy danh sách giao dịch của người dùng với các bộ lọc tùy chọn."
+        description="Get user's transaction list with optional filters."
     )
     @action(detail=False, methods=['get'], url_path='list')
     def list_transactions(self, request, *args, **kwargs):
@@ -79,13 +79,13 @@ class TransactionViewset(viewsets.ViewSet):
             queryset = queryset.order_by(sort_mapping[sort_by])
 
         serializer = TransactionListSerializer(queryset, many=True)
-        return Response({'success': True, 'message': 'Lấy danh sách giao dịch thành công.', 'data': serializer.data,}, status=status.HTTP_200_OK)
+        return Response({'success': True, 'message': 'Transaction list retrieved successfully.', 'data': serializer.data,}, status=status.HTTP_200_OK)
     # ===================== CREATE =====================
     @extend_schema(
         request=CreateTransactionSerializer,
         responses={
             200: OpenApiResponse(
-                description="Lấy danh sách ngân sách "
+                description="Budget list "
             )
         }
     )
@@ -98,7 +98,7 @@ class TransactionViewset(viewsets.ViewSet):
         if not serializer.is_valid():
             return Response({
                 'success': False,
-                'message': 'Dữ liệu không hợp lệ',
+                'message': 'Invalid data',
                 'errors': serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -109,7 +109,7 @@ class TransactionViewset(viewsets.ViewSet):
             return Response(
                 {
                     'success': True,
-                    'message': 'Tạo giao dịch thành công',
+                    'message': 'Transaction created successfully',
                     'data': result,
                 },
                 status=status.HTTP_201_CREATED,
@@ -122,7 +122,7 @@ class TransactionViewset(viewsets.ViewSet):
         except Exception as e:
             logger.error(f'Error creating transaction: {str(e)}', exc_info=True)
             return Response(
-                {'success': False, 'message': 'Đã xảy ra lỗi khi tạo giao dịch'},
+                {'success': False, 'message': 'An error occurred while creating transaction'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -131,7 +131,7 @@ class TransactionViewset(viewsets.ViewSet):
         request=UpdateTransactionSerializer,
         responses={
             200: OpenApiResponse(
-                description="Lấy danh sách ngân sách "
+                description="Budget list "
             )
         }
     )
@@ -140,7 +140,7 @@ class TransactionViewset(viewsets.ViewSet):
         """
         PUT/PATCH /api/transactions/update/{transaction_id}/
         """
-        # 1. Lấy giao dịch cũ để truyền vào context
+        # 1. Get old transaction to pass into context
         try:
             old_transaction = Transactions.objects.get(
                 transaction_id=transaction_id,
@@ -149,11 +149,11 @@ class TransactionViewset(viewsets.ViewSet):
             )
         except Transactions.DoesNotExist:
             return Response(
-                {'success': False, 'message': 'Giao dịch không tồn tại hoặc đã bị xóa'},
+                {'success': False, 'message': 'Transaction not found or has been deleted'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # 2. Validate dữ liệu mới
+        # 2. Validate new data
         serializer = UpdateTransactionSerializer(
             data=request.data,
             context={
@@ -164,11 +164,11 @@ class TransactionViewset(viewsets.ViewSet):
         if not serializer.is_valid():
             return Response({
                 'success': False,
-                'message': 'Dữ liệu không hợp lệ',
+                'message': 'Invalid data',
                 'errors': serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # 3. Thực hiện update
+        # 3. Perform update
         try:
             result = TransactionService.update_transaction(
                 transaction_id=transaction_id,
@@ -178,7 +178,7 @@ class TransactionViewset(viewsets.ViewSet):
             return Response(
                 {
                     'success': True,
-                    'message': 'Cập nhật giao dịch thành công',
+                    'message': 'Transaction updated successfully',
                     'data': result,
                 },
                 status=status.HTTP_200_OK,
@@ -191,7 +191,7 @@ class TransactionViewset(viewsets.ViewSet):
         except Exception as e:
             logger.error(f'Error updating transaction: {str(e)}', exc_info=True)
             return Response(
-                {'success': False, 'message': 'Đã xảy ra lỗi khi cập nhật giao dịch'},
+                {'success': False, 'message': 'An error occurred while updating transaction'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -200,7 +200,7 @@ class TransactionViewset(viewsets.ViewSet):
         request=DeleteTransactionSerializer,
         responses={
             200: OpenApiResponse(
-                description="Lấy danh sách ngân sách "
+                description="Budget list "
             )
         }
     )
@@ -208,9 +208,9 @@ class TransactionViewset(viewsets.ViewSet):
     def delete_transaction(self, request, transaction_id=None, *args, **kwargs):
         """
         DELETE /api/transactions/delete/{transaction_id}/
-        Query params: ?hard_delete=true (optional, mặc định soft delete)
+        Query params: ?hard_delete=true (optional, default soft delete)
         """
-        # 1. Lấy giao dịch
+        # 1. Get transaction
         try:
             transaction_obj = Transactions.objects.get(
                 transaction_id=transaction_id,
@@ -219,11 +219,11 @@ class TransactionViewset(viewsets.ViewSet):
             )
         except Transactions.DoesNotExist:
             return Response(
-                {'success': False, 'message': 'Giao dịch không tồn tại hoặc đã bị xóa'},
+                {'success': False, 'message': 'Transaction not found or has been deleted'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # 2. Validate (kiểm tra giới hạn 30 ngày, ...)
+        # 2. Validate (check 30-day limit, ...)
         serializer = DeleteTransactionSerializer(
             data={
                 'hard_delete': request.query_params.get('hard_delete', 'false').lower() == 'true',
@@ -236,11 +236,11 @@ class TransactionViewset(viewsets.ViewSet):
         if not serializer.is_valid():
             return Response({
                 'success': False,
-                'message': 'Không thể xóa giao dịch',
+                'message': 'Cannot delete transaction',
                 'errors': serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # 3. Thực hiện xóa
+        # 3. Perform delete
         try:
             hard_delete = serializer.validated_data.get('hard_delete', False)
             result = TransactionService.delete_transaction(
@@ -251,7 +251,7 @@ class TransactionViewset(viewsets.ViewSet):
             return Response(
                 {
                     'success': True,
-                    'message': 'Xóa giao dịch thành công',
+                    'message': 'Transaction deleted successfully',
                     'data': result,
                 },
                 status=status.HTTP_200_OK,
@@ -264,7 +264,7 @@ class TransactionViewset(viewsets.ViewSet):
         except Exception as e:
             logger.error(f'Error deleting transaction: {str(e)}', exc_info=True)
             return Response(
-                {'success': False, 'message': 'Đã xảy ra lỗi khi xóa giao dịch'},
+                {'success': False, 'message': 'An error occurred while deleting transaction'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -272,7 +272,7 @@ class TransactionViewset(viewsets.ViewSet):
     @extend_schema(
         responses={
             200: OpenApiResponse(
-                description="Lấy danh sách ngân sách "
+                description="Budget list "
             )
         }
     )
@@ -280,7 +280,7 @@ class TransactionViewset(viewsets.ViewSet):
     def restore_transaction(self, request, transaction_id=None, *args, **kwargs):
         """
         POST /api/transactions/restore/{transaction_id}/
-        Khôi phục giao dịch đã soft delete.
+        Restore a soft-deleted transaction.
         """
         try:
             transaction_obj = Transactions.objects.get(
@@ -290,7 +290,7 @@ class TransactionViewset(viewsets.ViewSet):
             )
         except Transactions.DoesNotExist:
             return Response(
-                {'success': False, 'message': 'Không tìm thấy giao dịch đã xóa'},
+                {'success': False, 'message': 'Deleted transaction not found'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -302,7 +302,7 @@ class TransactionViewset(viewsets.ViewSet):
             return Response(
                 {
                     'success': True,
-                    'message': 'Khôi phục giao dịch thành công',
+                    'message': 'Transaction restored successfully',
                     'data': result,
                 },
                 status=status.HTTP_200_OK,
@@ -315,6 +315,6 @@ class TransactionViewset(viewsets.ViewSet):
         except Exception as e:
             logger.error(f'Error restoring transaction: {str(e)}', exc_info=True)
             return Response(
-                {'success': False, 'message': 'Đã xảy ra lỗi khi khôi phục giao dịch'},
+                {'success': False, 'message': 'An error occurred while restoring the transaction'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

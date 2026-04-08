@@ -2,7 +2,7 @@ from django.utils import timezone
 import secrets
 import string
 from datetime import timedelta
-from api.tasks import send_otp_email
+from api.tasks import send_otp_email, send_otp_sms
 from api.models import OtpCodes, Users
 from django.db import transaction as db_transaction
 
@@ -14,7 +14,7 @@ class OTPService:
         otp = ''.join(secrets.choice(digits) for _ in range(length))
         return otp
     
-    """Tạo OTP"""
+    """Create OTP"""
     @staticmethod
     def create_otp(user_id, otp_type, expiry_minutes=10):
         now = timezone.now()
@@ -57,14 +57,14 @@ class OTPService:
             return True
     
     """
-    * Note : Có thẻ sử dụng Celery để chạy định kỳ 
-    Xoá các OTP hết hạn """
+    * Note: Can use Celery to run periodically
+    Delete expired OTPs """
     @staticmethod
     def cleanup_expired_otp():
         OtpCodes.objects.filter(expires_at__lt=timezone.now()).delete()
 
 
-    """Gửi mã OTP qua email để kích hoạt tài khoản """
+    """Send OTP via email for account activation """
     @staticmethod
     def send_activation_otp(user):
         otp = OTPService.create_otp(user.user_id, 'activation', expiry_minutes=10)        
@@ -77,7 +77,7 @@ class OTPService:
         print(f"OTP for activation: {otp}")  
         return otp
 
-    """Gửi mã OTP qua email để đặt lại mật khẩu """
+    """Send OTP via email for password reset """
     @staticmethod
     def send_reset_password_otp(user):
         otp = OTPService.create_otp(user.user_id, 'reset_password', expiry_minutes=10)
@@ -89,4 +89,28 @@ class OTPService:
             otp_type='reset_password'
         )
         
+        return otp
+
+    """Send OTP via SMS for account activation """
+    @staticmethod
+    def send_activation_sms_otp(user):
+        if not user.phone:
+            raise ValueError('User does not have a phone number')
+        otp = OTPService.create_otp(user.user_id, 'activation', expiry_minutes=10)
+
+        # Normalize Vietnamese phone number to E.164 format
+        phone = user.phone
+        if phone.startswith('0'):
+            phone = '+84' + phone[1:]
+        elif phone.startswith('0084'):
+            phone = '+' + phone[2:]
+        elif not phone.startswith('+'):
+            phone = '+84' + phone
+
+        send_otp_sms.delay(
+            phone_number=phone,
+            otp_code=otp,
+            otp_type='activation'
+        )
+        print(f"OTP for SMS activation: {otp}")
         return otp

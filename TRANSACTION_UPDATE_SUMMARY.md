@@ -1,29 +1,29 @@
 # Transaction Page Update - Summary
 
 ## Overview
-Hoàn thành cập nhật trang giao dịch (Transactions) để tích hợp API từ backend, cho phép fetch dữ liệu thực từ server thay vì dữ liệu giả.
+Completed the transaction page (Transactions) update to integrate API from backend, allowing fetching real data from server instead of mock data.
 
-## Các Thay Đổi Chính
+## Key Changes
 
 ### 1. Backend - API Endpoint
 
 #### File: `Backend/api/views/transaction_view.py`
-- **Thêm**: Phương thức `list()` để lấy danh sách giao dịch
+- **Added**: `list()` method to get transaction list
 - **Endpoint**: `GET /api/transactions/`
 - **Query Parameters**:
-  - `page` (int): Số trang (mặc định: 1)
-  - `page_size` (int): Số giao dịch trên mỗi trang (mặc định: 10)
-  - `start_date` (string): Lọc từ ngày
-  - `end_date` (string): Lọc đến ngày
-  - `type` (string): Loại giao dịch (income, expense, transfer)
-  - `category_id` (string): ID danh mục
-  - `account_id` (string): ID tài khoản
-  - `search` (string): Tìm kiếm theo description, note, hoặc location
+  - `page` (int): Page number (default: 1)
+  - `page_size` (int): Transactions per page (default: 10)
+  - `start_date` (string): Filter from date
+  - `end_date` (string): Filter to date
+  - `type` (string): Transaction type (income, expense, transfer)
+  - `category_id` (string): Category ID
+  - `account_id` (string): Account ID
+  - `search` (string): Search by description, note, or location
 - **Response**:
   ```json
   {
     "success": true,
-    "message": "Lấy danh sách giao dịch thành công",
+    "message": "Transactions retrieved successfully",
     "data": {
       "transactions": [...],
       "pagination": {
@@ -39,158 +39,158 @@ Hoàn thành cập nhật trang giao dịch (Transactions) để tích hợp API
   ```
 
 #### File: `Backend/api/serializers/transaction_serializer.py`
-- **Thêm**: Lớp `TransactionListSerializer` để serialize danh sách giao dịch
-- **Trả về các trường**: transaction_id, amount, transaction_type, transaction_date, description, note, location, receipt_image_url, is_recurring, recurring_id, account_name, account_currency, category_name, category_icon, category_color, category_type
+- **Added**: `TransactionListSerializer` class for serializing transaction list
+- **Returns fields**: transaction_id, amount, transaction_type, transaction_date, description, note, location, receipt_image_url, is_recurring, recurring_id, account_name, account_currency, category_name, category_icon, category_color, category_type
 
 ### 2. Frontend - API Client
 
-#### File: `my-expense-app/lib/api/transactions.ts` (FILE MỚI)
+#### File: `my-expense-app/lib/api/transactions.ts` (NEW FILE)
 - **Interfaces**:
-  - `TransactionData`: Cấu trúc dữ liệu giao dịch từ backend
-  - `TransactionListResponse`: Response từ endpoint list
-  - `CreateTransactionPayload`: Dữ liệu để tạo giao dịch
-  - `UpdateTransactionPayload`: Dữ liệu để cập nhật giao dịch
+  - `TransactionData`: Transaction data structure from backend
+  - `TransactionListResponse`: Response from list endpoint
+  - `CreateTransactionPayload`: Data for creating transaction
+  - `UpdateTransactionPayload`: Data for updating transaction
 
-- **Hàm API**:
-  - `getTransactionsApi()`: Lấy danh sách giao dịch
-  - `createTransactionApi()`: Tạo giao dịch mới
-  - `updateTransactionApi()`: Cập nhật giao dịch
-  - `deleteTransactionApi()`: Xóa giao dịch
-  - `restoreTransactionApi()`: Khôi phục giao dịch đã xóa
-  - `uploadReceiptApi()`: Upload ảnh hóa đơn
+- **API Functions**:
+  - `getTransactionsApi()`: Get transaction list
+  - `createTransactionApi()`: Create new transaction
+  - `updateTransactionApi()`: Update transaction
+  - `deleteTransactionApi()`: Delete transaction
+  - `restoreTransactionApi()`: Restore deleted transaction
+  - `uploadReceiptApi()`: Upload receipt image
 
 ### 3. Frontend - Application Context
 
 #### File: `my-expense-app/lib/AppContext.tsx`
-**Các cập nhật**:
-- Import các hàm API từ `lib/api/transactions.ts`
-- **Cấp nhật hàm `addTransaction()`**: Gọi `createTransactionApi()` thay vì lưu trữ cục bộ
-- **Cập nhật hàm `updateTransaction()`**: Gọi `updateTransactionApi()` thay vì cập nhật cục bộ
-- **Cập nhật hàm `deleteTransaction()`**: Gọi `deleteTransactionApi()` thay vì xóa cục bộ
-- **Thêm hàm `loadTransactions()`**: Lấy dữ liệu giao dịch từ backend và cập nhật state
-- **Thêm hàm `uploadReceipt()`**: Upload ảnh hóa đơn lên server
-- **Cập nhật AppContextType**: Thêm các hàm mới `loadTransactions` và `uploadReceipt`
-- **Cập nhật useEffect**: Tự động gọi `loadTransactions()` khi user và wallet thay đổi
-- **Xóa**: Không lưu transactions vào localStorage nữa (lấy từ backend)
+**Updates**:
+- Import API functions from `lib/api/transactions.ts`
+- **Updated `addTransaction()` function**: Calls `createTransactionApi()` instead of local storage
+- **Updated `updateTransaction()` function**: Calls `updateTransactionApi()` instead of local update
+- **Updated `deleteTransaction()` function**: Calls `deleteTransactionApi()` instead of local delete
+- **Added `loadTransactions()` function**: Fetches transaction data from backend and updates state
+- **Added `uploadReceipt()` function**: Uploads receipt image to server
+- **Updated AppContextType**: Added new functions `loadTransactions` and `uploadReceipt`
+- **Updated useEffect**: Automatically calls `loadTransactions()` when user and wallet change
+- **Removed**: No longer saves transactions to localStorage (fetched from backend)
 
 ### 4. Frontend - Transaction Form
 
 #### File: `my-expense-app/components/forms/TransactionForm.tsx`
-**Các cập nhật**:
-- Import `uploadReceipt` từ context
-- **Cập nhật xử lý file upload**: 
-  - Gọi `uploadReceipt(file)` để upload ảnh lên server
-  - Lưu URL trả về từ server thay vì object URL cục bộ
-  - Thêm error handling cho quá trình upload
+**Updates**:
+- Import `uploadReceipt` from context
+- **Updated file upload handling**: 
+  - Calls `uploadReceipt(file)` to upload image to server
+  - Saves URL returned from server instead of local object URL
+  - Added error handling for upload process
 
 ### 5. Frontend - Transactions Page
 
 #### File: `my-expense-app/components/pages/TransactionsPage.tsx`
-**Các cập nhật**:
-- **Thêm state**:
-  - `loading`: Theo dõi trạng thái loading
-- **Thêm useEffect**: Tự động tải giao dịch khi component mount hoặc wallet thay đổi
-- **Thêm hàm `handleDelete()`**: 
-  - Yêu cầu xác nhận trước khi xóa
-  - Gọi `deleteTransaction()` và xử lý error
-- **Thêm loading state**: Hiển thị "Loading transactions..." khi đang tải dữ liệu
-- **Cập nhật onClick handler**: Gọi `handleDelete()` thay vì trực tiếp `deleteTransaction()`
+**Updates**:
+- **Added state**:
+  - `loading`: Track loading state
+- **Added useEffect**: Automatically load transactions when component mounts or wallet changes
+- **Added `handleDelete()` function**: 
+  - Requires confirmation before deleting
+  - Calls `deleteTransaction()` and handles errors
+- **Added loading state**: Shows "Loading transactions..." while fetching data
+- **Updated onClick handler**: Calls `handleDelete()` instead of directly `deleteTransaction()`
 
-## Các Tính Năng Mới
+## New Features
 
-### 1. Phân Trang (Pagination)
-- Hỗ trợ phân trang dữ liệu từ backend
-- Có thể điều chỉnh page size
+### 1. Pagination
+- Supports backend data pagination
+- Adjustable page size
 
-### 2. Tìm Kiếm & Lọc
-- Tìm kiếm theo description, note, location
-- Lọc theo loại giao dịch (income/expense/transfer)
-- Lọc theo ngày (từ ngày đến ngày)
-- Lọc theo danh mục hoặc tài khoản
+### 2. Search & Filter
+- Search by description, note, location
+- Filter by transaction type (income/expense/transfer)
+- Filter by date range (from/to)
+- Filter by category or account
 
-### 3. Upload Ảnh Hóa Đơn
-- Gửi ảnh lên server thay vì sử dụng object URL
-- Hỗ trợ format: JPEG, PNG, WebP
-- Tối đa 5MB
-- Tự động nén và resize ảnh trên backend
+### 3. Receipt Image Upload
+- Uploads images to server instead of using object URL
+- Supported formats: JPEG, PNG, WebP
+- Maximum 5MB
+- Automatic compression and resize on backend
 
 ### 4. Loading State
-- Hiển thị "Loading transactions..." khi đặng fetch dữ liệu từ server
-- Tránh trạng thái UI "flashing"
+- Shows "Loading transactions..." while fetching data from server
+- Prevents UI "flashing" state
 
 ## API Endpoints
 
 ```
-GET    /api/transactions/                    - Lấy danh sách (có phân trang)
-POST   /api/transactions/create/             - Tạo giao dịch
-PUT    /api/transactions/update/{id}/        - Cập nhật giao dịch
-DELETE /api/transactions/delete/{id}/        - Xóa giao dịch
-POST   /api/transactions/restore/{id}/       - Khôi phục giao dịch
-POST   /api/receipts/upload-receipt/         - Upload ảnh hóa đơn
+GET    /api/transactions/                    - Get list (paginated)
+POST   /api/transactions/create/             - Create transaction
+PUT    /api/transactions/update/{id}/        - Update transaction
+DELETE /api/transactions/delete/{id}/        - Delete transaction
+POST   /api/transactions/restore/{id}/       - Restore transaction
+POST   /api/receipts/upload-receipt/         - Upload receipt image
 ```
 
-## Quy Trình Dữ Liệu
+## Data Flow
 
-1. **Tải danh sách giao dịch**:
-   - Component mount → gọi `loadTransactions()`
-   - → gọi `getTransactionsApi()`
-   - → nhận dữ liệu từ backend
-   - → map dữ liệu và lưu vào state
+1. **Load transaction list**:
+   - Component mount → calls `loadTransactions()`
+   - → calls `getTransactionsApi()`
+   - → receives data from backend
+   - → maps data and saves to state
 
-2. **Tạo giao dịch mới**:
-   - User submit form → gọi `addTransaction()`
-   - → gọi `createTransactionApi()`
-   - → nhận response từ backend
-   - → tự động gọi `loadTransactions()` để refresh
-   - → cập nhật wallet balance từ response
+2. **Create new transaction**:
+   - User submits form → calls `addTransaction()`
+   - → calls `createTransactionApi()`
+   - → receives response from backend
+   - → automatically calls `loadTransactions()` to refresh
+   - → updates wallet balance from response
 
-3. **Cập nhật giao dịch**:
-   - User submit form → gọi `updateTransaction()`
-   - → gọi `updateTransactionApi()`
-   - → nhận response từ backend
-   - → tự động gọi `loadTransactions()` để refresh
+3. **Update transaction**:
+   - User submits form → calls `updateTransaction()`
+   - → calls `updateTransactionApi()`
+   - → receives response from backend
+   - → automatically calls `loadTransactions()` to refresh
 
-4. **Xóa giao dịch**:
-   - User click delete + xác nhận → gọi `deleteTransaction()`
-   - → gọi `deleteTransactionApi()`
-   - → nhận response từ backend
-   - → tự động gọi `loadTransactions()` để refresh
+4. **Delete transaction**:
+   - User clicks delete + confirms → calls `deleteTransaction()`
+   - → calls `deleteTransactionApi()`
+   - → receives response from backend
+   - → automatically calls `loadTransactions()` to refresh
 
-5. **Upload ảnh**:
-   - User chọn file → gọi `uploadReceipt()`
-   - → gọi `uploadReceiptApi()`
-   - → nhận URL từ server
-   - → lưu URL vào form
+5. **Upload image**:
+   - User selects file → calls `uploadReceipt()`
+   - → calls `uploadReceiptApi()`
+   - → receives URL from server
+   - → saves URL to form
 
-## Kỹ Thuật Tích Hợp
+## Integration Techniques
 
 ### Error Handling
-- Try-catch blocks cho tất cả API calls
-- Thông báo lỗi cho user qua `alert()` hoặc `toast` (tùy UI)
-- Log error vào console để debug
+- Try-catch blocks for all API calls
+- Error notifications for users via `alert()` or `toast` (depending on UI)
+- Log errors to console for debugging
 
 ### Authorization
-- Token tự động thêm vào request headers qua axios interceptor
-- Xử lý 401 Unauthorized → redirect to login
+- Token automatically added to request headers via axios interceptor
+- Handle 401 Unauthorized → redirect to login
 
 ### Data Mapping
-- Backend dùng snake_case (transaction_id, transaction_type)
-- Frontend dùng camelCase (transactionId, transactionType)
-- Thực hiện mapping trong API layer (`transactions.ts`)
+- Backend uses snake_case (transaction_id, transaction_type)
+- Frontend uses camelCase (transactionId, transactionType)
+- Mapping performed in API layer (`transactions.ts`)
 
-## Loại Giao Dịch Hỗ Trợ
-- ✅ Income (thu nhập)
-- ✅ Expense (chi tiêu)
-- ✅ Transfer (chuyển khoản)
+## Supported Transaction Types
+- ✅ Income
+- ✅ Expense
+- ✅ Transfer
 
-## Yêu Cầu Hệ Thống
-- Python packages: `dateutil` (đã có trong requirements.txt)
+## System Requirements
+- Python packages: `dateutil` (already in requirements.txt)
 - Frontend: TypeScript, React 18+, axios
 
-## Hướng Phát Triển Tiếp Theo
-1. Thêm caching để giảm API calls
+## Future Development
+1. Add caching to reduce API calls
 2. Implement real-time updates (WebSocket)
-3. Thêm batch operations (delete multiple)
+3. Add batch operations (delete multiple)
 4. Export data (CSV, PDF)
 5. Advanced filtering (date ranges, price ranges)
 6. Analytics & insights charts

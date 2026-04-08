@@ -129,7 +129,7 @@ DATABASES = {
 #   "default": {
 #     "NAME": "ExpenseManagementDB",
 #     "ENGINE": "mssql",#    
-#     "HOST": "localhost",  # hoặc localhost + port
+#     "HOST": "localhost",  # or localhost + port
 #     "OPTIONS": {
 #       "driver": "ODBC Driver 17 for SQL Server",
 #       "trusted_connection": "yes",
@@ -235,27 +235,27 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
-    # Xử lý giao dịch định kỳ - 00:00 hàng ngày
+    # Process recurring transactions - 00:00 daily
     'process-recurring-transactions': {
         'task': 'api.tasks.process_recurring_transactions',
         'schedule': crontab(hour=0, minute=0),
     },
-    # Nhắc nhở nợ - 08:00 hàng ngày
+    # Debt reminders - 08:00 daily
     'process-debt-reminders': {
         'task': 'api.tasks.process_debt_reminders',
         'schedule': crontab(hour=8, minute=0),
     },
-    # Daily backup - 02:00 hàng ngày
+    # Daily backup - 02:00 daily
     'daily-backup-all-users': {
         'task': 'api.tasks.daily_backup_all_users',
         'schedule': crontab(hour=2, minute=0),
     },
-    # Cleanup old exports - 03:00 hàng ngày
+    # Cleanup old exports - 03:00 daily
     'cleanup-old-exports': {
         'task': 'api.tasks.cleanup_old_exports',
         'schedule': crontab(hour=3, minute=0),
     },
-    # Cleanup old backups - 04:00 hàng tuần (Chủ Nhật)
+    # Cleanup old backups - 04:00 weekly (Sunday)
     'cleanup-old-backups': {
         'task': 'api.tasks.cleanup_old_backups',
         'schedule': crontab(hour=4, minute=0, day_of_week=0),
@@ -264,13 +264,18 @@ CELERY_BEAT_SCHEDULE = {
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
 
+# ==================== TWILIO SMS CONFIGURATION ====================
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
+TWILIO_PHONE_NUMBER = os.environ.get('TWILIO_PHONE_NUMBER', '')  # e.g. '+1234567890'
+
 # ==================== EXPORT/IMPORT/BACKUP CONFIGURATION ====================
 
 # App Version
 APP_VERSION = '1.0.0'
 
 # Backup Encryption Key (Override in production!)
-# Generate với: python -c "import secrets; print(secrets.token_hex(32))"
+# Generate with: python -c "import secrets; print(secrets.token_hex(32))"
 BACKUP_ENCRYPTION_KEY = os.environ.get('BACKUP_ENCRYPTION_KEY', 'change-this-in-production-use-env-var')
 
 # AWS S3 Configuration (Optional - for cloud backup)
@@ -280,7 +285,7 @@ AWS_BACKUP_BUCKET = os.environ.get('AWS_BACKUP_BUCKET', '')
 AWS_REGION = os.environ.get('AWS_REGION', 'ap-southeast-1')
 
 # Export Configuration
-EXPORT_MAX_SYNC_ROWS = 1000  # Vượt quá sẽ chuyển sang async
+EXPORT_MAX_SYNC_ROWS = 1000  # Exceeding this will switch to async
 EXPORT_FILE_EXPIRY_HOURS = 24
 
 # Backup Configuration  

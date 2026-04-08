@@ -24,7 +24,7 @@ class ReceiptUploadView(viewsets.ViewSet):
 
         if not file:
             return Response(
-                {'success': False, 'message': 'Vui lòng chọn file ảnh'},
+                {'success': False, 'message': 'Please select an image file'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -41,13 +41,13 @@ class ReceiptUploadView(viewsets.ViewSet):
             return Response(
                 {
                     'success': True,
-                    'message': 'Upload ảnh hóa đơn thành công',
+                    'message': 'Receipt image uploaded successfully',
                     'data': {'receipt_image_url': file_url},
                 },
                 status=status.HTTP_201_CREATED,
             )
         except Exception as e:
             return Response(
-                {'success': False, 'message': 'Lỗi khi upload ảnh'},
+                {'success': False, 'message': 'Error uploading image'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

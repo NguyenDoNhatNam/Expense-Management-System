@@ -17,7 +17,7 @@ class SavingGoalService:
                 user=user,
                 goal_name=validated_data['goal_name'],
                 target_amount=validated_data['target_amount'],
-                current_amount=0, # Khởi tạo mặc định = 0
+                current_amount=0, # Default initialization = 0
                 target_date=validated_data['target_date'],
                 description=validated_data.get('description', ''),
                 priority=validated_data.get('priority', 'medium'),
@@ -33,7 +33,7 @@ class SavingGoalService:
             for key, value in validated_data.items():
                 setattr(goal_obj, key, value)
             
-            # Auto Check hoàn thành
+            # Auto Check completion
             if goal_obj.current_amount >= goal_obj.target_amount:
                 goal_obj.status = 'completed'
             elif goal_obj.status == 'completed' and goal_obj.current_amount < goal_obj.target_amount:
@@ -45,4 +45,4 @@ class SavingGoalService:
 
     @staticmethod
     def delete_goal(goal_obj):
-        goal_obj.delete() # Hard delete hoặc cập nhật status = 'cancelled' tùy nghiệp vụ
+        goal_obj.delete() # Hard delete or update status = 'cancelled' depending on business logic

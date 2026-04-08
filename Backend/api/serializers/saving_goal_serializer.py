@@ -22,11 +22,11 @@ class CreateSavingGoalSerializer(serializers.Serializer):
     priority = serializers.ChoiceField(choices=['low', 'medium', 'high'], default='medium')
 
     def validate_target_amount(self, value):
-        if value <= 0: raise serializers.ValidationError("Số tiền mục tiêu phải lớn hơn 0")
+        if value <= 0: raise serializers.ValidationError("Target amount must be greater than 0")
         return value
 
     def validate_target_date(self, value):
-        if value <= timezone.now().date(): raise serializers.ValidationError("Ngày hoàn thành mục tiêu phải ở tương lai")
+        if value <= timezone.now().date(): raise serializers.ValidationError("Target completion date must be in the future")
         return value
 
 class UpdateSavingGoalSerializer(serializers.Serializer):
@@ -37,4 +37,4 @@ class UpdateSavingGoalSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True)
     priority = serializers.ChoiceField(choices=['low', 'medium', 'high'], required=False)
     
-    # Có thể validate ngày tháng tương tự như trên nếu cần
+    # Can validate dates similarly if needed

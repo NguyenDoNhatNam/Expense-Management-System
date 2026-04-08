@@ -51,12 +51,12 @@ class UserViewSet(viewsets.ViewSet):
                     'categories': CategorySerializer(user.default_categories, many=True).data,
                     'setting': UserSettingSerializer(user.default_setting).data,
                 },
-                'message': 'Tài khoản đã được tạo thành công. Vui lòng kiểm tra email để lấy mã OTP kích hoạt tài khoản.'
+                'message': 'Account created successfully. Please check your email for the OTP activation code.'
             }, status = status.HTTP_201_CREATED)
         return Response({
             'success' : False ,
             'error' : serializer.errors , 
-            'message' : 'Đăng ký thất bại'
+            'message' : 'Registration failed'
         }, status = status.HTTP_400_BAD_REQUEST)
     
     @extend_schema(
@@ -76,7 +76,7 @@ class UserViewSet(viewsets.ViewSet):
             if not user.is_active:
                 return Response({
                     'success': False,
-                    'message': 'Tài khoản chưa được kích hoạt. Vui lòng xác thực email.',
+                    'message': 'Account not activated. Please verify your email.',
                     'require_activation': True
                 }, status=status.HTTP_403_FORBIDDEN)
 
@@ -91,9 +91,9 @@ class UserViewSet(viewsets.ViewSet):
                 'data': {
                     'user': UserSerializer(user).data,
                     'access_token': tokens['access'],
-                    # Không trả refresh trong JSON (an toàn hơn khi dùng cookie)
+                    # Do not return refresh in JSON (safer to use cookie)
                 },
-                'message': 'Đăng nhập thành công'
+                'message': 'Login successful'
             }
 
             response = Response(response_data, status=status.HTTP_200_OK)
@@ -118,7 +118,7 @@ class UserViewSet(viewsets.ViewSet):
         return Response({
             'success' : False ,
             'error' : serializer.errors ,
-            'message' : 'Đăng nhập thất bại'
+            'message' : 'Login failed'
         } , status = status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['post'], url_path='refresh')
@@ -128,21 +128,21 @@ class UserViewSet(viewsets.ViewSet):
         if not refresh_token:
             return Response({
                 'success': False,
-                'message': 'Không tìm thấy refresh token'
+                'message': 'Refresh token not found'
             }, status=status.HTTP_401_UNAUTHORIZED)
 
         try:
             refresh = RefreshToken(refresh_token)
             jti = refresh.get('jti')
             if cache.get(f"blacklist_{jti}"):
-                return Response({'error': 'Token đã bị thu hồi (Blacklisted)'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'error': 'Token has been revoked (Blacklisted)'}, status=status.HTTP_401_UNAUTHORIZED)
             user_id = refresh['user_id']
             user = Users.objects.get(user_id=user_id)
 
             if not user.is_active:
                 return Response({
                     'success': False,
-                    'message': 'Tài khoản đã bị khóa'
+                    'message': 'Account has been locked'
                 }, status=status.HTTP_401_UNAUTHORIZED)
             exp_time = refresh.payload.get('exp')
             current_time = timezone.now().timestamp()
@@ -161,7 +161,7 @@ class UserViewSet(viewsets.ViewSet):
                 'data': {
                     'access_token': new_access,
                 },
-                'message': 'Làm mới token thành công'
+                'message': 'Token refreshed successfully'
             })
 
             response.set_cookie(
@@ -179,7 +179,7 @@ class UserViewSet(viewsets.ViewSet):
         except Exception as e:
             response = Response({
                 'success': False,
-                'message': f'Phiên đăng nhập hết hạn: {str(e)}'
+                'message': f'Session expired: {str(e)}'
             }, status=401)
             response.delete_cookie('refresh_token')
             return response
@@ -198,16 +198,16 @@ class UserViewSet(viewsets.ViewSet):
                 with db_transaction.atomic():
                     user = Users.objects.select_for_update().get(email=email)
                     if user.is_active:
-                        return Response({'success': False, 'message': 'Tài khoản đã được kích hoạt trước đó.'}, status=status.HTTP_400_BAD_REQUEST)
+                        return Response({'success': False, 'message': 'Account has already been activated.'}, status=status.HTTP_400_BAD_REQUEST)
                     
                     if OTPService.verify_otp(user, code, 'activation'):
                         user.is_active = True
                         user.save(update_fields=['is_active'])
-                        return Response({'success': True, 'message': 'Kích hoạt tài khoản thành công. Bạn có thể đăng nhập ngay bây giờ.'}, status=status.HTTP_200_OK)
+                        return Response({'success': True, 'message': 'Account activated successfully. You can now log in.'}, status=status.HTTP_200_OK)
                     else:
-                        return Response({'success': False, 'message': 'Mã OTP không hợp lệ hoặc đã hết hạn.'}, status=status.HTTP_400_BAD_REQUEST)
+                        return Response({'success': False, 'message': 'Invalid or expired OTP code.'}, status=status.HTTP_400_BAD_REQUEST)
             except Users.DoesNotExist:
-                return Response({'success': False, 'message': 'Tài khoản không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'success': False, 'message': 'Account not found.'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(
@@ -220,18 +220,23 @@ class UserViewSet(viewsets.ViewSet):
         if serializer.is_valid(raise_exception=True):
             email = serializer.validated_data['email']
             otp_type = serializer.validated_data['otp_type']
+            method = serializer.validated_data.get('method', 'email')
             try:
                 user = Users.objects.get(email=email)
                 if otp_type == 'activation' and user.is_active:
-                    return Response({'success': False, 'message': 'Tài khoản đã được kích hoạt.'}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'success': False, 'message': 'Account has already been activated.'}, status=status.HTTP_400_BAD_REQUEST)
                 
-                if otp_type == 'activation':
+                if method == 'sms':
+                    if not user.phone:
+                        return Response({'success': False, 'message': 'Account does not have a phone number.'}, status=status.HTTP_400_BAD_REQUEST)
+                    OTPService.send_activation_sms_otp(user)
+                elif otp_type == 'activation':
                     OTPService.send_activation_otp(user)
                 elif otp_type == 'reset_password':
                     OTPService.send_reset_password_otp(user)
             except Users.DoesNotExist:
                 pass
-            return Response({'success': True, 'message': 'Nếu email hợp lệ, mã OTP mới sẽ được gửi tới hòm thư của bạn.'}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'message': 'If the email is valid, a new OTP code will be sent.'}, status=status.HTTP_200_OK)
         return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(
@@ -259,7 +264,7 @@ class UserViewSet(viewsets.ViewSet):
                         )
             except Users.DoesNotExist:
                 pass
-            return Response({'success': True, 'message': 'Nếu email hợp lệ, hướng dẫn lấy lại mật khẩu sẽ được gửi.'}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'message': 'If the email is valid, password reset instructions will be sent.'}, status=status.HTTP_200_OK)
         return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(
@@ -279,11 +284,11 @@ class UserViewSet(viewsets.ViewSet):
                     if OTPService.verify_otp(user, code, 'reset_password'):
                         user.password = make_password(new_password)
                         user.save(update_fields=['password'])
-                        return Response({'success': True, 'message': 'Mật khẩu đã được đặt lại thành công.'}, status=status.HTTP_200_OK)
+                        return Response({'success': True, 'message': 'Password has been reset successfully.'}, status=status.HTTP_200_OK)
                     else:
-                        return Response({'success': False, 'message': 'Mã OTP không hợp lệ hoặc đã hết hạn.'}, status=status.HTTP_400_BAD_REQUEST)
+                        return Response({'success': False, 'message': 'Invalid or expired OTP code.'}, status=status.HTTP_400_BAD_REQUEST)
             except Users.DoesNotExist:
-                return Response({'success': False, 'message': 'Thông tin không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'success': False, 'message': 'Invalid information.'}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(
@@ -302,8 +307,8 @@ class UserViewSet(viewsets.ViewSet):
                 if user:
                     user.password = make_password(new_password)
                     user.save(update_fields=['password'])
-                    return Response({'success': True, 'message': 'Mật khẩu đã được đặt lại thành công.'}, status=status.HTTP_200_OK)
+                    return Response({'success': True, 'message': 'Password has been reset successfully.'}, status=status.HTTP_200_OK)
                 else:
-                    return Response({'success': False, 'message': 'Token không hợp lệ hoặc đã hết hạn.'}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'success': False, 'message': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
             
