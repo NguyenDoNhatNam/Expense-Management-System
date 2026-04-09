@@ -11,16 +11,15 @@ class CategoryService:
 
     @staticmethod
     def get_categories(user):
-        print(f"Fetching categories for user {user.user_id}...")
-        categories = Categories.objects.filter(Q(user=user) | Q(is_default=True), is_deleted=False).annotate(
+        categories = Categories.objects.filter(user=user, is_deleted=False).annotate(
             transaction_count=Count(
                 'transactions',
-                filter=Q(transactions__is_deleted=False)
+                filter=Q(transactions__is_deleted=False, transactions__user=user)
             ),
             total_amount=Coalesce(
                 Sum(
                     'transactions__amount',
-                    filter=Q(transactions__is_deleted=False)
+                    filter=Q(transactions__is_deleted=False, transactions__user=user)
                 ),
                 Value(Decimal('0.00')),
                 output_field=DecimalField(max_digits=18, decimal_places=2),

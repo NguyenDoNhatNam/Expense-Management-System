@@ -52,6 +52,72 @@ class ActivityLogs(models.Model):
         db_table = 'activity_logs'
 
 
+class AuthGroup(models.Model):
+    name = models.CharField(unique=True, max_length=150, db_collation='SQL_Latin1_General_CP1_CI_AS')
+
+    class Meta:
+        managed = False
+        db_table = 'auth_group'
+
+
+class AuthGroupPermissions(models.Model):
+    group = models.ForeignKey(AuthGroup, models.DO_NOTHING)
+    permission = models.ForeignKey('AuthPermission', models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'auth_group_permissions'
+        unique_together = (('group', 'permission'),)
+
+
+class AuthPermission(models.Model):
+    name = models.CharField(max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    content_type = models.ForeignKey('DjangoContentType', models.DO_NOTHING)
+    codename = models.CharField(max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
+
+    class Meta:
+        managed = False
+        db_table = 'auth_permission'
+        unique_together = (('content_type', 'codename'),)
+
+
+class AuthUser(models.Model):
+    password = models.CharField(max_length=128, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    last_login = models.DateTimeField(blank=True, null=True)
+    is_superuser = models.BooleanField()
+    username = models.CharField(unique=True, max_length=150, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    first_name = models.CharField(max_length=150, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    last_name = models.CharField(max_length=150, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    email = models.CharField(max_length=254, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    is_staff = models.BooleanField()
+    is_active = models.BooleanField()
+    date_joined = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'auth_user'
+
+
+class AuthUserGroups(models.Model):
+    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    group = models.ForeignKey(AuthGroup, models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'auth_user_groups'
+        unique_together = (('user', 'group'),)
+
+
+class AuthUserUserPermissions(models.Model):
+    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    permission = models.ForeignKey(AuthPermission, models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'auth_user_user_permissions'
+        unique_together = (('user', 'permission'),)
+
+
 class Budgets(models.Model):
     budget_id = models.CharField(primary_key=True, max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
     user = models.ForeignKey('Users', models.DO_NOTHING)
@@ -120,6 +186,174 @@ class Debts(models.Model):
     class Meta:
         managed = False
         db_table = 'debts'
+
+
+class DjangoAdminLog(models.Model):
+    action_time = models.DateTimeField()
+    object_id = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    object_repr = models.CharField(max_length=200, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    action_flag = models.SmallIntegerField()
+    change_message = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS')
+    content_type = models.ForeignKey('DjangoContentType', models.DO_NOTHING, blank=True, null=True)
+    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'django_admin_log'
+
+
+class DjangoCeleryBeatClockedschedule(models.Model):
+    clocked_time = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'django_celery_beat_clockedschedule'
+
+
+class DjangoCeleryBeatCrontabschedule(models.Model):
+    minute = models.CharField(max_length=240, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    hour = models.CharField(max_length=96, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    day_of_week = models.CharField(max_length=64, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    day_of_month = models.CharField(max_length=124, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    month_of_year = models.CharField(max_length=64, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    timezone = models.CharField(max_length=63, db_collation='SQL_Latin1_General_CP1_CI_AS')
+
+    class Meta:
+        managed = False
+        db_table = 'django_celery_beat_crontabschedule'
+
+
+class DjangoCeleryBeatIntervalschedule(models.Model):
+    every = models.IntegerField()
+    period = models.CharField(max_length=24, db_collation='SQL_Latin1_General_CP1_CI_AS')
+
+    class Meta:
+        managed = False
+        db_table = 'django_celery_beat_intervalschedule'
+
+
+class DjangoCeleryBeatPeriodictask(models.Model):
+    name = models.CharField(unique=True, max_length=200, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    task = models.CharField(max_length=200, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    args = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS')
+    kwargs = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS')
+    queue = models.CharField(max_length=200, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    exchange = models.CharField(max_length=200, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    routing_key = models.CharField(max_length=200, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    expires = models.DateTimeField(blank=True, null=True)
+    enabled = models.BooleanField()
+    last_run_at = models.DateTimeField(blank=True, null=True)
+    total_run_count = models.IntegerField()
+    date_changed = models.DateTimeField()
+    description = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS')
+    crontab = models.ForeignKey(DjangoCeleryBeatCrontabschedule, models.DO_NOTHING, blank=True, null=True)
+    interval = models.ForeignKey(DjangoCeleryBeatIntervalschedule, models.DO_NOTHING, blank=True, null=True)
+    solar = models.ForeignKey('DjangoCeleryBeatSolarschedule', models.DO_NOTHING, blank=True, null=True)
+    one_off = models.BooleanField()
+    start_time = models.DateTimeField(blank=True, null=True)
+    priority = models.IntegerField(blank=True, null=True)
+    headers = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS')
+    clocked = models.ForeignKey(DjangoCeleryBeatClockedschedule, models.DO_NOTHING, blank=True, null=True)
+    expire_seconds = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'django_celery_beat_periodictask'
+
+
+class DjangoCeleryBeatPeriodictasks(models.Model):
+    ident = models.SmallIntegerField(primary_key=True)
+    last_update = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'django_celery_beat_periodictasks'
+
+
+class DjangoCeleryBeatSolarschedule(models.Model):
+    event = models.CharField(max_length=24, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+
+    class Meta:
+        managed = False
+        db_table = 'django_celery_beat_solarschedule'
+        unique_together = (('event', 'latitude', 'longitude'),)
+
+
+class DjangoCeleryResultsChordcounter(models.Model):
+    group_id = models.CharField(unique=True, max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    sub_tasks = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS')
+    count = models.IntegerField()
+
+    class Meta:
+        managed = False
+        db_table = 'django_celery_results_chordcounter'
+
+
+class DjangoCeleryResultsGroupresult(models.Model):
+    group_id = models.CharField(unique=True, max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    date_created = models.DateTimeField()
+    date_done = models.DateTimeField()
+    content_type = models.CharField(max_length=128, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    content_encoding = models.CharField(max_length=64, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    result = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'django_celery_results_groupresult'
+
+
+class DjangoCeleryResultsTaskresult(models.Model):
+    task_id = models.CharField(unique=True, max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    status = models.CharField(max_length=50, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    content_type = models.CharField(max_length=128, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    content_encoding = models.CharField(max_length=64, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    result = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    date_done = models.DateTimeField()
+    traceback = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    meta = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    task_args = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    task_kwargs = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    task_name = models.CharField(max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    worker = models.CharField(max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    date_created = models.DateTimeField()
+    periodic_task_name = models.CharField(max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    date_started = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'django_celery_results_taskresult'
+
+
+class DjangoContentType(models.Model):
+    app_label = models.CharField(max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    model = models.CharField(max_length=100, db_collation='SQL_Latin1_General_CP1_CI_AS')
+
+    class Meta:
+        managed = False
+        db_table = 'django_content_type'
+        unique_together = (('app_label', 'model'),)
+
+
+class DjangoMigrations(models.Model):
+    app = models.CharField(max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    name = models.CharField(max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    applied = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'django_migrations'
+
+
+class DjangoSession(models.Model):
+    session_key = models.CharField(primary_key=True, max_length=40, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    session_data = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS')
+    expire_date = models.DateTimeField()
+
+    class Meta:
+        managed = False
+        db_table = 'django_session'
 
 
 class EmailVerificationTokens(models.Model):
@@ -193,6 +427,36 @@ class RecurringTransactions(models.Model):
     class Meta:
         managed = False
         db_table = 'recurring_transactions'
+
+
+class RefreshTokens(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    token = models.CharField(unique=True, max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    created_at = models.DateTimeField()
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(blank=True, null=True)
+    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    replaced_by_token = models.CharField(max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    ip_address = models.CharField(max_length=45, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    user_agent = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'refresh_tokens'
+
+
+class RememberTokens(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    token_hash = models.CharField(unique=True, max_length=255, db_collation='SQL_Latin1_General_CP1_CI_AS')
+    created_at = models.DateTimeField()
+    expires_at = models.DateTimeField()
+    user = models.ForeignKey(AuthUser, models.DO_NOTHING)
+    ip_address = models.CharField(max_length=45, db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+    user_agent = models.TextField(db_collation='SQL_Latin1_General_CP1_CI_AS', blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'remember_tokens'
 
 
 class RolePermissions(models.Model):

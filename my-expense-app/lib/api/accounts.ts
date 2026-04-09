@@ -24,7 +24,8 @@ export interface AccountListResponse {
   message: string;
   data: {
     net_worth: string;
-    items: BackendAccount[];
+    items?: BackendAccount[];
+    accounts: BackendAccount[];
   };
 }
 

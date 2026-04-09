@@ -79,6 +79,8 @@ export default function BudgetsPage() {
   const [selectedPeriods, setSelectedPeriods] = useState<PeriodType[]>([]);
   const [onlyActive, setOnlyActive] = useState(false);
   const [usageRange, setUsageRange] = useState<[number, number]>([0, 999]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [formData, setFormData] = useState<BudgetFormState>(INITIAL_FORM);
 
@@ -148,6 +150,13 @@ export default function BudgetsPage() {
       return true;
     });
   }, [normalizedBudgets, tab, search, selectedCategories, selectedPeriods, onlyActive, usageRange]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredBudgets.length / itemsPerPage));
+
+  const paginatedBudgets = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredBudgets.slice(start, start + itemsPerPage);
+  }, [filteredBudgets, currentPage, itemsPerPage]);
 
   const getProgressColor = (percent: number) => {
     if (percent >= 100) return "bg-destructive";
@@ -238,6 +247,16 @@ export default function BudgetsPage() {
         : [...prev, categoryId],
     );
   };
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [tab, search, selectedCategories, selectedPeriods, onlyActive, usageRange, itemsPerPage]);
+
+  React.useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <div className="flex gap-6 p-6">
@@ -600,8 +619,8 @@ export default function BudgetsPage() {
         )}
 
         <div className="grid gap-4">
-          {filteredBudgets.length > 0 ? (
-            filteredBudgets.map((budget: any) => (
+          {paginatedBudgets.length > 0 ? (
+            paginatedBudgets.map((budget: any) => (
               <Card
                 key={budget.id}
                 className={
@@ -706,6 +725,63 @@ export default function BudgetsPage() {
             <Card>
               <CardContent className="pt-6 text-center">
                 <p className="text-muted-foreground">No budgets found</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {filteredBudgets.length > 0 && (
+            <Card>
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(currentPage - 1) * itemsPerPage + 1}
+                  {' '}
+                  to
+                  {' '}
+                  {Math.min(currentPage * itemsPerPage, filteredBudgets.length)}
+                  {' '}
+                  of
+                  {' '}
+                  {filteredBudgets.length}
+                  {' '}
+                  budgets
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Per page</span>
+                  <select
+                    className="rounded border bg-background px-2 py-1 text-sm"
+                    value={itemsPerPage}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setItemsPerPage(Number(e.target.value))
+                    }
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage}/{totalPages}
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}

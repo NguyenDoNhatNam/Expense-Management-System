@@ -6,6 +6,7 @@ from api.permissions.permission import DynamicPermission
 from api.services.transfer_service import TransferService
 from api.serializers.transfer_serializer import TransferListSerializer, CreateTransferSerializer
 from drf_spectacular.utils import extend_schema
+from api.services.activity_log_service import ActivityLogService
 
 class TransferViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
@@ -21,6 +22,12 @@ class TransferViewSet(viewsets.ViewSet):
     def list_transfers(self, request):
         transfers = TransferService.get_transfers(request.user)
         serializer = TransferListSerializer(transfers, many=True)
+        ActivityLogService.log(
+            request,
+            action='VIEW_TRANSFERS',
+            details='User viewed transfer list',
+            level='INFO'
+        )
         return Response({'success': True, 'data': serializer.data}, status=status.HTTP_200_OK)
 
     @extend_schema(request=CreateTransferSerializer)
@@ -30,6 +37,12 @@ class TransferViewSet(viewsets.ViewSet):
         if serializer.is_valid():
             try:
                 transfer = TransferService.create_transfer(serializer.validated_data, request.user)
+                ActivityLogService.log(
+                    request,
+                    action='CREATE_TRANSFER',
+                    details=f'User created transfer: {transfer.transfer_id}',
+                    level='ACTION'
+                )
                 return Response({
                     'success': True, 
                     'message': 'Transfer successful',
@@ -42,6 +55,12 @@ class TransferViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['delete'], url_path='delete/(?P<transfer_id>[^/.]+)')
     def delete_transfer(self, request, transfer_id=None):
         try:
+            ActivityLogService.log(
+                request,
+                action='DELETE_TRANSFER',
+                details=f'User deleted transfer: {transfer_id}',
+                level='ACTION'
+            )
             TransferService.delete_transfer(transfer_id, request.user)
             return Response({'success': True, 'message': 'Deleted and balance reverted successfully'})
         except ValueError as e:

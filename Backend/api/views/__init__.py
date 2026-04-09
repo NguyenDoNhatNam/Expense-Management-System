@@ -12,6 +12,7 @@ from api.views.transfer_view import TransferViewSet
 from api.views.recepit_view import ReceiptUploadView
 from api.views.data_management_view import ExportViewSet, ImportViewSet, BackupViewSet
 from api.views.activity_log_view import ActivityLogViewSet
+from api.views.admin_users_view import AdminUsersViewSet
 
 __all__ = [
     'UserViewSet',
@@ -29,4 +30,5 @@ __all__ = [
     'ImportViewSet',
     'BackupViewSet',
     'ActivityLogViewSet',
+    'AdminUsersViewSet',
 ]

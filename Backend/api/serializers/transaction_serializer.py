@@ -3,6 +3,7 @@ from api.models import Accounts , Categories , Transactions , RecurringTransacti
 from uuid import uuid4
 from django.utils import timezone  
 from dateutil.relativedelta import relativedelta
+from decimal import Decimal
 
 class TransactionListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.category_name', read_only=True)
@@ -35,14 +36,14 @@ class TransactionListSerializer(serializers.ModelSerializer):
 class CreateTransactionSerializer(serializers.Serializer):
     account_id = serializers.CharField(required = True )
     category_id = serializers.CharField(required = True) 
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=2, required=True)
     transaction_type = serializers.ChoiceField(
         required=True, choices=[('income', 'Income'), ('expense', 'Expense') , ('transfer', 'Transfer')]
     )
     transaction_date = serializers.DateTimeField(required=True)
-    description = serializers.CharField(required = False , allow_null = True , default = '' )
-    note =serializers.CharField(required = False , allow_null= True , default = '' )
-    location = serializers.CharField(required = False , allow_null = True , default = '' )
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True, default='')
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True, default='')
+    location = serializers.CharField(required=False, allow_blank=True, allow_null=True, default='')
     receipt_image_url = serializers.CharField(required=False, allow_blank=True, max_length=255, default='')
     is_recurring = serializers.BooleanField(required=False, default=False)
     recurring_id = serializers.CharField(required=False, allow_blank=True, max_length=100, default='')
@@ -87,39 +88,42 @@ class CreateTransactionSerializer(serializers.Serializer):
         
         user = self.context.get('user')
         if not user:
-            raise serializers.ValidationError('User does not exist')
+            raise serializers.ValidationError({'user': 'User does not exist'})
         account_id = data.get('account_id')
         category_id = data.get('category_id')
         transaction_type = data.get('transaction_type')
         try:
             account = Accounts.objects.get(account_id = account_id , user = user)
         except Accounts.DoesNotExist:
-            raise serializers.ValidationError('This account does not exist or does not belong to the current user')
+            raise serializers.ValidationError({'account_id': 'This account does not exist or does not belong to the current user'})
         
         data['account'] = account
         
-        try: 
-            category = Categories.objects.get(category_id = category_id , user = user)
+        try:
+            category = Categories.objects.get(category_id=category_id, user=user, is_deleted=False)
         except Categories.DoesNotExist:
-            raise serializers.ValidationError('This category does not exist')
+            raise serializers.ValidationError({'category_id': 'This category does not exist'})
     
         if transaction_type in ['income', 'expense']: 
             if transaction_type != category.category_type:
-                raise serializers.ValidationError(f'Category type {category.category_type} does not match transaction type {transaction_type}')
+                raise serializers.ValidationError({
+                    'transaction_type': f'Category type {category.category_type} does not match transaction type {transaction_type}'
+                })
 
         data['category'] = category
 
         ### Check balance if expense
         if transaction_type == 'expense':
             amount = data.get('amount')
-            if account.balance < amount:
-                raise serializers.ValidationError('Your account balance is insufficient to perform this transaction')
+            account_balance = account.balance if account.balance is not None else Decimal('0')
+            if account_balance < amount:
+                raise serializers.ValidationError({'amount': 'Your account balance is insufficient to perform this transaction'})
             
         if data.get('is_recurring') and data.get('recurring_id'):
             try:
                 recurring_transaction = RecurringTransactions.objects.get(recurring_id = data.get('recurring_id') , user = user)
             except RecurringTransactions.DoesNotExist:
-                raise serializers.ValidationError('This recurring transaction does not exist')
+                raise serializers.ValidationError({'recurring_id': 'This recurring transaction does not exist'})
             
             data['recurring_transaction'] = recurring_transaction
 
@@ -171,9 +175,9 @@ class UpdateTransactionSerializer(serializers.Serializer):
         old_transaction = self.context.get('old_transaction')
 
         if not user:
-            raise serializers.ValidationError('User does not exist')
+            raise serializers.ValidationError({'user': 'User does not exist'})
         if not old_transaction:
-            raise serializers.ValidationError('Old transaction not found')
+            raise serializers.ValidationError({'transaction_id': 'Old transaction not found'})
 
         # Get new values or keep old values
         account_id = data.get('account_id', old_transaction.account_id)
@@ -185,20 +189,20 @@ class UpdateTransactionSerializer(serializers.Serializer):
         try:
             account = Accounts.objects.get(account_id=account_id, user=user)
         except Accounts.DoesNotExist:
-            raise serializers.ValidationError('This account does not exist or does not belong to the current user')
+            raise serializers.ValidationError({'account_id': 'This account does not exist or does not belong to the current user'})
         data['account'] = account
 
         # Validate category
         try:
-            category = Categories.objects.get(category_id=category_id, user=user)
+            category = Categories.objects.get(category_id=category_id, user=user, is_deleted=False)
         except Categories.DoesNotExist:
-            raise serializers.ValidationError('This category does not exist')
+            raise serializers.ValidationError({'category_id': 'This category does not exist'})
 
         if transaction_type in ['income', 'expense']:
             if transaction_type != category.category_type:
-                raise serializers.ValidationError(
-                    f'Category type "{category.category_type}" does not match transaction type "{transaction_type}"'
-                )
+                raise serializers.ValidationError({
+                    'transaction_type': f'Category type "{category.category_type}" does not match transaction type "{transaction_type}"'
+                })
         data['category'] = category
 
         # Simulate balance to check if sufficient
@@ -227,9 +231,9 @@ class UpdateTransactionSerializer(serializers.Serializer):
             simulated_balance -= new_amount
 
         if simulated_balance < 0 and new_type in ['expense', 'transfer']:
-            raise serializers.ValidationError(
-                'Insufficient account balance after updating this transaction'
-            )
+            raise serializers.ValidationError({
+                'amount': 'Insufficient account balance after updating this transaction'
+            })
 
         # Validate recurring if applicable
         is_recurring = data.get('is_recurring', old_transaction.is_recurring)
@@ -238,7 +242,7 @@ class UpdateTransactionSerializer(serializers.Serializer):
             try:
                 RecurringTransactions.objects.get(recurring_id=recurring_id, user=user)
             except RecurringTransactions.DoesNotExist:
-                raise serializers.ValidationError('This recurring transaction does not exist')
+                raise serializers.ValidationError({'recurring_id': 'This recurring transaction does not exist'})
 
         return data
     

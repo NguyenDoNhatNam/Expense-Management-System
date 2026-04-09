@@ -48,16 +48,17 @@ class TransactionService:
             account_locked = Accounts.objects.select_for_update().get(
                 account_id=account.account_id
             )
+            current_balance = account_locked.balance if account_locked.balance is not None else Decimal('0')
 
             if transaction_type == 'expense':
-                new_balance = account_locked.balance - amount
+                new_balance = current_balance - amount
                 if new_balance < 0:
                     raise ValueError('Your account balance is insufficient to perform this transaction')
                 account_locked.balance = new_balance
             elif transaction_type == 'income':
-                account_locked.balance = account_locked.balance + amount
+                account_locked.balance = current_balance + amount
             elif transaction_type == 'transfer':
-                new_balance = account_locked.balance - amount
+                new_balance = current_balance - amount
                 if new_balance < 0:
                     raise ValueError('Your account balance is insufficient to perform the transfer')
                 account_locked.balance = new_balance

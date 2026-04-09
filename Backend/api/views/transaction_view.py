@@ -13,6 +13,7 @@ from rest_framework.decorators import action
 from django.db.models import Q
 import logging
 from api.permissions.permission import PermissionMixin , DynamicPermission ,HasPermission
+from api.services.activity_log_service import ActivityLogService
 logger = logging.getLogger(__name__)
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import OpenApiResponse
@@ -41,6 +42,7 @@ class TransactionViewset(viewsets.ViewSet):
         user = request.user
         queryset = Transactions.objects.filter(user=user, is_deleted=False).order_by('-transaction_date')
         account_id = request.query_params.get('account_id')
+        account_ids = request.query_params.get('account_ids')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         trans_type = request.query_params.get('transaction_type')
@@ -52,6 +54,10 @@ class TransactionViewset(viewsets.ViewSet):
 
         if account_id:
             queryset = queryset.filter(account__account_id=account_id)
+        elif account_ids:
+            ids = [aid.strip() for aid in account_ids.split(',') if aid.strip()]
+            if ids:
+                queryset = queryset.filter(account__account_id__in=ids)
         if start_date:
             queryset = queryset.filter(transaction_date__date__gte=start_date)
         if end_date:
@@ -79,7 +85,31 @@ class TransactionViewset(viewsets.ViewSet):
             queryset = queryset.order_by(sort_mapping[sort_by])
 
         serializer = TransactionListSerializer(queryset, many=True)
-        return Response({'success': True, 'message': 'Transaction list retrieved successfully.', 'data': serializer.data,}, status=status.HTTP_200_OK)
+        total_items = queryset.count()
+        ActivityLogService.log(
+            request,
+            action='VIEW_TRANSACTIONS',
+            details='User viewed transaction list',
+            level='INFO'
+        )
+        return Response(
+            {
+                'success': True,
+                'message': 'Transaction list retrieved successfully.',
+                'data': {
+                    'transactions': serializer.data,
+                    'pagination': {
+                        'total_items': total_items,
+                        'total_pages': 1,
+                        'current_page': 1,
+                        'items_per_page': total_items,
+                        'has_next': False,
+                        'has_previous': False,
+                    },
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
     # ===================== CREATE =====================
     @extend_schema(
         request=CreateTransactionSerializer,
@@ -98,13 +128,19 @@ class TransactionViewset(viewsets.ViewSet):
         if not serializer.is_valid():
             return Response({
                 'success': False,
-                'message': 'Invalid data',
+                'message': f'Invalid data: {", ".join([str(error) for error in serializer.errors])}',
                 'errors': serializer.errors,
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             result = TransactionService.create_transaction(
                 serializer.validated_data, request.user
+            )
+            ActivityLogService.log(
+                request,
+                action='CREATE_TRANSACTION',
+                details='User created a new transaction',
+                level='ACTION'
             )
             return Response(
                 {
@@ -174,6 +210,12 @@ class TransactionViewset(viewsets.ViewSet):
                 transaction_id=transaction_id,
                 validated_data=serializer.validated_data,
                 user=request.user,
+            )
+            ActivityLogService.log(
+                request,
+                action='UPDATE_TRANSACTION',
+                details=f'User updated transaction {transaction_id}',
+                level='ACTION'
             )
             return Response(
                 {
@@ -248,6 +290,12 @@ class TransactionViewset(viewsets.ViewSet):
                 user=request.user,
                 hard_delete=hard_delete,
             )
+            ActivityLogService.log(
+                request,
+                action='DELETE_TRANSACTION',
+                details=f'User deleted transaction {transaction_id} (hard_delete={hard_delete})',
+                level='ACTION'
+            )
             return Response(
                 {
                     'success': True,
@@ -298,6 +346,12 @@ class TransactionViewset(viewsets.ViewSet):
             result = TransactionService.restore_transaction(
                 transaction_id=transaction_id,
                 user=request.user,
+            )
+            ActivityLogService.log(
+                request,
+                action='RESTORE_TRANSACTION',
+                details=f'User restored transaction {transaction_id}',
+                level='ACTION'
             )
             return Response(
                 {

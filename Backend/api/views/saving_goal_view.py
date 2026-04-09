@@ -7,6 +7,7 @@ from api.models import SavingsGoals
 from api.services.saving_goal_service import SavingGoalService
 from api.serializers.saving_goal_serializer import SavingGoalListSerializer, CreateSavingGoalSerializer, UpdateSavingGoalSerializer
 from drf_spectacular.utils import extend_schema
+from api.services.activity_log_service import ActivityLogService
 
 class SavingGoalViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
@@ -24,6 +25,12 @@ class SavingGoalViewSet(viewsets.ViewSet):
     def list_goals(self, request):
         goals = SavingGoalService.get_goals(request.user)
         serializer = SavingGoalListSerializer(goals, many=True)
+        ActivityLogService.log(
+            request,
+            action='VIEW_SAVING_GOALS',
+            details='User viewed saving goals list',
+            level='INFO'
+        )
         return Response({'success': True, 'data': serializer.data}, status=status.HTTP_200_OK)
 
     @extend_schema(request=CreateSavingGoalSerializer)
@@ -32,6 +39,12 @@ class SavingGoalViewSet(viewsets.ViewSet):
         serializer = CreateSavingGoalSerializer(data=request.data)
         if serializer.is_valid():
             goal = SavingGoalService.create_goal(serializer.validated_data, request.user)
+            ActivityLogService.log(
+                request,
+                action='CREATE_SAVING_GOAL',
+                details=f'User created saving goal: {goal.goal_name}',
+                level='ACTION'
+            )
             return Response({'success': True, 'data': {'goal_id': goal.goal_id}}, status=status.HTTP_201_CREATED)
         return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -43,6 +56,12 @@ class SavingGoalViewSet(viewsets.ViewSet):
             serializer = UpdateSavingGoalSerializer(data=request.data)
             if serializer.is_valid():
                 SavingGoalService.update_goal(goal, serializer.validated_data)
+                ActivityLogService.log(
+                    request,
+                    action='UPDATE_SAVING_GOAL',
+                    details=f'User updated saving goal: {goal.goal_name}',
+                    level='ACTION'
+                )
                 return Response({'success': True, 'message': 'Updated successfully'})
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         except SavingsGoals.DoesNotExist:
@@ -53,6 +72,12 @@ class SavingGoalViewSet(viewsets.ViewSet):
     def delete_goal(self, request, goal_id=None):
         try:
             goal = SavingsGoals.objects.get(goal_id=goal_id, user=request.user)
+            ActivityLogService.log(
+                request,
+                action='DELETE_SAVING_GOAL',
+                details=f'User deleted saving goal: {goal.goal_name}',
+                level='ACTION'
+            )
             goal.delete()
             return Response({'success': True, 'message': 'Goal deleted successfully'}, status=status.HTTP_200_OK)
         except SavingsGoals.DoesNotExist:

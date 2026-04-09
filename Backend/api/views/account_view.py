@@ -8,6 +8,7 @@ from api.services.account_service import AccountService
 from api.serializers.account_serializer import AccountListSerializer, CreateAccountSerializer, UpdateAccountSerializer
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
 from api.pagination import CustomPagination
+from api.services.activity_log_service import ActivityLogService
 
 class AccountViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
@@ -34,6 +35,12 @@ class AccountViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='list')
     def list_accounts(self, request):
         accounts, net_worth = AccountService.get_accounts_summary(request.user)
+        ActivityLogService.log(
+            request,
+            action='VIEW_ACCOUNTS',
+            details='User viewed account list',
+            level='INFO'
+        )
         
         search_query = request.query_params.get('search', '').strip()
         account_type = request.query_params.get('account_type', '').strip()
@@ -73,6 +80,13 @@ class AccountViewSet(viewsets.ViewSet):
 
         try:
             account = AccountService.create_account(serializer.validated_data, request.user)
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='CREATE_ACCOUNT',
+                details=f'Created account: {account.account_name}',
+                level='ACTION'
+            )
             return Response({
                 'success': True,
                 'message': 'Account created successfully',
@@ -95,6 +109,13 @@ class AccountViewSet(viewsets.ViewSet):
 
         try:
             updated_account = AccountService.update_account(account, serializer.validated_data, request.user)
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='UPDATE_ACCOUNT',
+                details=f'Updated account: {updated_account.account_name}',
+                level='ACTION'
+            )
             return Response({'success': True, 'message': 'Account updated successfully', 'data': {'account_id': updated_account.account_id}}, status=status.HTTP_200_OK)
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -103,6 +124,13 @@ class AccountViewSet(viewsets.ViewSet):
     def delete_account(self, request, account_id=None):
         try:
             account = Accounts.objects.get(account_id=account_id, user=request.user)
+            # Log activity
+            ActivityLogService.log(
+                request,
+                action='DELETE_ACCOUNT',
+                details=f'Deleted account: {account.account_name}',
+                level='ACTION'
+            )
             AccountService.delete_account(account, request.user)
             return Response({'success': True, 'message': 'Account deleted successfully'}, status=status.HTTP_200_OK)
         except Accounts.DoesNotExist:

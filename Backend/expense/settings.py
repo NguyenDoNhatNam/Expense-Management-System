@@ -43,7 +43,8 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:3000,http://127.0.0.1:3000'
 ).split(',')
-CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'True').lower() in ('true', '1', 'yes')
+CORS_ALLOW_ALL_ORIGINS = False  
+CORS_ALLOW_CREDENTIALS = True  
 
 # Application definition
 
@@ -259,6 +260,11 @@ CELERY_BEAT_SCHEDULE = {
     'cleanup-old-backups': {
         'task': 'api.tasks.cleanup_old_backups',
         'schedule': crontab(hour=4, minute=0, day_of_week=0),
+    },
+    # Dọn dẹp Refresh và Remember tokens đã hết hạn vào 04:30 sáng hàng ngày
+    'cleanup-expired-tokens': {
+        'task': 'api.tasks.cleanup_expired_tokens',
+        'schedule': crontab(hour=4, minute=30),
     },
 }
 
