@@ -3,6 +3,7 @@ from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from rest_framework.authentication import BaseAuthentication 
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
+from django.core.cache import cache
 from api.models import Users
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -31,6 +32,11 @@ class CustomTokenAuthentication(BaseAuthentication):
         
         try: 
             token = AccessToken(token_key)
+            
+            # Kiểm tra xem Token này có nằm trong Blacklist của Redis (do đã logout) hay không
+            if cache.get(f"blacklisted_token_{token_key}"):
+                raise AuthenticationFailed('Token has been revoked (logged out)')
+                
             user_id = token.get('user_id')
             if not user_id:
                 raise AuthenticationFailed('Invalid token')

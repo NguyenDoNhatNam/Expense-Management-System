@@ -13,6 +13,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.utils import OpenApiResponse
 from api.pagination import CustomPagination
 from django.db.models import F
+from api.services.activity_log_service import ActivityLogService
 
 class BudgetViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
@@ -45,6 +46,12 @@ class BudgetViewSet(viewsets.ViewSet):
     def list_budgets(self, request):
         try:
             queryset = BudgetService.get_budgets(request.user)
+            ActivityLogService.log(
+                request,
+                action='VIEW_BUDGETS',
+                details='User viewed budget list',
+                level='INFO'
+            )
 
             search_query = request.query_params.get('search', '').strip()
             category_id = request.query_params.get('category_id', '').strip()
@@ -97,6 +104,12 @@ class BudgetViewSet(viewsets.ViewSet):
 
         try:
             budget = BudgetService.create_budget(serializer.validated_data, request.user)
+            ActivityLogService.log(
+                request,
+                action='CREATE_BUDGET',
+                details=f'User created budget: {budget.budget_name}',
+                level='ACTION'
+            )
             return Response({'success': True, 'message': 'Created successfully', 'data': {'budget_id': budget.budget_id}}, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({'success': False, 'message': 'Server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -122,6 +135,12 @@ class BudgetViewSet(viewsets.ViewSet):
 
         try:
             updated_budget = BudgetService.update_budget(budget, serializer.validated_data)
+            ActivityLogService.log(
+                request,
+                action='UPDATE_BUDGET',
+                details=f'User updated budget: {updated_budget.budget_name}',
+                level='ACTION'
+            )
             return Response({'success': True, 'message': 'Updated successfully', 'data': {'budget_id': updated_budget.budget_id}}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'success': False, 'message': 'Server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -137,6 +156,12 @@ class BudgetViewSet(viewsets.ViewSet):
     def delete_budget(self, request, budget_id=None):
         try:
             budget = Budgets.objects.get(budget_id=budget_id, user=request.user, is_active=True)
+            ActivityLogService.log(
+                request,
+                action='DELETE_BUDGET',
+                details=f'User deleted budget: {budget.budget_name}',
+                level='ACTION'
+            )
             BudgetService.delete_budget(budget)
             return Response({'success': True, 'message': 'Deleted successfully'}, status=status.HTTP_200_OK)
         except Budgets.DoesNotExist:

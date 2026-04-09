@@ -175,13 +175,27 @@ export default function DashboardPage() {
         );
 
         const txPromise = listTransactionsApi({
-          account_id: currentWallet?.id || undefined,
+          account_ids: currentWallet?.id || undefined,
           sort_by: "newest",
         });
 
         const [dashboardResponse, recentTxResponse] = await Promise.all([
           dashboardPromise,
-          txPromise.catch(() => ({ success: false, data: [] as BackendTransaction[] })),
+          txPromise.catch(() => ({
+            success: false,
+            data: {
+              transactions: [] as BackendTransaction[],
+              pagination: {
+                total_items: 0,
+                total_pages: 0,
+                current_page: 1,
+                items_per_page: 0,
+                has_next: false,
+                has_previous: false,
+              },
+            },
+            message: 'failed',
+          })),
         ]);
 
         if (dashboardResponse.data.success) {
@@ -195,7 +209,7 @@ export default function DashboardPage() {
 
         if (recentTxResponse.success) {
           setRecentTransactions(
-            (recentTxResponse.data || []).slice(0, 5),
+            (recentTxResponse.data?.transactions || []).slice(0, 5),
           );
         }
       } catch (err: any) {
@@ -288,7 +302,7 @@ export default function DashboardPage() {
   // ===== LOADING =====
   if (loading && !dashboardData) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[400px]">
+      <div className="p-6 flex items-center justify-center min-h-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
           <div className="text-lg">Loading data...</div>

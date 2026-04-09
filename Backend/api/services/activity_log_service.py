@@ -22,6 +22,10 @@ class ActivityLogService:
     LOGIN_SUCCESS = 'LOGIN_SUCCESS'
     LOGIN_FAILED = 'LOGIN_FAILED'
     LOGOUT = 'LOGOUT'
+    VERIFY_ACTIVATION = 'VERIFY_ACTIVATION'
+    REGISTER = 'REGISTER'
+    FORGOT_PASSWORD = 'FORGOT_PASSWORD'
+    RESET_PASSWORD = 'RESET_PASSWORD'
     
     # Transactions
     CREATE_TRANSACTION = 'CREATE_TRANSACTION'
@@ -242,6 +246,8 @@ class ActivityLogService:
         """
         queryset = ActivityLogs.objects.select_related('user').all()
         
+        ordering = '-created_at'
+
         if filters:
             if filters.get('user_id'):
                 queryset = queryset.filter(user_id=filters['user_id'])
@@ -267,9 +273,18 @@ class ActivityLogService:
             
             if filters.get('end_date'):
                 queryset = queryset.filter(created_at__date__lte=filters['end_date'])
+
+            # Allow only safe ordering fields for predictable sorting.
+            ordering_mapping = {
+                'created_at': 'created_at',
+                '-created_at': '-created_at',
+                'timestamp': 'created_at',
+                '-timestamp': '-created_at',
+            }
+            ordering = ordering_mapping.get(filters.get('ordering', '-created_at'), '-created_at')
         
-        # Order by newest first
-        queryset = queryset.order_by('-created_at')
+        # Default newest first.
+        queryset = queryset.order_by(ordering)
         
         # Count total
         total = queryset.count()
@@ -364,7 +379,7 @@ class ActivityLogService:
             user = Users.objects.get(user_id=user_id)
             
             # Get latest log
-            latest_log = ActivityLogs.objects.filter(user_id=user_id).first()
+            latest_log = ActivityLogs.objects.filter(user_id=user_id).order_by('-created_at').first()
             
             # Check online status
             five_minutes_ago = timezone.now() - timezone.timedelta(minutes=5)

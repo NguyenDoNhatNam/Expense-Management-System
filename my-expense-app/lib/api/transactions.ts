@@ -21,7 +21,17 @@ export interface BackendTransaction {
 export interface TransactionListResponse {
   success: boolean;
   message: string;
-  data: BackendTransaction[];
+  data: {
+    transactions: BackendTransaction[];
+    pagination: {
+      total_items: number;
+      total_pages: number;
+      current_page: number;
+      items_per_page: number;
+      has_next: boolean;
+      has_previous: boolean;
+    };
+  };
 }
 
 export interface CreateTransactionPayload {
@@ -46,8 +56,8 @@ export interface MutationTransactionResponse {
   data?: Record<string, unknown>;
 }
 
-export const listTransactionsApi = async (params?: {
-  account_id?: string;
+export const listTransactionsApi = async (params: {
+  account_ids?: string;
   transaction_type?: 'income' | 'expense' | 'transfer';
   keyword?: string;
   start_date?: string;
@@ -56,6 +66,8 @@ export const listTransactionsApi = async (params?: {
   max_amount?: string;
   category_ids?: string;
   sort_by?: string;
+  p?: number;
+  ipp?: number;
 }): Promise<TransactionListResponse> => {
   const response = await api.get<TransactionListResponse>('/transactions/list/', { params });
   return response.data;
@@ -64,6 +76,7 @@ export const listTransactionsApi = async (params?: {
 export const createTransactionApi = async (
   payload: CreateTransactionPayload
 ): Promise<MutationTransactionResponse> => {
+  console.log('Creating transaction with payload:', payload);
   const response = await api.post<MutationTransactionResponse>('/transactions/create/', payload);
   return response.data;
 };

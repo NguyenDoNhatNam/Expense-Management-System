@@ -299,3 +299,50 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 ('2', '34'),  -- admin can export activity logs
 ('3', '33'),  -- super_admin can view activity logs
 ('3', '34');  -- super_admin can export activity logs
+
+CREATE TABLE refresh_tokens (
+    id BIGINT IDENTITY(1,1) NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    created_at DATETIME2(6) NOT NULL,
+    expires_at DATETIME2(6) NOT NULL,
+    revoked_at DATETIME2(6) NULL,
+    user_id INT NOT NULL,
+    replaced_by_token VARCHAR(255) NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent NVARCHAR(MAX) NULL,
+
+    CONSTRAINT PK_refresh_tokens PRIMARY KEY (id),
+    CONSTRAINT UQ_refresh_tokens_token UNIQUE (token),
+    CONSTRAINT FK_refresh_tokens_user 
+        FOREIGN KEY (user_id) 
+        REFERENCES auth_user(id)
+        ON DELETE CASCADE
+);
+
+-- Index cho user_id (tương đương KEY trong MySQL)
+CREATE INDEX IX_refresh_tokens_user_id 
+ON refresh_tokens(user_id);
+
+GO 
+
+CREATE TABLE remember_tokens (
+    id BIGINT IDENTITY(1,1) NOT NULL,
+    token_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME2(6) NOT NULL,
+    expires_at DATETIME2(6) NOT NULL,
+    user_id INT NOT NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent NVARCHAR(MAX) NULL,
+
+    CONSTRAINT PK_remember_tokens PRIMARY KEY (id),
+    CONSTRAINT UQ_remember_tokens_token_hash UNIQUE (token_hash),
+    CONSTRAINT FK_remember_tokens_user 
+        FOREIGN KEY (user_id) 
+        REFERENCES auth_user(id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IX_remember_tokens_user_id 
+ON remember_tokens(user_id);
+
+GO

@@ -129,3 +129,171 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================
+   TERMINAL THEME - Activity Log Page
+   ============================================ */
+
+/* Terminal Color Variables */
+:root {
+  --terminal-bg: #0a0a0a;
+  --terminal-card: #111111;
+  --terminal-input: #1a1a1a;
+  --terminal-border: #2a2a2a;
+  --terminal-text: #e0e0e0;
+  --terminal-muted: #666666;
+  --terminal-green: #00ff9f;
+  --terminal-blue: #00b0ff;
+  --terminal-yellow: #ffd700;
+  --terminal-red: #ff3b5c;
+}
+
+/* Terminal Base Colors - Tailwind Classes */
+.bg-terminal-bg { background-color: var(--terminal-bg); }
+.bg-terminal-card { background-color: var(--terminal-card); }
+.bg-terminal-input { background-color: var(--terminal-input); }
+.bg-terminal-border { background-color: var(--terminal-border); }
+.bg-terminal-green { background-color: var(--terminal-green); }
+.bg-terminal-blue { background-color: var(--terminal-blue); }
+.bg-terminal-yellow { background-color: var(--terminal-yellow); }
+.bg-terminal-red { background-color: var(--terminal-red); }
+
+.text-terminal-text { color: var(--terminal-text); }
+.text-terminal-muted { color: var(--terminal-muted); }
+.text-terminal-green { color: var(--terminal-green); }
+.text-terminal-blue { color: var(--terminal-blue); }
+.text-terminal-yellow { color: var(--terminal-yellow); }
+.text-terminal-red { color: var(--terminal-red); }
+
+.border-terminal-border { border-color: var(--terminal-border); }
+.border-terminal-green { border-color: var(--terminal-green); }
+.border-terminal-blue { border-color: var(--terminal-blue); }
+.border-terminal-yellow { border-color: var(--terminal-yellow); }
+.border-terminal-red { border-color: var(--terminal-red); }
+
+/* Terminal Text Glow Effect */
+.text-glow-green {
+  text-shadow: 0 0 10px var(--terminal-green), 0 0 20px var(--terminal-green), 0 0 30px var(--terminal-green);
+}
+
+.text-glow-blue {
+  text-shadow: 0 0 10px var(--terminal-blue), 0 0 20px var(--terminal-blue);
+}
+
+.text-glow-red {
+  text-shadow: 0 0 10px var(--terminal-red), 0 0 20px var(--terminal-red);
+}
+
+/* Terminal Page Specific */
+.activity-log-page {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+}
+
+.activity-log-page .terminal-header {
+  background: linear-gradient(180deg, #1a1a1a 0%, #111111 100%);
+}
+
+/* Blinking Cursor Animation */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Terminal Scrollbar */
+.scrollbar-terminal::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-terminal::-webkit-scrollbar-track {
+  background: var(--terminal-bg);
+}
+
+.scrollbar-terminal::-webkit-scrollbar-thumb {
+  background: var(--terminal-border);
+  border-radius: 4px;
+}
+
+.scrollbar-terminal::-webkit-scrollbar-thumb:hover {
+  background: var(--terminal-muted);
+}
+
+/* Scanline Effect (CRT Monitor) */
+.bg-scanline {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 1px,
+    rgba(0, 0, 0, 0.1) 1px,
+    rgba(0, 0, 0, 0.1) 2px
+  );
+  pointer-events: none;
+}
+
+/* Log Entry Hover Effect */
+.log-entry {
+  transition: all 0.15s ease;
+}
+
+.log-entry:hover {
+  background: rgba(0, 255, 159, 0.05);
+}
+
+.log-entry:hover .text-terminal-muted {
+  color: var(--terminal-text);
+}
+
+/* Terminal Input Focus */
+.activity-log-page input:focus {
+  box-shadow: 0 0 0 1px var(--terminal-green), 0 0 10px rgba(0, 255, 159, 0.2);
+}
+
+/* Terminal Button Hover Effects */
+.activity-log-page button {
+  transition: all 0.2s ease;
+}
+
+.activity-log-page button:hover:not(:disabled) {
+  box-shadow: 0 0 10px rgba(0, 255, 159, 0.3);
+}
+
+/* Stats Box Glow on Hover */
+.quick-stats .p-3:hover {
+  box-shadow: 0 0 15px currentColor;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* User Avatar Pulse */
+.user-detail-panel .w-14 {
+  animation: avatar-pulse 2s ease-in-out infinite;
+}
+
+@keyframes avatar-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 159, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(0, 255, 159, 0); }
+}
+
+/* Terminal Boot Animation (optional page load effect) */
+@keyframes terminal-boot {
+  0% { opacity: 0; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.activity-log-page {
+  animation: terminal-boot 0.3s ease-out;
+}
+
+/* Responsive adjustments for terminal layout */
+@media (max-width: 1024px) {
+  .activity-log-page .w-\[60\%\] {
+    width: 100%;
+  }
+  .activity-log-page .w-\[40\%\] {
+    display: none;
+  }
+}

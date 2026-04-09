@@ -1,11 +1,9 @@
 import api from './client';
 
-export type BudgetPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+export type BudgetPeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export interface BackendBudget {
   budget_id: string;
-  category_id: string;
-  category_name: string;
   budget_name: string;
   amount: string;
   period: BudgetPeriod;
@@ -13,9 +11,20 @@ export interface BackendBudget {
   end_date: string;
   alert_threshold: number;
   is_active: boolean;
-  spent_amount: number;
+  category_id: string;
+  category_name: string;
+  spent_amount: string;
+  spent?: number;
   percentage: number;
-  spent: number;
+}
+
+export interface BudgetPagination {
+  total_items: number;
+  total_pages: number;
+  current_page: number;
+  items_per_page: number;
+  has_next: boolean;
+  has_previous: boolean;
 }
 
 export interface BudgetListResponse {
@@ -23,14 +32,7 @@ export interface BudgetListResponse {
   message: string;
   data: {
     items: BackendBudget[];
-    pagination: {
-      total_items: number;
-      total_pages: number;
-      current_page: number;
-      items_per_page: number;
-      has_next: boolean;
-      has_previous: boolean;
-    };
+    pagination: BudgetPagination;
   };
 }
 
@@ -60,11 +62,56 @@ export interface DeleteBudgetResponse {
 
 // ================= API =================
 
-export const listBudgetsApi = async (): Promise<BudgetListResponse> => {
-  const response = await api.get<BudgetListResponse>('/budgets/list/', {
-    params: { ipp: 100 },
-  });
+export const listBudgetsApi = async (params?: {
+  p?: number;
+  ipp?: number;
+  search?: string;
+  period?: string;
+  is_active?: string;
+}): Promise<BudgetListResponse> => {
+  const response = await api.get<BudgetListResponse>('/budgets/list/', { params });
   return response.data;
+};
+
+export const listAllBudgetsApi = async (params?: {
+  search?: string;
+  period?: string;
+  is_active?: string;
+}): Promise<BackendBudget[]> => {
+  const pageSize = 100;
+  const firstPage = await listBudgetsApi({
+    p: 1,
+    ipp: pageSize,
+    search: params?.search,
+    period: params?.period,
+    is_active: params?.is_active,
+  });
+
+  const firstItems = firstPage.data?.items || [];
+  const totalPages = firstPage.data?.pagination?.total_pages || 1;
+
+  if (totalPages <= 1) {
+    return firstItems;
+  }
+
+  const requests: Promise<BudgetListResponse>[] = [];
+  for (let page = 2; page <= totalPages; page += 1) {
+    requests.push(
+      listBudgetsApi({
+        p: page,
+        ipp: pageSize,
+        search: params?.search,
+        period: params?.period,
+        is_active: params?.is_active,
+      })
+    );
+  }
+
+  const restPages = await Promise.all(requests);
+  return [
+    ...firstItems,
+    ...restPages.flatMap((res) => res.data?.items || []),
+  ];
 };
 
 export const createBudgetApi = async (

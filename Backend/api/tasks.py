@@ -448,3 +448,23 @@ def send_backup_ready_email(self, user_email: str, user_name: str, backup_info: 
         logger.error(f"[EMAIL] Failed to send backup notification to {user_email}: {str(e)}")
         self.retry(exc=e, countdown=60)
 
+
+@shared_task
+def cleanup_expired_tokens():
+    """
+    Dọn dẹp các refresh token và remember token đã hết hạn khỏi DB.
+    Chạy hàng ngày để tối ưu hóa không gian lưu trữ Database.
+    """
+    try:
+        from api.models.token_models import RefreshToken, RememberToken
+        from django.utils import timezone
+        
+        now = timezone.now()
+        deleted_refresh, _ = RefreshToken.objects.filter(expires_at__lt=now).delete()
+        deleted_remember, _ = RememberToken.objects.filter(expires_at__lt=now).delete()
+        
+        logger.info(f"[CLEANUP] Deleted {deleted_refresh} expired refresh tokens and {deleted_remember} expired remember tokens")
+        return {'deleted_refresh': deleted_refresh, 'deleted_remember': deleted_remember}
+    except Exception as e:
+        logger.error(f"[CLEANUP] Expired tokens cleanup failed: {str(e)}")
+        raise

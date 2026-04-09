@@ -63,8 +63,13 @@ export interface DeleteCategoryResponse {
 	};
 }
 
-export const listCategoriesApi = async (): Promise<CategoryListResponse> => {
-	const response = await api.get<CategoryListResponse>('/categories/list/');
+export const listCategoriesApi = async (params?: {
+	p?: number;
+	ipp?: number;
+	search?: string;
+	category_type?: string;
+}): Promise<CategoryListResponse> => {
+	const response = await api.get<CategoryListResponse>('/categories/list/', { params });
 	return response.data;
 };
 

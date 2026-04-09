@@ -4,7 +4,7 @@ from api.views import (
     budget_view, authentication_view, transaction_view, recepit_view, 
     categories_view, report_view, recurring_view, saving_goal_view, 
     debt_view, transfer_view, account_view, data_management_view,
-    activity_log_view
+    activity_log_view, admin_users_view
 )
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
@@ -20,6 +20,7 @@ user.register(r'savings', saving_goal_view.SavingGoalViewSet, basename='savings'
 user.register(r'debts', debt_view.DebtViewSet, basename='debts')
 user.register(r'transfers', transfer_view.TransferViewSet, basename='transfers')
 user.register(r'accounts', account_view.AccountViewSet, basename='accounts')
+user.register(r'users', admin_users_view.AdminUsersViewSet, basename='users')
 
 user.register(r'exports', data_management_view.ExportViewSet, basename='exports')
 user.register(r'imports', data_management_view.ImportViewSet, basename='imports')

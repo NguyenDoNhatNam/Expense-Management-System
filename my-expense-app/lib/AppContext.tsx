@@ -36,6 +36,7 @@ import {
 } from './api/debts';
 import {
   listBudgetsApi,
+  listAllBudgetsApi,
   createBudgetApi,
   updateBudgetApi,
   deleteBudgetApi,
@@ -46,6 +47,7 @@ interface AppContextType {
   // Auth
   currentUser: Types.User | null;
   isAuthenticated: boolean;
+  isAuthChecking: boolean;
   pendingVerification: { email: string; phone: string } | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<any>;
   register: (email: string, password: string, fullName: string, phone: string) => Promise<void>;
@@ -102,6 +104,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<Types.User | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [wallets, setWallets] = useState<Types.Wallet[]>([]);
   const [currentWallet, setCurrentWallet] = useState<Types.Wallet | null>(null);
   const [categories, setCategories] = useState<Types.Category[]>([]);
@@ -167,7 +170,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const syncWalletsFromBackend = useCallback(
     async (userId: string) => {
       const response = await listAccountsApi();
-      const mappedWallets = response.data.items.map((account, index) =>
+      const accountItems = response.data.items ?? response.data.accounts ?? [];
+      const mappedWallets = accountItems.map((account: BackendAccount, index: number) =>
         mapBackendAccountToWallet(account, userId, index === 0)
       );
 
@@ -178,7 +182,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         if (previousWallet) {
-          const sameWallet = mappedWallets.find((wallet) => wallet.id === previousWallet.id);
+          const sameWallet = mappedWallets.find((wallet: Types.Wallet) => wallet.id === previousWallet.id);
           if (sameWallet) {
             return sameWallet;
           }
@@ -264,8 +268,7 @@ const mapBackendBudgetToBudget = useCallback(
 );
 
 const syncBudgetsFromBackend = useCallback(async (userId: string) => {
-  const response = await listBudgetsApi();
-  const items = Array.isArray(response.data) ? response.data : (response.data as any)?.items ?? [];
+  const items = await listAllBudgetsApi();
   const mappedBudgets = items.map((item: BackendBudget) =>
     mapBackendBudgetToBudget(item, userId)
   );
@@ -273,28 +276,32 @@ const syncBudgetsFromBackend = useCallback(async (userId: string) => {
 }, [mapBackendBudgetToBudget]);
   // Load data from localStorage on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('expenseapp_user') || sessionStorage.getItem('expenseapp_user');
-    const savedWallets = localStorage.getItem('expenseapp_wallets');
-    const savedCategories = localStorage.getItem('expenseapp_categories');
-    const savedTransactions = localStorage.getItem('expenseapp_transactions');
-    const savedBudgets = localStorage.getItem('expenseapp_budgets');
-    const savedGoals = localStorage.getItem('expenseapp_goals');
-    const savedDebts = localStorage.getItem('expenseapp_debts');
+    try {
+      const savedUser = localStorage.getItem('expenseapp_user') || sessionStorage.getItem('expenseapp_user');
+      const savedWallets = localStorage.getItem('expenseapp_wallets');
+      const savedCategories = localStorage.getItem('expenseapp_categories');
+      const savedTransactions = localStorage.getItem('expenseapp_transactions');
+      const savedBudgets = localStorage.getItem('expenseapp_budgets');
+      const savedGoals = localStorage.getItem('expenseapp_goals');
+      const savedDebts = localStorage.getItem('expenseapp_debts');
 
-    if (savedUser) {
-      const user = JSON.parse(savedUser);
-      setCurrentUser(user);
+      if (savedUser) {
+        const user = JSON.parse(savedUser);
+        setCurrentUser(user);
+      }
+      if (savedWallets) {
+        const w = JSON.parse(savedWallets);
+        setWallets(w);
+        if (w.length > 0) setCurrentWallet(w.find((x: any) => x.isDefault) || w[0]);
+      }
+      if (savedCategories) setCategories(JSON.parse(savedCategories));
+      if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+      if (savedBudgets) setBudgets(JSON.parse(savedBudgets));
+      if (savedGoals) setSavingsGoals(JSON.parse(savedGoals));
+      if (savedDebts) setDebts(JSON.parse(savedDebts));
+    } finally {
+      setIsAuthChecking(false);
     }
-    if (savedWallets) {
-      const w = JSON.parse(savedWallets);
-      setWallets(w);
-      if (w.length > 0) setCurrentWallet(w.find((x: any) => x.isDefault) || w[0]);
-    }
-    if (savedCategories) setCategories(JSON.parse(savedCategories));
-    if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
-    if (savedBudgets) setBudgets(JSON.parse(savedBudgets));
-    if (savedGoals) setSavingsGoals(JSON.parse(savedGoals));
-    if (savedDebts) setDebts(JSON.parse(savedDebts));
   }, []);
 
   useEffect(() => {
@@ -756,6 +763,7 @@ const deleteBudget = async (id: string) => {
       value={{
         currentUser,
         isAuthenticated: !!currentUser,
+        isAuthChecking,
         pendingVerification,
         login,
         register,

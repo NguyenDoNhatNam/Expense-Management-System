@@ -110,8 +110,7 @@ export default function TransactionForm({
     if (
       !formData.amount ||
       !formData.accountId ||
-      !formData.categoryId ||
-      !formData.description
+      !formData.categoryId
     ) {
       showNotification("Please fill all required fields", "error");
       return;
@@ -127,7 +126,6 @@ export default function TransactionForm({
       location: formData.location,
       receipt_image_url: sanitizedReceiptUrl,
       is_recurring: formData.isRecurring,
-      recurring_id: formData.isRecurring ? "REC001" : "",
       amount: parseFloat(formData.amount),
     };
 
@@ -147,7 +145,6 @@ export default function TransactionForm({
           location: payload.location,
           receipt_image_url: payload.receipt_image_url,
           is_recurring: payload.is_recurring,
-          recurring_id: payload.recurring_id,
         });
       }
 
@@ -260,7 +257,6 @@ export default function TransactionForm({
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             setFormData({ ...formData, description: e.target.value })
           }
-          required
         />
       </div>
 

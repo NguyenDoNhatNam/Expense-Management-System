@@ -49,6 +49,7 @@ class ActivityLogViewSet(viewsets.ViewSet):
         parameters=[
             OpenApiParameter(name='page', description='Page number', required=False, type=int),
             OpenApiParameter(name='page_size', description='Items per page', required=False, type=int),
+            OpenApiParameter(name='ordering', description='Sort by timestamp: -created_at (default) or created_at', required=False, type=str),
             OpenApiParameter(name='level', description='Filter by level: INFO, ACTION, WARNING, ERROR', required=False, type=str),
             OpenApiParameter(name='action', description='Filter by action type', required=False, type=str),
             OpenApiParameter(name='user_id', description='Filter by user ID', required=False, type=str),
@@ -91,6 +92,9 @@ class ActivityLogViewSet(viewsets.ViewSet):
         
         if request.query_params.get('end_date'):
             filters['end_date'] = request.query_params['end_date']
+
+        if request.query_params.get('ordering'):
+            filters['ordering'] = request.query_params['ordering']
         
         result = ActivityLogService.get_logs(filters, page, page_size)
         

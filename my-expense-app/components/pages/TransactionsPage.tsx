@@ -35,6 +35,8 @@ export default function TransactionsPage() {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // ===== WALLET FILTER =====
   const [selectedWalletId, setSelectedWalletId] = useState<string>("all");
@@ -68,7 +70,7 @@ export default function TransactionsPage() {
 
     try {
       const result = await listTransactionsApi({
-        account_id: selectedWalletId === "all" ? undefined : selectedWalletId,
+        account_ids: selectedWalletId === "all" ? undefined : selectedWalletId,
         keyword: searchText || undefined,
         transaction_type:
           filterType === "all" ? undefined : filterType,
@@ -83,7 +85,7 @@ export default function TransactionsPage() {
       });
 
       if (result.success) {
-        setTransactions(result.data || []);
+        setTransactions(result.data?.transactions || []);
       } else {
         throw new Error(result.message);
       }
@@ -133,6 +135,27 @@ export default function TransactionsPage() {
         : [...prev, id]
     );
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    selectedWalletId,
+    searchText,
+    filterType,
+    dateFrom,
+    dateTo,
+    selectedCategories,
+    minAmount,
+    maxAmount,
+    sortBy,
+    itemsPerPage,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(transactions.length / itemsPerPage));
+  const paginatedTransactions = transactions.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
   // ===== UI =====
   return (
@@ -229,7 +252,7 @@ export default function TransactionsPage() {
           <CardDescription>
             {isLoading
               ? "Loading..."
-              : `${transactions.length} results`}
+              : `Showing ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, transactions.length)} of ${transactions.length} results`}
           </CardDescription>
         </CardHeader>
 
@@ -242,7 +265,7 @@ export default function TransactionsPage() {
             </p>
           ) : (
             <div className="space-y-4">
-              {transactions.map((tx) => (
+              {paginatedTransactions.map((tx) => (
                 <div
                   key={tx.transaction_id}
                   className="flex justify-between p-4 border rounded-lg"
@@ -305,6 +328,45 @@ export default function TransactionsPage() {
                   </div>
                 </div>
               ))}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Per page</span>
+                  <select
+                    className="border px-2 py-1 rounded text-sm"
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage}/{totalPages}
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
@@ -313,7 +375,7 @@ export default function TransactionsPage() {
       {/* ADVANCED MODAL */}
       {showAdvanced && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center">
-          <div className="bg-white p-6 rounded-xl w-[500px] space-y-4">
+          <div className="bg-white p-6 rounded-xl w-125 space-y-4">
             <h3 className="text-xl font-bold">Advanced Filters</h3>
 
             {/* DATE */}

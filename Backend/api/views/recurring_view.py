@@ -8,6 +8,7 @@ from api.serializers.recurring_serializer import RecurringListSerializer, Create
 from api.models import RecurringTransactions
 from drf_spectacular.utils import extend_schema
 import logging
+from api.services.activity_log_service import ActivityLogService
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,12 @@ class RecurringViewSet(viewsets.ViewSet):
     def list_recurring(self, request):
         recurrings = RecurringService.get_active_recurrings(request.user)
         serializer = RecurringListSerializer(recurrings, many=True)
+        ActivityLogService.log(
+            request,
+            action='VIEW_RECURRING',
+            details='User viewed recurring transactions list',
+            level='INFO'
+        )
         return Response({'success': True, 'data': serializer.data}, status=status.HTTP_200_OK)
 
     @extend_schema(request=CreateRecurringSerializer)
@@ -37,6 +44,12 @@ class RecurringViewSet(viewsets.ViewSet):
             
         try:
             record = RecurringService.create_recurring(serializer.validated_data, request.user)
+            ActivityLogService.log(
+                request,
+                action='CREATE_RECURRING',
+                details=f'User created recurring transaction: {record.recurring_id}',
+                level='ACTION'
+            )
             return Response({'success': True, 'data': {'recurring_id': record.recurring_id}}, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({'success': False, 'message': 'Server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -49,6 +62,12 @@ class RecurringViewSet(viewsets.ViewSet):
             serializer = UpdateRecurringSerializer(data=request.data)
             if serializer.is_valid():
                 RecurringService.update_recurring(recurring_obj, serializer.validated_data, request.user)
+                ActivityLogService.log(
+                    request,
+                    action='UPDATE_RECURRING',
+                    details=f'User updated recurring transaction: {recurring_id}',
+                    level='ACTION'
+                )
                 return Response({'success': True, 'message': 'Updated successfully'})
             return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
         except RecurringTransactions.DoesNotExist:
@@ -56,5 +75,11 @@ class RecurringViewSet(viewsets.ViewSet):
             
     @action(detail=False, methods=['delete'], url_path='delete/(?P<recurring_id>[^/.]+)')
     def delete_recurring(self, request, recurring_id=None):
+        ActivityLogService.log(
+            request,
+            action='DELETE_RECURRING',
+            details=f'User deleted recurring transaction: {recurring_id}',
+            level='ACTION'
+        )
         RecurringService.delete_recurring(recurring_id, request.user)
         return Response({'success': True, 'message': 'Deleted successfully'})

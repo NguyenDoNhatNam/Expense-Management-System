@@ -15,6 +15,7 @@ from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import OpenApiParameter
 from api.pagination import CustomPagination
+from api.services.activity_log_service import ActivityLogService
 
 class CategoryViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, DynamicPermission]
@@ -48,6 +49,12 @@ class CategoryViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'], url_path='list')
     def list_categories(self, request):
         try:
+            ActivityLogService.log(
+                request,
+                action='VIEW_CATEGORIES',
+                details='User viewed category list',
+                level='INFO'
+            )
             
             queryset = CategoryService.get_categories(request.user)
 
@@ -136,6 +143,12 @@ class CategoryViewSet(viewsets.ViewSet):
                 serializer.validated_data, 
                 request.user
             )
+            ActivityLogService.log(
+                request,
+                action='CREATE_CATEGORY',
+                details=f'User created category: {new_category.category_name}',
+                level='ACTION'
+            )
             
             return Response({
                 'success': True,
@@ -187,6 +200,12 @@ class CategoryViewSet(viewsets.ViewSet):
                 serializer.validated_data, 
                 request.user
             )
+            ActivityLogService.log(
+                request,
+                action='UPDATE_CATEGORY',
+                details=f'User updated category: {updated_cat.category_name}',
+                level='ACTION'
+            )
             return Response({
                 'success': True,
                 'message': 'Category updated successfully',
@@ -231,6 +250,12 @@ class CategoryViewSet(viewsets.ViewSet):
 
         try:
             result = CategoryService.delete_category(category, serializer.validated_data, request.user)
+            ActivityLogService.log(
+                request,
+                action='DELETE_CATEGORY',
+                details=f'User deleted category: {category.category_name}',
+                level='ACTION'
+            )
             return Response({'success': True, 'message': 'Category deleted successfully', 'data': result}, status=status.HTTP_200_OK)
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

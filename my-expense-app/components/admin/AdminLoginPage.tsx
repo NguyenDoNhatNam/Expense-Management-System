@@ -1,22 +1,70 @@
 "use client"
 
-import React, { useState } from "react"
-import { User, Lock, Eye, EyeOff, Loader2 } from "lucide-react"
+import React, { useEffect, useState } from "react"
+import { User, Lock, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { adminLoginApi, getApiErrorMessage, UserRole } from "@/lib/api/auth"
 
 export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    const adminUserStr = localStorage.getItem('admin_user')
+    const accessToken = localStorage.getItem('access_token')
+
+    if (!adminUserStr || !accessToken) {
+      return
+    }
+
+    try {
+      const parsedUser = JSON.parse(adminUserStr)
+      const adminRoles: UserRole[] = ['admin', 'super_admin']
+      if (parsedUser?.role && adminRoles.includes(parsedUser.role)) {
+        router.replace('/admin')
+      }
+    } catch {
+      localStorage.removeItem('admin_user')
+      localStorage.removeItem('access_token')
+    }
+  }, [router])
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
+    setError(null)
+
+    try {
+      const response = await adminLoginApi({ email, password })
+      const { user, access_token } = response.data
+      
+      // Check if user has admin role
+      const adminRoles: UserRole[] = ['admin', 'super_admin']
+      if (!adminRoles.includes(user.role)) {
+        setError("Bạn không có quyền truy cập trang quản trị. Vui lòng liên hệ quản trị viên.")
+        setIsLoading(false)
+        return
+      }
+
+      // Store tokens in localStorage
+      localStorage.setItem('access_token', access_token)
+  localStorage.removeItem('refresh_token')
+      localStorage.setItem('admin_user', JSON.stringify(user))
+
+  // Session cookie only; no remember-me for admin login.
+  document.cookie = `admin_user=${encodeURIComponent(JSON.stringify(user))}; path=/; SameSite=Lax`
+
+      // Redirect to admin dashboard
+  router.replace("/admin")
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
       setIsLoading(false)
-      router.push("/admin")
-    }, 1500)
+    }
   }
 
   return (
@@ -74,6 +122,14 @@ export default function AdminLoginPage() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            )}
+
             {/* Username / Email */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700 block" htmlFor="email">
@@ -87,6 +143,8 @@ export default function AdminLoginPage() {
                   id="email"
                   type="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900"
                   placeholder="admin@expensemate.com"
                 />
@@ -108,6 +166,8 @@ export default function AdminLoginPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="block w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900"
                   placeholder="••••••••"
                 />
@@ -128,7 +188,7 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] hover:from-[#1d4ed8] hover:to-[#1e40af] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-linear-to-r from-[#2563eb] to-[#1d4ed8] hover:from-[#1d4ed8] hover:to-[#1e40af] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               {isLoading ? (
                 <>

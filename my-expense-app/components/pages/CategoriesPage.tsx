@@ -112,7 +112,13 @@ export default function CategoriesPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
+  const [filterType, setFilterType] = useState<"all" | CategoryType>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   // ===== DATA from API =====
   const [categories, setCategories] = useState<BackendCategory[]>([]);
@@ -128,35 +134,53 @@ export default function CategoriesPage() {
   const fetchCategories = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await listCategoriesApi();
+      const result = await listCategoriesApi({
+        p: currentPage,
+        ipp: itemsPerPage,
+        search: debouncedQuery || undefined,
+        category_type: filterType === "all" ? undefined : filterType,
+      });
       if (result.success) {
-        setCategories(result.data?.items || []);
+        const items = result.data?.items || [];
+        const pagination = result.data?.pagination;
+        setCategories(items);
+
+        if (pagination) {
+          setTotalPages(pagination.total_pages || 1);
+          setTotalItems(pagination.total_items || 0);
+
+          if (pagination.total_pages > 0 && currentPage > pagination.total_pages) {
+            setCurrentPage(pagination.total_pages);
+          }
+        }
       }
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentPage, itemsPerPage, debouncedQuery, filterType]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [query]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedQuery, filterType, itemsPerPage]);
 
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
 
-  const filteredCategories = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return categories;
-    return categories.filter(
-      (cat) =>
-        cat.category_name.toLowerCase().includes(normalized) ||
-        cat.category_type.toLowerCase().includes(normalized),
-    );
-  }, [categories, query]);
-
-  const expenseCategories = filteredCategories.filter(
+  const expenseCategories = categories.filter(
     (cat) => cat.category_type === "expense",
   );
-  const incomeCategories = filteredCategories.filter(
+  const incomeCategories = categories.filter(
     (cat) => cat.category_type === "income",
   );
 
@@ -181,6 +205,7 @@ export default function CategoriesPage() {
       toast.success("Category created successfully.");
       setForm(INITIAL_FORM);
       setShowAddForm(false);
+      setCurrentPage(1);
       fetchCategories();
     } catch (error) {
       toast.error(getApiErrorMessage(error));
@@ -330,10 +355,10 @@ export default function CategoriesPage() {
         <CardHeader>
           <CardTitle>Search Categories</CardTitle>
           <CardDescription>
-            Find categories by name, type, or icon
+            Find categories by name and filter by type
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <Input
             placeholder="Search by category name..."
             value={query}
@@ -341,6 +366,30 @@ export default function CategoriesPage() {
               setQuery(e.target.value)
             }
           />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant={filterType === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterType("all")}
+            >
+              All
+            </Button>
+            <Button
+              variant={filterType === "expense" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterType("expense")}
+            >
+              Expense
+            </Button>
+            <Button
+              variant={filterType === "income" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterType("income")}
+            >
+              Income
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -464,18 +513,58 @@ export default function CategoriesPage() {
           <CardDescription>
             {isLoading
               ? "Loading..."
-              : `${filteredCategories.length} categories found`}
+              : `Showing ${categories.length} / ${totalItems} categories (page ${currentPage}/${Math.max(totalPages, 1)})`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isLoading ? (
             <p className="py-10 text-center text-muted-foreground">Loading...</p>
-          ) : filteredCategories.length === 0 ? (
+          ) : categories.length === 0 ? (
             <p className="py-10 text-center text-muted-foreground">No categories found</p>
           ) : (
             <>
               {renderCategoryGroup("Expense Categories", expenseCategories)}
               {renderCategoryGroup("Income Categories", incomeCategories)}
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Items per page</span>
+                  <select
+                    className="rounded border bg-background px-2 py-1"
+                    value={itemsPerPage}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                      setItemsPerPage(Number(e.target.value));
+                    }}
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage <= 1 || isLoading}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} / {Math.max(totalPages, 1)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, Math.max(totalPages, 1)))}
+                    disabled={currentPage >= totalPages || isLoading}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </>
           )}
         </CardContent>
@@ -491,7 +580,7 @@ export default function CategoriesPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-120">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
