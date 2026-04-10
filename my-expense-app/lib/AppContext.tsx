@@ -170,7 +170,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const syncWalletsFromBackend = useCallback(
     async (userId: string) => {
       const response = await listAccountsApi();
-      const accountItems = response.data.items ?? response.data.accounts ?? [];
+      const accountItems = (response.data.items ?? response.data.accounts ?? []).filter(
+        (account: BackendAccount) => !(account.description || '').startsWith('[ARCHIVED]')
+      );
       const mappedWallets = accountItems.map((account: BackendAccount, index: number) =>
         mapBackendAccountToWallet(account, userId, index === 0)
       );

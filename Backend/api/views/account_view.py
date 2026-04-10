@@ -27,6 +27,7 @@ class AccountViewSet(viewsets.ViewSet):
             OpenApiParameter(name='search', description='Search keyword by account name', required=False, type=str),
             OpenApiParameter(name='account_type', description='Account type (cash, bank, credit_card, e_wallet, investment)', required=False, type=str),
             OpenApiParameter(name='is_include_in_total', description='Include in total assets (true/false)', required=False, type=bool),
+            OpenApiParameter(name='include_archived', description='Include archived accounts (true/false)', required=False, type=bool),
         ],
         responses={
             200: OpenApiResponse(description="Successfully retrieved account list")
@@ -34,7 +35,8 @@ class AccountViewSet(viewsets.ViewSet):
     )
     @action(detail=False, methods=['get'], url_path='list')
     def list_accounts(self, request):
-        accounts, net_worth = AccountService.get_accounts_summary(request.user)
+        include_archived = str(request.query_params.get('include_archived', 'false')).lower() == 'true'
+        accounts, net_worth = AccountService.get_accounts_summary(request.user, include_archived=include_archived)
         ActivityLogService.log(
             request,
             action='VIEW_ACCOUNTS',
@@ -124,16 +126,27 @@ class AccountViewSet(viewsets.ViewSet):
     def delete_account(self, request, account_id=None):
         try:
             account = Accounts.objects.get(account_id=account_id, user=request.user)
-            # Log activity
+            result = AccountService.delete_account(account, request.user)
+            action = result.get('action', 'deleted') if isinstance(result, dict) else 'deleted'
+
+            if action == 'archived':
+                message = 'Account has historical records and was archived successfully'
+                log_detail = f'Archived account: {account.account_name}'
+            else:
+                message = 'Account deleted successfully'
+                log_detail = f'Deleted account: {account.account_name}'
+
+            # Log activity only after successful deletion.
             ActivityLogService.log(
                 request,
                 action='DELETE_ACCOUNT',
-                details=f'Deleted account: {account.account_name}',
+                details=log_detail,
                 level='ACTION'
             )
-            AccountService.delete_account(account, request.user)
-            return Response({'success': True, 'message': 'Account deleted successfully'}, status=status.HTTP_200_OK)
+            return Response({'success': True, 'message': message, 'data': {'action': action}}, status=status.HTTP_200_OK)
         except Accounts.DoesNotExist:
             return Response({'success': False, 'message': 'Account not found'}, status=status.HTTP_404_NOT_FOUND)
         except ValueError as e:
             return Response({'success': False, 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'success': False, 'message': f'Server error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
