@@ -1,20 +1,27 @@
 from django.db import transaction as db_transaction
+from django.db import IntegrityError
 from django.db.models import Sum, Count, Q, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from uuid import uuid4
 from decimal import Decimal
-from api.models import Accounts, Transactions, Categories
+from api.models import Accounts, Transactions, Categories, RecurringTransactions, Transfers
+
+ARCHIVED_ACCOUNT_PREFIX = '[ARCHIVED]'
 
 class AccountService:
     @staticmethod
-    def get_accounts_summary(user):
+    def get_accounts_summary(user, include_archived=False):
         """
         Get list of accounts and calculate Net Worth.
         Only includes accounts with is_include_in_total = True
         """
         # Used to display transaction count, total_income, total_expense for each account
-        accounts = Accounts.objects.filter(user=user).annotate(
+        accounts = Accounts.objects.filter(user=user)
+        if not include_archived:
+            accounts = accounts.exclude(description__startswith=ARCHIVED_ACCOUNT_PREFIX)
+
+        accounts = accounts.annotate(
             transaction_count=Count('transactions', filter=Q(transactions__is_deleted=False)),
             total_income=Coalesce(
                 Sum('transactions__amount', filter=Q(transactions__transaction_type='income', transactions__is_deleted=False)),
@@ -108,10 +115,35 @@ class AccountService:
     @staticmethod
     def delete_account(account_obj, user):
         with db_transaction.atomic():
-            if account_obj.balance != 0:
-                raise ValueError("Account balance must be 0 to delete. Please transfer all funds before deleting.")
-            
-            if Transactions.objects.filter(account=account_obj, is_deleted=False).exists():
-                raise ValueError("Account has existing transactions. Please delete or transfer transactions to another account before deleting.")
+            account_obj = Accounts.objects.select_for_update().get(account_id=account_obj.account_id, user=user)
 
-            account_obj.delete()
+            if (account_obj.balance or Decimal('0.00')) != Decimal('0.00'):
+                raise ValueError("Account balance must be 0 to delete. Please transfer all funds before deleting.")
+
+            if RecurringTransactions.objects.filter(account=account_obj, is_active=True).exists():
+                raise ValueError("Account has active recurring transactions. Please disable recurring transactions before deleting.")
+
+            has_transactions_history = Transactions.objects.filter(account=account_obj).exists()
+            has_transfer_history = Transfers.objects.filter(Q(from_account=account_obj) | Q(to_account=account_obj)).exists()
+
+            # In finance systems, keep historical data and archive account instead of hard delete.
+            if has_transactions_history or has_transfer_history:
+                description = account_obj.description or ''
+                if not description.startswith(ARCHIVED_ACCOUNT_PREFIX):
+                    account_obj.description = f'{ARCHIVED_ACCOUNT_PREFIX} {description}'.strip()
+
+                account_obj.is_include_in_total = False
+                account_obj.updated_at = timezone.now()
+                account_obj.save(update_fields=['description', 'is_include_in_total', 'updated_at'])
+                return {'action': 'archived'}
+
+            # Cleanup inactive/soft-deleted records that still keep FK references.
+            Transactions.objects.filter(account=account_obj).delete()
+            RecurringTransactions.objects.filter(account=account_obj).delete()
+
+            try:
+                account_obj.delete()
+            except IntegrityError as exc:
+                raise ValueError("Cannot delete account because related records still exist in other modules.") from exc
+
+            return {'action': 'deleted'}
